@@ -57,6 +57,7 @@ pub(super) async fn run(
     events: &mpsc::Sender<Event>,
     commands: &mut mpsc::UnboundedReceiver<Command>,
     opened: (u32, u32, u32),
+    clipboard: &mut super::clipboard::Clipboard,
 ) -> Result<Outcome, Failure> {
     let (mut reader, mut writer) = split_tokio_framed(framed);
     let size = result.desktop_size;
@@ -90,6 +91,8 @@ pub(super) async fn run(
     let mut asked = opened;
     let mut stats = crate::stats::Stats::new("engine");
     let mut received = 0;
+    // Lets go of clipboard locks and transfers the server stopped answering.
+    let mut tick = tokio::time::interval(std::time::Duration::from_secs(5));
     loop {
         let outputs = tokio::select! {
             frame = reader.read_pdu() => {
@@ -134,6 +137,7 @@ pub(super) async fn run(
                     resize = Some((width, height, scale));
                     Vec::new()
                 }
+                Some(Command::Clipboard(command)) => clipboard.command(command, &mut stage)?,
                 Some(Command::Close) | None => {
                     // Ask the server to end the session, without waiting
                     // for it to agree: the window is already gone.
@@ -147,6 +151,11 @@ pub(super) async fn run(
                     return Ok(Outcome::Ended(Ending::Closed));
                 }
             },
+            Some(note) = clipboard.notes.recv() => clipboard.note(note, &mut stage, events).await?,
+            (format, content) = super::clipboard::answered(&mut clipboard.answers) => {
+                clipboard.answer(format, content, &mut stage)?
+            }
+            _ = tick.tick(), if clipboard.on() => clipboard.tick(&mut stage)?,
         };
 
         for output in outputs {

@@ -38,6 +38,8 @@ ironrdp-dvc = "0.10"
 ironrdp-displaycontrol = "0.10"
 # The Graphics Pipeline, which GNOME Remote Desktop requires.
 ironrdp-egfx = "0.5"
+# The shared clipboard.
+ironrdp-cliprdr = "0.9"
 # H.264 through the system's OpenH264, loaded at run time: no C++ to build,
 # and Cisco's patent license stays with Cisco's library.
 openh264 = { version = "0.9", default-features = false, features = ["libloading"] }

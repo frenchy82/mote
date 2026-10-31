@@ -260,6 +260,11 @@ impl Component for AppModel {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         load_css();
+        // Files pasted from a remote desktop in an earlier run have been
+        // copied wherever they were pasted by now.
+        std::thread::spawn(|| {
+            let _ = std::fs::remove_dir_all(crate::ui::session::fetched_files());
+        });
         // Only X11 reads a window's own icon; Wayland goes by the app ID.
         gtk::Window::set_default_icon_name(crate::APP_ID);
         let settings = config::load_settings();

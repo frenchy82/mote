@@ -24,6 +24,8 @@ pub(crate) struct Connection {
     pub(crate) scaling: Scaling,
     pub(crate) quality: Quality,
     pub(crate) network: Network,
+    /// Share the clipboard with the remote desktop.
+    pub(crate) clipboard: bool,
 }
 
 /// How the remote desktop meets the window.
@@ -154,6 +156,7 @@ impl Default for Connection {
             scaling: Scaling::default(),
             quality: Quality::default(),
             network: Network::default(),
+            clipboard: true,
         }
     }
 }

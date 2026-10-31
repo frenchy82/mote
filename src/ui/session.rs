@@ -3,10 +3,12 @@
 //! window's content pane, or in a window of its own once detached, and
 //! brings its own header either way.
 
+mod clipboard;
 mod display;
 mod endings;
 mod pages;
 
+pub(crate) use clipboard::fetched_files;
 pub(crate) use pages::scaling_label;
 
 use std::cell::{Cell, RefCell};
@@ -33,6 +35,7 @@ pub(crate) struct Session {
     /// Save the typed account once a session starts.
     remember: bool,
     handle: Option<rdp::Handle>,
+    clipboard: Option<clipboard::Sharing>,
     /// Counts connections, so a late event of an earlier one is ignored.
     attempt: u32,
     /// In a window of its own rather than the main window.
@@ -219,6 +222,7 @@ impl Component for Session {
             remember: false,
             page: Page::Connecting,
             handle: None,
+            clipboard: None,
             attempt: 0,
             detached: false,
             fullscreen: Rc::new(Cell::new(false)),
@@ -276,6 +280,7 @@ impl Component for Session {
             }
             SessionInput::Reconnect => self.connect(&sender),
             SessionInput::Disconnect => {
+                self.clipboard = None;
                 if let Some(handle) = self.handle.take() {
                     handle.send(rdp::Command::Close);
                 }
@@ -407,6 +412,7 @@ impl Session {
     }
 
     fn connect(&mut self, sender: &ComponentSender<Self>) {
+        self.clipboard = None;
         if let Some(handle) = self.handle.take() {
             handle.send(rdp::Command::Close);
         }
@@ -442,11 +448,15 @@ impl Session {
             scale,
             quality: self.connection.quality,
             network: self.connection.network,
+            clipboard: self.connection.clipboard,
         };
         let (handle, mut events) = rdp::start(target);
         let input = handle.clone();
         self.display
             .set_input(move |events| input.send(rdp::Command::Input(events)));
+        if self.connection.clipboard {
+            self.clipboard = Some(clipboard::Sharing::new(&self.display, handle.clone()));
+        }
         self.handle = Some(handle);
         self.attempt += 1;
         let attempt = self.attempt;
@@ -521,8 +531,14 @@ impl Session {
                 }
             }
             Event::Cursor(cursor) => self.display.set_remote_cursor(cursor),
+            Event::Clipboard(event) => {
+                if let Some(clipboard) = &self.clipboard {
+                    clipboard.event(event);
+                }
+            }
             Event::Ended(ending) => {
                 self.display.report();
+                self.clipboard = None;
                 self.handle = None;
                 self.ended(ending, sender);
             }

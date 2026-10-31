@@ -39,17 +39,18 @@ pub(super) async fn connect(
     target: &mut Target,
     mut redirect: Option<Box<ServerRedirectionPdu>>,
     events: &mpsc::Sender<Event>,
+    clipboard: &mut super::clipboard::Clipboard,
 ) -> Result<(ConnectionResult, Framed), Failure> {
     let mut retried = false;
     for _ in 0..MAX_HOPS {
-        let result = match attempt(target, redirect.as_deref(), events).await {
+        let result = match attempt(target, redirect.as_deref(), events, clipboard).await {
             // A server can give up on a connection while its certificate
             // waits on the user; once trusted, a second try goes straight
             // through.
             Err(Attempt::AfterQuestion(_)) if !retried => {
                 tracing::info!("retrying after the certificate question");
                 retried = true;
-                attempt(target, redirect.as_deref(), events).await
+                attempt(target, redirect.as_deref(), events, clipboard).await
             }
             result => result,
         };
@@ -125,6 +126,7 @@ async fn attempt(
     target: &Target,
     redirect: Option<&ServerRedirectionPdu>,
     events: &mpsc::Sender<Event>,
+    clipboard: &mut super::clipboard::Clipboard,
 ) -> Result<(ConnectionOutcome, Framed), Attempt> {
     let stream = match tokio::time::timeout(
         TCP_TIMEOUT,
@@ -144,6 +146,9 @@ async fn attempt(
 
     let mut connector = ClientConnector::new(config(target), client_addr)
         .with_static_channel(channels(target.quality));
+    if let Some(channel) = clipboard.channel() {
+        connector = connector.with_static_channel(channel);
+    }
     if let Some(pdu) = redirect {
         connector = with_redirection(connector, pdu);
     }

@@ -3,6 +3,7 @@
 //! to it with [`Command`]s and hears back through [`Event`]s; nothing here
 //! touches a widget.
 
+pub(crate) mod clipboard;
 mod compat;
 mod connect;
 mod failure;
@@ -19,6 +20,7 @@ use ironrdp_graphics::pointer::DecodedPointer;
 use ironrdp_pdu::input::fast_path::FastPathInputEvent;
 use tokio::sync::{mpsc, oneshot};
 
+pub(crate) use clipboard::{ClipboardCommand, ClipboardEvent};
 pub(crate) use failure::{Disconnect, Ending, Failure, Security, Unreachable};
 
 /// Where to connect, and as whom.
@@ -36,6 +38,8 @@ pub(crate) struct Target {
     pub(crate) scale: u32,
     pub(crate) quality: crate::connection::Quality,
     pub(crate) network: crate::connection::Network,
+    /// Share the clipboard.
+    pub(crate) clipboard: bool,
 }
 
 pub(crate) enum Event {
@@ -55,6 +59,7 @@ pub(crate) enum Event {
     /// [`Command::FrameDone`].
     Frame(Frame),
     Cursor(Cursor),
+    Clipboard(ClipboardEvent),
     /// The last event of a session.
     Ended(Ending),
 }
@@ -107,6 +112,7 @@ pub(crate) enum Command {
     },
     /// The last frame is on screen; the next can come.
     FrameDone,
+    Clipboard(ClipboardCommand),
     Close,
 }
 
@@ -172,17 +178,22 @@ async fn drive(
     commands: &mut mpsc::UnboundedReceiver<Command>,
 ) -> Result<Ending, Failure> {
     let mut redirect = None;
+    let mut clipboard = clipboard::Clipboard::new(target.clipboard);
+    let mut early = Vec::new();
     for _ in 0..MAX_HOPS {
         let (result, framed) = tokio::select! {
-            connected = connect::connect(target, redirect.take(), events) => connected?,
-            () = closed(commands) => return Ok(Ending::Closed),
+            connected = connect::connect(target, redirect.take(), events, &mut clipboard) => connected?,
+            () = closed(commands, &mut early) => return Ok(Ending::Closed),
         };
+        for command in early.drain(..) {
+            clipboard.early(command);
+        }
         let opened = (
             u32::from(target.width),
             u32::from(target.height),
             target.scale,
         );
-        match session::run(framed, result, events, commands, opened).await? {
+        match session::run(framed, result, events, commands, opened, &mut clipboard).await? {
             session::Outcome::Ended(ending) => return Ok(ending),
             // A server can hand the session on after it starts: GNOME's
             // Remote Login does, once someone logs in at its login screen.
@@ -197,11 +208,17 @@ async fn drive(
 }
 
 /// Resolves when the interface closes the session, ignoring input sent
-/// before there is a session to take it.
-async fn closed(commands: &mut mpsc::UnboundedReceiver<Command>) {
+/// before there is a session to take it. What was copied meanwhile is kept
+/// for the session.
+async fn closed(
+    commands: &mut mpsc::UnboundedReceiver<Command>,
+    early: &mut Vec<ClipboardCommand>,
+) {
     while let Some(command) = commands.recv().await {
-        if matches!(command, Command::Close) {
-            return;
+        match command {
+            Command::Close => return,
+            Command::Clipboard(command) => early.push(command),
+            _ => {}
         }
     }
 }
@@ -265,6 +282,87 @@ mod tests {
         std::fs::write(path, out).expect("writes the picture");
     }
 
+    /// `MOTE_TEST_CLIPBOARD=<text>`: offer the server that text, with HTML
+    /// and a picture beside it, or the files in `MOTE_TEST_FILES` (paths
+    /// split by `:`), and fetch whatever the remote desktop copies, files
+    /// into `MOTE_TEST_FETCH` (a directory).
+    mod clipboard_test {
+        use super::super::clipboard::{Content, Image, Kind};
+        use super::super::{ClipboardCommand, ClipboardEvent, Command, Handle};
+
+        pub(super) fn offer(handle: &Handle) {
+            if std::env::var_os("MOTE_TEST_CLIPBOARD").is_none() {
+                return;
+            }
+            let files: Vec<std::path::PathBuf> = std::env::var("MOTE_TEST_FILES")
+                .map(|f| f.split(':').map(Into::into).collect())
+                .unwrap_or_default();
+            let kinds = if files.is_empty() {
+                vec![Kind::Text, Kind::Html, Kind::Image]
+            } else {
+                vec![Kind::Files]
+            };
+            handle.send(Command::Clipboard(ClipboardCommand::Copied {
+                kinds,
+                files,
+            }));
+        }
+
+        pub(super) fn event(handle: &Handle, event: ClipboardEvent) {
+            match event {
+                ClipboardEvent::Copied(kinds) => {
+                    eprintln!("remote copied {kinds:?}");
+                    for kind in kinds {
+                        if kind == Kind::Files {
+                            let dir = std::env::var("MOTE_TEST_FETCH")
+                                .unwrap_or("/tmp/mote-fetch".into());
+                            let (reply, answer) = tokio::sync::oneshot::channel();
+                            handle.send(Command::Clipboard(ClipboardCommand::PasteFiles {
+                                dir: dir.into(),
+                                reply,
+                            }));
+                            std::thread::spawn(move || {
+                                eprintln!("pasted files {:?}", answer.blocking_recv());
+                            });
+                            continue;
+                        }
+                        let (reply, answer) = tokio::sync::oneshot::channel();
+                        handle.send(Command::Clipboard(ClipboardCommand::Paste { kind, reply }));
+                        std::thread::spawn(move || match answer.blocking_recv() {
+                            Ok(Some(Content::Text(text))) => eprintln!("pasted text {text:?}"),
+                            Ok(Some(Content::Html(html))) => eprintln!("pasted html {html:?}"),
+                            Ok(Some(Content::Image(image))) => {
+                                eprintln!("pasted image {}x{}", image.width, image.height);
+                            }
+                            Ok(Some(Content::Png(png))) => {
+                                eprintln!("pasted png, {} bytes", png.len())
+                            }
+                            _ => eprintln!("pasted nothing as {kind:?}"),
+                        });
+                    }
+                }
+                ClipboardEvent::Wanted { kind, png, reply } => {
+                    eprintln!("server wants {kind:?}{}", if png { " as PNG" } else { "" });
+                    let text = std::env::var("MOTE_TEST_CLIPBOARD").unwrap_or_default();
+                    let _ = reply.send(match kind {
+                        Kind::Text => Some(Content::Text(text)),
+                        Kind::Html => Some(Content::Html(format!("<b>{text}</b>"))),
+                        // One red pixel.
+                        Kind::Image if png => Some(Content::Png(
+                            b"\x89PNG\x0d\x0a\x1a\x0a\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0dIDATx\x9cc\xf8\xcf\xc0\xf0\x1f\x00\x05\x00\x01\xff\x89\x99=\x1d\x00\x00\x00\x00IEND\xaeB`\x82".to_vec(),
+                        )),
+                        Kind::Image => Some(Content::Image(Image {
+                            width: 2,
+                            height: 1,
+                            rgba: vec![255, 0, 0, 255, 0, 0, 255, 255],
+                        })),
+                        Kind::Files => None,
+                    });
+                }
+            }
+        }
+    }
+
     /// Connects to the server in `MOTE_TEST_SERVER` (`host:port`) as
     /// `MOTE_TEST_USER` with `MOTE_TEST_PASSWORD` (both `mote` by default,
     /// as `temp/grd/run.sh` sets them up), and expects the session to end
@@ -315,6 +413,7 @@ mod tests {
                     _ => Network::Lan,
                 }
             },
+            clipboard: true,
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
         if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {
@@ -344,7 +443,11 @@ mod tests {
                     eprintln!("certificate {fingerprint}");
                     let _ = reply.send(Trust::Accepted);
                 }
-                Event::Connected { width, height } => eprintln!("connected {width}x{height}"),
+                Event::Connected { width, height } => {
+                    eprintln!("connected {width}x{height}");
+                    clipboard_test::offer(&handle);
+                }
+                Event::Clipboard(event) => clipboard_test::event(&handle, event),
                 Event::Frame(frame) => {
                     frames += 1;
                     if let Ok(path) = std::env::var("MOTE_TEST_PICTURE") {
