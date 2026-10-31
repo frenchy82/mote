@@ -35,6 +35,7 @@ pub(crate) struct Target {
     /// The screen's scale, in percent: 200 on a 2× screen.
     pub(crate) scale: u32,
     pub(crate) quality: crate::connection::Quality,
+    pub(crate) network: crate::connection::Network,
 }
 
 pub(crate) enum Event {
@@ -300,6 +301,19 @@ mod tests {
                 "avc420" => crate::connection::Quality::Avc420,
                 "remotefx" => crate::connection::Quality::RemoteFx,
                 _ => crate::connection::Quality::Best,
+            },
+            // MOTE_TEST_NETWORK: lan, wan, broadband-high, satellite,
+            // broadband-low or modem.
+            network: {
+                use crate::connection::Network;
+                match var("MOTE_TEST_NETWORK", "lan").as_str() {
+                    "wan" => Network::Wan,
+                    "broadband-high" => Network::BroadbandHigh,
+                    "satellite" => Network::Satellite,
+                    "broadband-low" => Network::BroadbandLow,
+                    "modem" => Network::Modem,
+                    _ => Network::Lan,
+                }
             },
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.

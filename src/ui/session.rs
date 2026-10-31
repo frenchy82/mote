@@ -441,6 +441,7 @@ impl Session {
             height,
             scale,
             quality: self.connection.quality,
+            network: self.connection.network,
         };
         let (handle, mut events) = rdp::start(target);
         let input = handle.clone();

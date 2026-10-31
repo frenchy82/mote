@@ -185,6 +185,14 @@ the old bitmap updates, which none of these servers send once the pipeline
 is offered, and they ignore the visual effect flags (xrdp reads one, to
 leave out its own login screen's background), so neither is offered.
 
+The network type goes to the server too, LAN unless the connection says
+otherwise, and comes in and out with `.rdp` and Remmina files. Of these
+servers only xrdp acts on it, by setting its H.264 bitrate: at 1920×1080 with
+the screen in motion, LAN took 1.8 MB/s at 43 frames a second, low-speed
+broadband 0.2 MB/s at 7, a modem 0.1 MB/s at 2.5. Automatic detection isn't
+offered: IronRDP can't answer the server's measurements, and xrdp would take
+it as LAN.
+
 ### 7. Audio
 
 Playback (MS-RDPEA) through PipeWire, the microphone (MS-RDPEAI), and a
@@ -241,7 +249,7 @@ What Remmina's RDP plugin offers, and the section that brings it to Mote.
 | Clipboard, with the option to turn it off | 5 |
 | Codec choice (GFX AVC444, AVC420, RemoteFX); color depth is moot | 6 |
 | Quality presets and visual effect flags, which Linux servers ignore | 6 |
-| Network type hint | 6 |
+| Network type hint, which only xrdp acts on | 6 |
 | Sound: local, remote or off; microphone | 7 |
 | Shared folders | 8 |
 | Printers, smart cards | 8 |

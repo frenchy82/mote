@@ -30,7 +30,9 @@ impl AsRef<[u8]> for Pixels {
 impl Drop for Pixels {
     fn drop(&mut self) {
         // A session that has ended doesn't take them back.
-        let _ = self.home.send((self.filled, std::mem::take(&mut self.data)));
+        let _ = self
+            .home
+            .send((self.filled, std::mem::take(&mut self.data)));
     }
 }
 
@@ -74,7 +76,8 @@ impl Frames {
             None => image.to_vec(),
         };
         // Older buffers would need more copying; keep only a few.
-        self.pool.sort_unstable_by_key(|(filled, _)| std::cmp::Reverse(*filled));
+        self.pool
+            .sort_unstable_by_key(|(filled, _)| std::cmp::Reverse(*filled));
         self.pool.truncate(POOL);
         Pixels {
             data,

@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use crate::connection::{Connection, split_address};
+use crate::connection::{Connection, Network, Quality, split_address};
 
 /// Every directory Remmina may have kept profiles in.
 fn dirs() -> Vec<PathBuf> {
@@ -76,6 +76,15 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
             }
             "username" => conn.username = value.to_owned(),
             "domain" => conn.domain = value.to_owned(),
+            "network" => conn.network = Network::from_remmina(value),
+            // Remmina's color depth list holds its codec choice too.
+            "colordepth" => {
+                conn.quality = match value {
+                    "65" => Quality::Avc420,
+                    "0" | "63" | "64" => Quality::RemoteFx,
+                    _ => Quality::Best,
+                }
+            }
             _ => {}
         }
     }
@@ -95,6 +104,13 @@ mod tests {
             ("Lab", "lab.lan", 3390)
         );
         assert_eq!((c.username.as_str(), c.group.as_str()), ("jo", "Work"));
+    }
+
+    #[test]
+    fn reads_the_network_and_codec() {
+        let text = "[remmina]\nprotocol=RDP\nserver=lab\nnetwork=wan\ncolordepth=65\n";
+        let c = parse(text).unwrap();
+        assert_eq!((c.network, c.quality), (Network::Wan, Quality::Avc420));
     }
 
     #[test]

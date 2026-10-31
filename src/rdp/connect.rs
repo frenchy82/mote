@@ -23,7 +23,7 @@ use tokio::sync::{mpsc, oneshot};
 use x509_cert::der::Encode as _;
 
 use super::{Event, Failure, MAX_HOPS, Target, Trust, Unreachable, describe, rdstls};
-use crate::connection::Quality;
+use crate::connection::{Network, Quality};
 
 pub(super) trait Stream: AsyncRead + AsyncWrite + Unpin + Send + Sync {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send + Sync> Stream for T {}
@@ -142,8 +142,8 @@ async fn attempt(
         .map_err(|e| Failure::Unreachable(Unreachable::from_io(&e)))?;
     let mut framed = TokioFramed::new(stream);
 
-    let mut connector =
-        ClientConnector::new(config(target), client_addr).with_static_channel(channels(target.quality));
+    let mut connector = ClientConnector::new(config(target), client_addr)
+        .with_static_channel(channels(target.quality));
     if let Some(pdu) = redirect {
         connector = with_redirection(connector, pdu);
     }
@@ -397,7 +397,14 @@ fn config(target: &Target) -> Config {
         keyboard_functional_keys_count: 12,
         // The server keeps its own layout: keys go as scancodes.
         keyboard_layout: 0,
-        connection_type: gcc::ConnectionType::Lan,
+        connection_type: match target.network {
+            Network::Lan => gcc::ConnectionType::Lan,
+            Network::Wan => gcc::ConnectionType::Wan,
+            Network::BroadbandHigh => gcc::ConnectionType::BroadbandHigh,
+            Network::Satellite => gcc::ConnectionType::Satellite,
+            Network::BroadbandLow => gcc::ConnectionType::BroadbandLow,
+            Network::Modem => gcc::ConnectionType::Modem,
+        },
         ime_file_name: String::new(),
         bitmap: Some(BitmapConfig {
             lossy_compression: true,

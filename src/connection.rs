@@ -23,6 +23,7 @@ pub(crate) struct Connection {
     pub(crate) last_used: i64,
     pub(crate) scaling: Scaling,
     pub(crate) quality: Quality,
+    pub(crate) network: Network,
 }
 
 /// How the remote desktop meets the window.
@@ -77,6 +78,68 @@ impl Quality {
     pub(crate) const ALL: [Self; 3] = [Self::Best, Self::Avc420, Self::RemoteFx];
 }
 
+/// The network the server is told it is on. xrdp sets its H.264 bitrate
+/// by it; the others measure the network themselves.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum Network {
+    #[default]
+    Lan,
+    Wan,
+    BroadbandHigh,
+    Satellite,
+    BroadbandLow,
+    Modem,
+}
+
+impl Network {
+    pub(crate) const ALL: [Self; 6] = [
+        Self::Lan,
+        Self::Wan,
+        Self::BroadbandHigh,
+        Self::Satellite,
+        Self::BroadbandLow,
+        Self::Modem,
+    ];
+
+    /// The number `.rdp` files give it (`connection type:i:`); 7, detect
+    /// automatically, is taken as the default, which is what xrdp does.
+    pub(crate) fn from_number(number: u32) -> Self {
+        match number {
+            1 => Self::Modem,
+            2 => Self::BroadbandLow,
+            3 => Self::Satellite,
+            4 => Self::BroadbandHigh,
+            5 => Self::Wan,
+            _ => Self::Lan,
+        }
+    }
+
+    pub(crate) fn number(self) -> u32 {
+        match self {
+            Self::Modem => 1,
+            Self::BroadbandLow => 2,
+            Self::Satellite => 3,
+            Self::BroadbandHigh => 4,
+            Self::Wan => 5,
+            Self::Lan => 6,
+        }
+    }
+
+    /// Remmina's name for it (`network=`); `autodetect` and `none` are
+    /// taken as the default.
+    pub(crate) fn from_remmina(name: &str) -> Self {
+        match name {
+            "modem" => Self::Modem,
+            "broadband-low" => Self::BroadbandLow,
+            "satellite" => Self::Satellite,
+            "broadband-high" => Self::BroadbandHigh,
+            "wan" => Self::Wan,
+            _ => Self::Lan,
+        }
+    }
+}
+
 impl Default for Connection {
     fn default() -> Self {
         Self {
@@ -90,6 +153,7 @@ impl Default for Connection {
             last_used: 0,
             scaling: Scaling::default(),
             quality: Quality::default(),
+            network: Network::default(),
         }
     }
 }

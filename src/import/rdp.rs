@@ -2,7 +2,7 @@
 //! other clients write them: one `name:type:value` setting per line.
 //! Settings Mote doesn't have yet are skipped on import and absent on export.
 
-use crate::connection::{Connection, split_address};
+use crate::connection::{Connection, Network, split_address};
 
 /// The connection in an `.rdp` file, named `name` unless the file says.
 pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
@@ -28,6 +28,11 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
             "server port" => port = value.parse().ok().filter(|&p| p != 0),
             "username" => conn.username = value.to_owned(),
             "domain" => conn.domain = value.to_owned(),
+            "connection type" => {
+                conn.network = value
+                    .parse()
+                    .map_or_else(|_| Network::default(), Network::from_number);
+            }
             _ => {}
         }
     }
@@ -48,6 +53,7 @@ pub(crate) fn export(conn: &Connection) -> Vec<u8> {
         lines.push(format!("username:s:{account}"));
     }
     lines.push("prompt for credentials:i:0".to_owned());
+    lines.push(format!("connection type:i:{}", conn.network.number()));
     let text = lines.join("\r\n") + "\r\n";
     let mut out = vec![0xFF, 0xFE];
     for unit in text.encode_utf16() {
@@ -105,10 +111,12 @@ mod tests {
             host: "box".into(),
             port: 3390,
             username: "jo".into(),
+            network: Network::Satellite,
             ..Connection::default()
         };
         let back = parse(&export(&c), "box").unwrap();
         assert!(back.same_target(&c));
+        assert_eq!(back.network, Network::Satellite);
     }
 
     #[test]

@@ -7,7 +7,7 @@ use std::rc::Rc;
 use adw::prelude::*;
 use relm4::prelude::*;
 
-use crate::connection::{Connection, Quality, Scaling, split_address};
+use crate::connection::{Connection, Network, Quality, Scaling, split_address};
 use crate::i18n::i18n;
 use crate::secrets;
 
@@ -36,6 +36,7 @@ struct Rows {
     password: adw::PasswordEntryRow,
     scaling: adw::ComboRow,
     quality: adw::ComboRow,
+    network: adw::ComboRow,
 }
 
 #[derive(Debug)]
@@ -120,6 +121,7 @@ impl Component for Editor {
             password: adw::PasswordEntryRow::new(),
             scaling: adw::ComboRow::new(),
             quality: adw::ComboRow::new(),
+            network: adw::ComboRow::new(),
         };
         let labels: Vec<String> = Scaling::ALL
             .into_iter()
@@ -149,6 +151,17 @@ impl Component for Editor {
                 .unwrap_or_default() as u32,
         );
         rows.quality.notify("selected");
+        let labels: Vec<String> = Network::ALL.into_iter().map(network_label).collect();
+        let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+        rows.network.set_title(&i18n("Connection Type"));
+        rows.network.set_subtitle(&i18n("Only xrdp acts on it"));
+        rows.network.set_model(Some(&gtk::StringList::new(&labels)));
+        rows.network.set_selected(
+            Network::ALL
+                .iter()
+                .position(|n| *n == c.network)
+                .unwrap_or_default() as u32,
+        );
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
         rows.password.set_title(&i18n("Password"));
@@ -194,6 +207,10 @@ impl Component for Editor {
         display.add(&rows.scaling);
         display.add(&rows.quality);
         page.add(&display);
+        let network = adw::PreferencesGroup::new();
+        network.set_title(&i18n("Network"));
+        network.add(&rows.network);
+        page.add(&network);
 
         if !init.is_new {
             let id = c.id.clone();
@@ -250,6 +267,10 @@ impl Component for Editor {
                         .get(r.quality.selected() as usize)
                         .copied()
                         .unwrap_or_default(),
+                    network: Network::ALL
+                        .get(r.network.selected() as usize)
+                        .copied()
+                        .unwrap_or_default(),
                     ..self.base.clone()
                 }
                 .normalized();
@@ -300,5 +321,16 @@ fn quality_cost(quality: Quality) -> String {
         Quality::Best => String::new(),
         Quality::Avc420 => i18n("Half the color detail: colored text is softer"),
         Quality::RemoteFx => i18n("About twice the bandwidth; KRdp turns it down"),
+    }
+}
+
+fn network_label(network: Network) -> String {
+    match network {
+        Network::Lan => i18n("Local Network"),
+        Network::Wan => i18n("Wide Area Network"),
+        Network::BroadbandHigh => i18n("Fast Broadband"),
+        Network::Satellite => i18n("Satellite"),
+        Network::BroadbandLow => i18n("Slow Broadband"),
+        Network::Modem => i18n("Modem"),
     }
 }
