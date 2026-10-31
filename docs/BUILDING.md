@@ -72,5 +72,7 @@ password `mote`:
 MOTE_TEST_SERVER=localhost:3399 cargo test -- --ignored live
 ```
 
-With `MOTE_TEST_PASSWORD` set to anything else, it expects the server to
-refuse the password.
+`MOTE_TEST_USER` and `MOTE_TEST_PASSWORD` give another account, and
+`MOTE_TEST_EXPECT=refused` expects the server to turn it down. `MOTE_LOG`
+sets what it logs; `MOTE_LOG=mote::wire=trace` adds the start of every
+message sent and received.

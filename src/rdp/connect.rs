@@ -148,16 +148,18 @@ async fn attempt(
     }
 
     // A redirection with an encrypted password takes RDSTLS, which the
-    // connector can't ask for: ask here, and set it where it would be had
-    // it asked itself.
+    // connector can't ask for: ask here, and let it take the reply as if it
+    // had asked itself.
     let rdstls = redirect.filter(|pdu| rdstls::needed(pdu));
     let should_upgrade = match rdstls {
         Some(pdu) => {
-            rdstls::request(&mut framed, pdu).await?;
-            connector.state = ClientConnectorState::EnhancedSecurityUpgrade {
-                selected_protocol: SecurityProtocol::RDSTLS,
+            rdstls::send_request(&mut framed, pdu).await?;
+            connector.state = ClientConnectorState::ConnectionInitiationWaitConfirm {
+                requested_protocol: SecurityProtocol::RDSTLS,
             };
-            ironrdp_tokio::skip_connect_begin(&mut connector)
+            ironrdp_tokio::connect_begin(&mut framed, &mut connector)
+                .await
+                .map_err(|e| Failure::opening(&e))?
         }
         None => ironrdp_tokio::connect_begin(&mut framed, &mut connector)
             .await

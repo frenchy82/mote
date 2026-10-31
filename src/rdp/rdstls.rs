@@ -6,8 +6,8 @@
 //! the connector picks up after them.
 
 use ironrdp_pdu::nego::{
-    ConnectionConfirm, ConnectionRequest, ConnectionRequestWithOpaqueRoutingToken,
-    OpaqueRoutingToken, RequestFlags, SecurityProtocol,
+    ConnectionRequest, ConnectionRequestWithOpaqueRoutingToken, OpaqueRoutingToken, RequestFlags,
+    SecurityProtocol,
 };
 use ironrdp_pdu::rdp::server_redirection::{ServerRedirectionFlags, ServerRedirectionPdu};
 use ironrdp_pdu::x224::X224;
@@ -44,7 +44,9 @@ pub(super) fn routing_token(pdu: &ServerRedirectionPdu) -> Option<String> {
 }
 
 /// Ask for RDSTLS in the X.224 connection request, with the routing token.
-pub(super) async fn request(
+/// The connector reads the server's confirm, so that it learns what else
+/// the server supports.
+pub(super) async fn send_request(
     framed: &mut TokioFramed<TcpStream>,
     pdu: &ServerRedirectionPdu,
 ) -> Result<(), Failure> {
@@ -62,24 +64,7 @@ pub(super) async fn request(
     framed
         .write_all(&bytes)
         .await
-        .map_err(|e| Failure::Lost(describe(&e)))?;
-    let reply = framed
-        .read_by_hint(&ironrdp_pdu::X224_HINT)
-        .await
-        .map_err(|e| Failure::Lost(describe(&e)))?;
-    match ironrdp_core::decode::<X224<ConnectionConfirm>>(&reply)
-        .map_err(|e| Failure::Protocol(describe(&e)))?
-        .0
-    {
-        ConnectionConfirm::Response { protocol, .. }
-            if protocol.contains(SecurityProtocol::RDSTLS) =>
-        {
-            Ok(())
-        }
-        other => Err(Failure::Protocol(format!(
-            "the handover target turned RDSTLS down: {other:?}"
-        ))),
-    }
+        .map_err(|e| Failure::Lost(describe(&e)))
 }
 
 /// The exchange inside TLS: the server's capabilities, the credentials from

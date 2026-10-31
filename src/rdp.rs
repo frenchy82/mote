@@ -261,21 +261,41 @@ fn describe(error: &(dyn std::error::Error + 'static)) -> String {
 mod tests {
     use super::*;
 
-    /// Connects to the server in `MOTE_TEST_SERVER` (`host:port`, user and
-    /// password `mote`), as `temp/grd/run.sh` starts one:
+    /// The frame as a PPM picture, for `MOTE_TEST_PICTURE=<file.ppm>`.
+    fn save_ppm(path: &str, frame: &Frame) {
+        let mut out = format!("P6\n{} {}\n255\n", frame.width, frame.height).into_bytes();
+        for row in frame.pixels.chunks(frame.stride) {
+            for bgrx in row[..usize::from(frame.width) * 4].chunks(4) {
+                out.extend_from_slice(&[bgrx[2], bgrx[1], bgrx[0]]);
+            }
+        }
+        std::fs::write(path, out).expect("writes the picture");
+    }
+
+    /// Connects to the server in `MOTE_TEST_SERVER` (`host:port`) as
+    /// `MOTE_TEST_USER` with `MOTE_TEST_PASSWORD` (both `mote` by default,
+    /// as `temp/grd/run.sh` sets them up), and expects the session to end
+    /// as `MOTE_TEST_EXPECT` says: `closed` (by default) after the first
+    /// frame, or `refused`. `MOTE_LOG` sets the log filter.
     /// `MOTE_TEST_SERVER=localhost:3399 cargo test -- --ignored live`.
-    /// With `MOTE_TEST_PASSWORD` set to another password, it expects to be
-    /// refused.
     #[test]
     #[ignore]
     fn live() {
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_env("MOTE_LOG")
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("mote=info")),
+            )
+            .with_test_writer()
+            .try_init();
+        let var = |name: &str, default: &str| std::env::var(name).unwrap_or(default.into());
         let server = std::env::var("MOTE_TEST_SERVER").expect("MOTE_TEST_SERVER");
         let (host, port) = server.rsplit_once(':').expect("host:port");
         let target = Target {
             host: host.into(),
             port: port.parse().expect("port"),
-            username: "mote".into(),
-            password: std::env::var("MOTE_TEST_PASSWORD").unwrap_or("mote".into()),
+            username: var("MOTE_TEST_USER", "mote"),
+            password: var("MOTE_TEST_PASSWORD", "mote"),
             domain: String::new(),
             width: 1024,
             height: 768,
@@ -293,6 +313,9 @@ mod tests {
                 Event::Connected { width, height } => eprintln!("connected {width}x{height}"),
                 Event::Frame(frame) => {
                     frames += 1;
+                    if let Ok(path) = std::env::var("MOTE_TEST_PICTURE") {
+                        save_ppm(&path, &frame);
+                    }
                     eprintln!("frame {} damage {:?}", frames, frame.damage.first());
                     // An idle desktop sends nothing more.
                     handle.send(Command::Close);
@@ -310,11 +333,11 @@ mod tests {
                         }
                     };
                     eprintln!("ended: {text}");
-                    if std::env::var("MOTE_TEST_PASSWORD").is_ok_and(|p| p != "mote") {
-                        assert_eq!(text, "refused");
+                    let expected = var("MOTE_TEST_EXPECT", "closed");
+                    assert_eq!(text, expected);
+                    if expected != "closed" {
                         return;
                     }
-                    assert_eq!(text, "closed");
                     break;
                 }
             }

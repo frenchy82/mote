@@ -27,6 +27,16 @@ Mote names those crates one by one (`ironrdp-connector` 0.12,
 umbrella crate pins older versions of them. Each session runs on a thread of
 its own, and nothing in the engine needs C bindings.
 
+Where IronRDP falls short today, Mote works around it, and each workaround
+is to go upstream:
+
+- GNOME Remote Desktop's Server Redirection PDU carries version 1 in its
+  Share Control Header, as everything FreeRDP builds does; IronRDP accepts
+  only 0 there. Mote rewrites the version before IronRDP reads the PDU.
+- The handover a redirection leads to needs RDSTLS, which IronRDP's
+  connector doesn't offer. Mote asks for it and does its exchange, then
+  lets the connector carry on.
+
 FreeRDP 3, the engine Remmina uses, was the alternative. It supports more
 devices (USB, serial and parallel ports), at the cost of a C API surface, a
 callback-driven event loop and a larger Flatpak. Where IronRDP comes up short
@@ -87,8 +97,9 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 Built, and tried against a headless GNOME Remote Desktop: the certificate
 question, sign-in and a refused password, typing and clicking on the remote
 desktop, and a server that stops, isn't running, or closes every connection
-at once. Still to try against real servers: GNOME Remote Login (its
-redirection), xrdp and KRdp.
+at once. GNOME Remote Login, on a second computer, hands the session over to
+its login screen. Still to try: the handover to the user's session after
+signing in there, xrdp and KRdp.
 
 GNOME Remote Desktop refuses a client without the graphics pipeline, so its
 basics arrived here rather than in section 6: the pipeline's channel, with
