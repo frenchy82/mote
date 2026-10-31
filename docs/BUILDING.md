@@ -2,7 +2,7 @@
 
 ## Dependencies
 
-- Rust 1.88 or later, through [rustup](https://rustup.rs) or the
+- Rust 1.94 or later, through [rustup](https://rustup.rs) or the
   distribution.
 - GTK 4.18 or later and libadwaita 1.7 or later, with their development
   files.

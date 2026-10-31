@@ -5,7 +5,7 @@ edition = "2024"
 description = "A GNOME-native remote desktop client for Linux machines running RDP"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/hyprlab/mote"
-rust-version = "1.88"
+rust-version = "1.94"
 
 [dependencies]
 # The GNOME 50 runtime ships GTK 4.20 and libadwaita 1.9; these floors stay at
