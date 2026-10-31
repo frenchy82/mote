@@ -36,6 +36,10 @@ is to go upstream:
 - The handover a redirection leads to needs RDSTLS, which IronRDP's
   connector doesn't offer. Mote asks for it and does its exchange, then
   lets the connector carry on.
+- IronRDP's sound channel answers the server's Training PDU with eight
+  bytes less than the `wPackSize` the server sent; GNOME Remote Desktop
+  checks the size and sends no sound after it. Mote answers the training
+  itself.
 
 FreeRDP 3, the engine Remmina uses, was the alternative. It supports more
 devices (USB, serial and parallel ports), at the cost of a C API surface, a
@@ -52,7 +56,7 @@ on something a section needs, that section adds it upstream.
 | 4 | HiDPI and resizing | Testing |
 | 5 | Clipboard | Testing |
 | 6 | Graphics pipeline | Testing |
-| 7 | Audio | |
+| 7 | Audio | Testing |
 | 8 | Device redirection | |
 | 9 | Network | |
 | 10 | Session controls | |
@@ -249,6 +253,36 @@ it as LAN.
 Playback (MS-RDPEA) through PipeWire, the microphone (MS-RDPEAI), and a
 per-connection choice of here, on the remote machine, or off.
 
+Built on IronRDP's sound and audio input channels, both the static one xrdp
+uses and the dynamic one GNOME Remote Desktop uses. Sound is played, and the
+microphone recorded, through PulseAudio's simple API as PipeWire serves it:
+it is what a Flatpak reaches with `--socket=pulseaudio`, where PipeWire's
+own socket is out of reach. Each stream runs on a thread of its own, about
+100 ms ahead of the speakers. Sound comes as Opus where the server offers
+it, decoded with libopus, and as PCM otherwise: from GNOME Remote Desktop,
+14 kilobytes a second against 176. The microphone goes as PCM.
+
+Sound and the microphone are two switches in the editor, the microphone off
+until turned on. Sound played on the remote machine and no sound at all,
+which Windows tells apart, are the same to these servers: what isn't sent
+stays where it is, so the choice is here or not. Both come in and out with
+`.rdp` files (`audiomode`, `audiocapturemode`) and Remmina profiles
+(`sound`, `microphone`).
+
+Tried against the three servers, through a private PipeWire so nothing
+reached the speakers:
+
+| Server | Sound | Microphone |
+| --- | --- | --- |
+| GNOME Remote Desktop | Opus, or PCM | PCM |
+| xrdp | PCM | PCM |
+| KRdp | No | No |
+
+xrdp needs `pipewire-module-xrdp` (or the PulseAudio one) in the session,
+which Fedora doesn't package; built from neutrinolabs' source on the test
+machine, it gave both. KRdp opens no sound channel. Not yet tried in the
+app itself, or in the Flatpak, which needs `--socket=pulseaudio`.
+
 ### 8. Device redirection
 
 Shared folders (MS-RDPEFS), smart cards and printers. USB, serial and
@@ -280,7 +314,8 @@ accessibility review, and translations.
 ### 12. Packaging
 
 A Flatpak on the GNOME runtime, AppStream metainfo, the app icon, a desktop
-file, and an RPM.
+file, and an RPM. The Flatpak needs the codecs-extra extension for H.264
+and `--socket=pulseaudio` for sound and the microphone.
 
 ## Remmina parity
 
@@ -301,7 +336,7 @@ What Remmina's RDP plugin offers, and the section that brings it to Mote.
 | Codec choice (GFX AVC444, AVC420, RemoteFX); color depth is moot | 6 |
 | Quality presets and visual effect flags, which Linux servers ignore | 6 |
 | Network type hint, which only xrdp acts on | 6 |
-| Sound: local, remote or off; microphone | 7 |
+| Sound: here, remote or off (the last two alike on Linux servers); microphone | 7 |
 | Shared folders | 8 |
 | Printers, smart cards | 8 |
 | Serial and parallel ports, USB | 8 (to decide) |

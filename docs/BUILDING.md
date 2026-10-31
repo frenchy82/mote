@@ -52,6 +52,14 @@ sudo apt install libopenh264-8
 `MOTE_FFMPEG_DIR` names a directory to load FFmpeg from, and `MOTE_OPENH264`
 another OpenH264 library.
 
+### Sound
+
+Sound and the microphone go through PulseAudio's simple API
+(`libpulse-simple.so.0`), which PipeWire serves, and Opus is decoded with
+`libopus.so.0`; both are loaded at run time, and every desktop distribution
+installs them. Without libopus, servers send uncompressed PCM, about twelve
+times the bandwidth; without libpulse-simple there is no sound.
+
 ## Building and running
 
 ```sh
@@ -118,6 +126,16 @@ the remote desktop while it runs (`MOTE_TEST_SECONDS`), files into
 `MOTE_TEST_FETCH` (`/tmp/mote-fetch` by default). `MOTE_TEST_FILES` offers
 files instead, as paths split by `:`. `MOTE_LOG=mote=debug` logs the
 formats each side offers.
+
+### Sound
+
+`MOTE_TEST_SOUND=1` makes the live test play the server's sound, and
+`MOTE_TEST_MICROPHONE=1` send the microphone. To keep a test off the
+speakers, give it a PulseAudio server of its own in `PULSE_SERVER`: a
+private PipeWire with `pipewire-pulse` and a null sink, whose monitor
+`parec` records. PipeWire doesn't hand a monitor to a recording stream by
+default, so a microphone for the test is a null sink's monitor remapped
+with `module-remap-source`.
 
 ### Measuring performance
 
