@@ -1,7 +1,7 @@
 //! The connection editor: a dialog for adding a connection or changing one.
 //! Later sections add their settings to it as pages of their own.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -40,6 +40,9 @@ struct Rows {
     clipboard: adw::SwitchRow,
     sound: adw::SwitchRow,
     microphone: adw::SwitchRow,
+    folder: adw::ActionRow,
+    /// The folder chosen in `folder`, empty for none.
+    folder_path: Rc<RefCell<String>>,
 }
 
 #[derive(Debug)]
@@ -54,7 +57,7 @@ pub(crate) enum EditorMsg {
 pub(crate) enum EditorOutput {
     /// `password` is `None` when it wasn't touched, and empty to forget it.
     Saved {
-        connection: Connection,
+        connection: Box<Connection>,
         password: Option<String>,
     },
     Closed,
@@ -128,7 +131,10 @@ impl Component for Editor {
             clipboard: adw::SwitchRow::new(),
             sound: adw::SwitchRow::new(),
             microphone: adw::SwitchRow::new(),
+            folder: adw::ActionRow::new(),
+            folder_path: Rc::new(RefCell::new(c.folder.clone())),
         };
+        folder_row(&rows.folder, &rows.folder_path);
         let labels: Vec<String> = Scaling::ALL
             .into_iter()
             .map(crate::ui::session::scaling_label)
@@ -234,6 +240,7 @@ impl Component for Editor {
         sharing.add(&rows.clipboard);
         sharing.add(&rows.sound);
         sharing.add(&rows.microphone);
+        sharing.add(&rows.folder);
         page.add(&sharing);
 
         if !init.is_new {
@@ -298,12 +305,13 @@ impl Component for Editor {
                     clipboard: r.clipboard.is_active(),
                     sound: r.sound.is_active(),
                     microphone: r.microphone.is_active(),
+                    folder: r.folder_path.borrow().clone(),
                     ..self.base.clone()
                 }
                 .normalized();
                 let password = self.password_edited.then(|| r.password.text().to_string());
                 let _ = sender.output(EditorOutput::Saved {
-                    connection,
+                    connection: Box::new(connection),
                     password,
                 });
                 root.close();
@@ -359,5 +367,85 @@ fn network_label(network: Network) -> String {
         Network::Satellite => i18n("Satellite"),
         Network::BroadbandLow => i18n("Slow Broadband"),
         Network::Modem => i18n("Modem"),
+    }
+}
+
+/// The shared folder's row: the folder, a button to choose one and one to
+/// stop sharing it.
+fn folder_row(row: &adw::ActionRow, path: &Rc<RefCell<String>>) {
+    row.set_title(&i18n("Shared Folder"));
+    let choose = gtk::Button::builder()
+        .icon_name("folder-open-symbolic")
+        .tooltip_text(i18n("Choose Folder"))
+        .valign(gtk::Align::Center)
+        .css_classes(["flat"])
+        .build();
+    let clear = gtk::Button::builder()
+        .icon_name("edit-clear-symbolic")
+        .tooltip_text(i18n("Stop Sharing"))
+        .valign(gtk::Align::Center)
+        .css_classes(["flat"])
+        .build();
+    row.add_suffix(&clear);
+    row.add_suffix(&choose);
+    row.set_activatable_widget(Some(&choose));
+
+    let show = {
+        let (row, clear) = (row.clone(), clear.clone());
+        move |folder: &str| {
+            clear.set_visible(!folder.is_empty());
+            if folder.is_empty() {
+                row.set_subtitle(&i18n("Only xrdp opens a shared folder"));
+            } else {
+                row.set_subtitle(&gtk::glib::markup_escape_text(&shown_path(folder)));
+            }
+        }
+    };
+    show(&path.borrow());
+    let show = Rc::new(show);
+
+    clear.connect_clicked({
+        let (path, show) = (path.clone(), show.clone());
+        move |_| {
+            path.borrow_mut().clear();
+            show("");
+        }
+    });
+    choose.connect_clicked({
+        let (path, show) = (path.clone(), show.clone());
+        move |button| {
+            let dialog = gtk::FileDialog::builder()
+                .title(i18n("Shared Folder"))
+                .modal(true)
+                .build();
+            let current = path.borrow().clone();
+            if !current.is_empty() {
+                dialog.set_initial_folder(Some(&gtk::gio::File::for_path(&current)));
+            }
+            let window = button.root().and_downcast::<gtk::Window>();
+            let (path, show) = (path.clone(), show.clone());
+            dialog.select_folder(
+                window.as_ref(),
+                None::<&gtk::gio::Cancellable>,
+                move |chosen| {
+                    let Some(folder) = chosen.ok().and_then(|f| f.path()) else {
+                        return;
+                    };
+                    let folder = folder.to_string_lossy().into_owned();
+                    show(&folder);
+                    *path.borrow_mut() = folder;
+                },
+            );
+        }
+    });
+}
+
+/// A path as people read it, with the home folder as ~.
+fn shown_path(path: &str) -> String {
+    let home = gtk::glib::home_dir();
+    match std::path::Path::new(path).strip_prefix(&home) {
+        Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
+        Ok(rest) => format!("~/{}", rest.display()),
+        Err(_) => path.to_owned(),
     }
 }

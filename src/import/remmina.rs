@@ -89,6 +89,7 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
             "sound" => conn.sound = value == "local",
             // Remmina keeps FreeRDP's device option there, such as sys:pulse.
             "microphone" => conn.microphone = !value.is_empty(),
+            "sharefolder" => conn.folder = value.to_owned(),
             _ => {}
         }
     }
@@ -112,11 +113,12 @@ mod tests {
 
     #[test]
     fn reads_the_network_codec_clipboard_and_sound() {
-        let text = "[remmina]\nprotocol=RDP\nserver=lab\nnetwork=wan\ncolordepth=65\ndisableclipboard=1\nsound=remote\nmicrophone=sys:pulse\n";
+        let text = "[remmina]\nprotocol=RDP\nserver=lab\nnetwork=wan\ncolordepth=65\ndisableclipboard=1\nsound=remote\nmicrophone=sys:pulse\nsharefolder=/home/jo/Shared\n";
         let c = parse(text).unwrap();
         assert_eq!((c.network, c.quality), (Network::Wan, Quality::Avc420));
         assert!(!c.clipboard);
         assert!(!c.sound && c.microphone);
+        assert_eq!(c.folder, "/home/jo/Shared");
     }
 
     #[test]

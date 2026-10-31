@@ -504,7 +504,7 @@ impl AppModel {
                     connection,
                     password,
                 } => AppMsg::Saved {
-                    connection,
+                    connection: *connection,
                     password,
                 },
                 EditorOutput::Closed => AppMsg::EditorClosed,
