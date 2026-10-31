@@ -185,9 +185,6 @@ impl Component for AppModel {
 
                         #[wrap(Some)]
                         set_content = &gtk::Stack {
-                            #[watch]
-                            set_visible_child_name: model.content_page(),
-
                             add_named[Some("empty")] = &adw::StatusPage {
                                 set_icon_name: Some("network-server-symbolic"),
                                 set_title: &i18n("No Connections"),
@@ -207,6 +204,11 @@ impl Component for AppModel {
                             },
                             #[local_ref]
                             add_named[Some("details")] = details -> adw::Bin {},
+
+                            // After the pages: naming one before it exists
+                            // only earns a warning.
+                            #[watch]
+                            set_visible_child_name: model.content_page(),
                         },
                     },
                 },
