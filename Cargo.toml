@@ -40,6 +40,11 @@ ironrdp-displaycontrol = "0.10"
 ironrdp-egfx = "0.5"
 # The shared clipboard.
 ironrdp-cliprdr = "0.9"
+# Sound from the server, and the microphone to it.
+ironrdp-rdpsnd = "0.11"
+ironrdp-rdpeai = "0.2"
+# Static channels, which Mote wraps the sound channel's in.
+ironrdp-svc = "0.10"
 # H.264 through the system's OpenH264, loaded at run time: no C++ to build,
 # and Cisco's patent license stays with Cisco's library.
 openh264 = { version = "0.9", default-features = false, features = ["libloading"] }
@@ -54,9 +59,6 @@ tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "ma
 rustls = { version = "0.23", default-features = false }
 # The server certificate's DER, for its fingerprint.
 x509-cert = "0.3"
-ironrdp-rdpsnd = "0.11"
-ironrdp-rdpeai = "0.2"
-ironrdp-svc = "0.10"
 
 [build-dependencies]
 glib-build-tools = "0.22"
