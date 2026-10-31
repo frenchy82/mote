@@ -8,9 +8,10 @@ A remote desktop client for GNOME, written in Rust with GTK 4 and libadwaita,
 for connecting to Linux machines that run an RDP server: GNOME Remote
 Desktop, xrdp or KRdp.
 
-Mote is in early development and does not connect to anything yet. It is
-built in sections, each one finished and tested before the next starts; the
-order and what each section holds is in [docs/ROADMAP.md](docs/ROADMAP.md).
+Mote is in early development: it connects and shows a remote desktop, but
+much of what a remote desktop client does is still to come. It is built in
+sections, each one finished and tested before the next starts; the order and
+what each section holds is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Goals
 

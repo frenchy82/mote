@@ -19,10 +19,13 @@ Every section that touches the protocol is checked against:
 ## Protocol engine
 
 [IronRDP](https://github.com/Devolutions/IronRDP), the RDP stack Devolutions
-writes in Rust. At 0.17 it has a client connector with TLS and CredSSP (NLA),
-the graphics pipeline with OpenH264 decoding, the clipboard, display control,
+writes in Rust. It has a client connector with TLS and CredSSP (NLA), the
+graphics pipeline with OpenH264 decoding, the clipboard, display control,
 sound, drive redirection, smart cards and RD Gateway, all as separate crates.
-Being Rust, it runs on the session's own async runtime and needs no C bindings.
+Mote names those crates one by one (`ironrdp-connector` 0.12,
+`ironrdp-session` 0.13 and the rest of that release), because the `ironrdp`
+umbrella crate pins older versions of them. Each session runs on a thread of
+its own, and nothing in the engine needs C bindings.
 
 FreeRDP 3, the engine Remmina uses, was the alternative. It supports more
 devices (USB, serial and parallel ports), at the cost of a C API surface, a
@@ -35,7 +38,7 @@ on something a section needs, that section adds it upstream.
 | --- | --- | --- |
 | 1 | Foundation | Done |
 | 2 | Connections | Done |
-| 3 | First session | Next |
+| 3 | First session | Testing |
 | 4 | HiDPI and resizing | |
 | 5 | Clipboard | |
 | 6 | Graphics pipeline | |
@@ -78,6 +81,15 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
   scrolling; the server's cursor shapes.
 - Disconnect, reconnect, and readable errors.
 
+Built, and tried against a headless GNOME Remote Desktop: the certificate
+question, sign-in and a refused password, typing and clicking on the remote
+desktop, and a server that stops or isn't running. Still to try against real
+servers: GNOME Remote Login (its redirection), xrdp and KRdp.
+
+GNOME Remote Desktop refuses a client without the graphics pipeline, so its
+basics arrived here rather than in section 6: the pipeline's channel, with
+the codecs IronRDP decodes without H.264.
+
 ### 4. HiDPI and resizing
 
 - The session sized to the window and resized with it (Display Control,
@@ -95,8 +107,8 @@ GDK's clipboard, with a per-connection switch.
 
 ### 6. Graphics pipeline
 
-- The graphics pipeline (MS-RDPEGFX): progressive RemoteFX, AVC420 and
-  AVC444.
+- The graphics pipeline (MS-RDPEGFX), which section 3 started: H.264
+  decoding, as AVC420 and AVC444.
 - Decoding off the main thread, upload straight to a GPU texture, frames paced
   to the monitor's refresh.
 - Quality presets that set color depth, codecs and the server's visual

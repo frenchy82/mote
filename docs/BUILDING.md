@@ -40,7 +40,9 @@ of its window and quits, so a change to the interface can be checked without
 anyone at the keyboard. `MOTE_SHOWCASE_OPEN` takes comma-separated steps:
 `first` selects the first connection, `editor` opens the editor,
 `settings` or `settings:<page>` opens Settings and pictures that window,
-`about` opens About, and `search:<text>` searches for that text.
+`about` opens About, `search:<text>` searches for that text, and
+`connect:<name>` connects to the connection of that name and pictures its
+session window.
 Point `XDG_CONFIG_HOME` at a scratch directory to keep it away from your own
 connections.
 
@@ -60,3 +62,14 @@ icon without an install.
 cargo test
 cargo clippy --all-targets
 ```
+
+One test connects to a real server and is skipped unless asked for. It
+expects a GNOME Remote Desktop, or any RDP server, with the user name and
+password `mote`:
+
+```sh
+MOTE_TEST_SERVER=localhost:3399 cargo test -- --ignored live
+```
+
+With `MOTE_TEST_PASSWORD` set to anything else, it expects the server to
+refuse the password.
