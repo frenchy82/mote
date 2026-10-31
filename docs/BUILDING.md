@@ -41,8 +41,9 @@ anyone at the keyboard. `MOTE_SHOWCASE_OPEN` takes comma-separated steps:
 `first` selects the first connection, `editor` opens the editor,
 `settings` or `settings:<page>` opens Settings and pictures that window,
 `about` opens About, `search:<text>` searches for that text, and
-`connect:<name>` connects to the connection of that name and pictures its
-session window.
+`connect:<name>` connects to the connection of that name, after which
+`detach` moves its session to a window of its own and `fullscreen` makes it
+fullscreen.
 Point `XDG_CONFIG_HOME` at a scratch directory to keep it away from your own
 connections.
 

@@ -80,11 +80,15 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
   layout decides what a key types; pointer, buttons, smooth and discrete
   scrolling; the server's cursor shapes.
 - Disconnect, reconnect, and readable errors.
+- Where a session lives: in the main window beside the sidebar, with the
+  connection's row marked; moved to a window of its own and back; and
+  fullscreen, with the header shown again at the screen's top edge.
 
 Built, and tried against a headless GNOME Remote Desktop: the certificate
 question, sign-in and a refused password, typing and clicking on the remote
-desktop, and a server that stops or isn't running. Still to try against real
-servers: GNOME Remote Login (its redirection), xrdp and KRdp.
+desktop, and a server that stops, isn't running, or closes every connection
+at once. Still to try against real servers: GNOME Remote Login (its
+redirection), xrdp and KRdp.
 
 GNOME Remote Desktop refuses a client without the graphics pipeline, so its
 basics arrived here rather than in section 6: the pipeline's channel, with
@@ -136,7 +140,6 @@ they are worth adding.
 
 ### 10. Session controls
 
-- Sessions in tabs (AdwTabView) or in windows of their own.
 - Keyboard grab that keeps GNOME's own shortcuts out of the way while the
   session has focus, with a key to release it.
 - Sending key combinations the local desktop would otherwise take:
