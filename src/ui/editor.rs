@@ -151,8 +151,8 @@ impl Component for Editor {
         )));
         for row in [
             rows.username.upcast_ref::<gtk::Widget>(),
-            rows.domain.upcast_ref(),
             rows.password.upcast_ref(),
+            rows.domain.upcast_ref(),
         ] {
             account.add(row);
         }
