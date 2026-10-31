@@ -119,17 +119,18 @@ impl Component for AppModel {
                                 set_tooltip_text: Some(&i18n("New Connection")),
                                 set_action_name: Some("win.new-connection"),
                             },
-                            #[name = "search_button"]
-                            pack_start = &gtk::ToggleButton {
-                                set_icon_name: "system-search-symbolic",
-                                set_tooltip_text: Some(&i18n("Search")),
-                            },
                             pack_end = &gtk::MenuButton {
                                 set_icon_name: "open-menu-symbolic",
                                 set_tooltip_text: Some(&i18n("Main Menu")),
                                 set_primary: true,
                                 add_css_class: "flat",
                                 set_menu_model: Some(&main_menu),
+                            },
+                            // pack_end packs right to left: just left of the menu.
+                            #[name = "search_button"]
+                            pack_end = &gtk::ToggleButton {
+                                set_icon_name: "system-search-symbolic",
+                                set_tooltip_text: Some(&i18n("Search")),
                             },
                         },
 
