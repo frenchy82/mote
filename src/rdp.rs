@@ -199,6 +199,15 @@ async fn closed(commands: &mut mpsc::UnboundedReceiver<Command>) {
     }
 }
 
+/// The physical size, in millimeters, of a screen with this many pixels at
+/// this scale: the size at which 96 DPI times the scale comes out. X11
+/// desktops behind xrdp take their DPI from it, as they ignore the scale.
+fn physical_size(width: u32, height: u32, scale: u32) -> (u32, u32) {
+    let millimeters =
+        |pixels: u32| (u64::from(pixels) * 2540 / (96 * u64::from(scale.max(100)))) as u32;
+    (millimeters(width), millimeters(height))
+}
+
 /// The I/O error at the root of an error, if there is one.
 fn io_kind(error: &(dyn std::error::Error + 'static)) -> Option<std::io::ErrorKind> {
     let mut current = Some(error);
@@ -229,6 +238,14 @@ fn describe(error: &(dyn std::error::Error + 'static)) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn physical_size_carries_the_scale() {
+        // 96 DPI at 100%: 960 pixels are 254 mm; at 200% the same pixels
+        // are half that.
+        assert_eq!(physical_size(960, 960, 100), (254, 254));
+        assert_eq!(physical_size(960, 960, 200), (127, 127));
+    }
 
     /// The frame as a PPM picture, for `MOTE_TEST_PICTURE=<file.ppm>`.
     fn save_ppm(path: &str, frame: &Frame) {

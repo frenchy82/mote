@@ -346,7 +346,11 @@ fn config(target: &Target) -> Config {
         },
         monitor_layout: None,
         desktop_scale_factor: target.scale,
-        desktop_physical_size: None,
+        desktop_physical_size: Some(super::physical_size(
+            u32::from(target.width),
+            u32::from(target.height),
+            target.scale,
+        )),
         desktop_orientation: None,
         // Of the three the protocol allows, the nearest.
         device_scale_factor: Some(match target.scale {

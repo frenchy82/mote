@@ -292,7 +292,12 @@ async fn send_resize(
             return Ok(None);
         }
     }
-    match stage.encode_resize(width, height, Some(scale), None) {
+    match stage.encode_resize(
+        width,
+        height,
+        Some(scale),
+        Some(super::physical_size(width, height, scale)),
+    ) {
         Some(Ok(frame)) => {
             tracing::debug!("asking for {width}×{height} at {scale}%");
             *asked = (width, height, scale);
