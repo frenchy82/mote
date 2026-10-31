@@ -38,6 +38,12 @@ mod imp {
         pub(super) state: RefCell<Database>,
         /// Scrolling not yet sent: wheel units come whole.
         pub(super) scroll: Cell<(f64, f64)>,
+        /// Shown but not yet painted: when its oldest change was decoded.
+        pub(super) unpainted: Cell<Option<std::time::Instant>>,
+        /// The frame clock painted by, and the handler watching it, to time
+        /// frames to the screen.
+        pub(super) clock: RefCell<Option<(gdk::FrameClock, glib::SignalHandlerId)>>,
+        pub(super) stats: RefCell<Option<crate::stats::Stats>>,
     }
 
     #[glib::object_subclass]
@@ -99,11 +105,22 @@ mod imp {
                 }
             ));
             self.watched.replace(Some((surface, handler)));
+            if let Some(clock) = widget.frame_clock() {
+                let handler = clock.connect_after_paint(glib::clone!(
+                    #[weak]
+                    widget,
+                    move |_| widget.painted()
+                ));
+                self.clock.replace(Some((clock, handler)));
+            }
         }
 
         fn unrealize(&self) {
             if let Some((surface, handler)) = self.watched.take() {
                 surface.disconnect(handler);
+            }
+            if let Some((clock, handler)) = self.clock.take() {
+                clock.disconnect(handler);
             }
             self.parent_unrealize();
         }
@@ -154,6 +171,24 @@ impl Display {
         self.imp().input.replace(Some(Rc::new(sink)));
     }
 
+    /// The window painted: time how long the newest frame took to get here.
+    fn painted(&self) {
+        let Some(made) = self.imp().unpainted.take() else {
+            return;
+        };
+        if let Some(stats) = self.imp().stats.borrow_mut().as_mut() {
+            stats.time("to screen", made);
+            stats.count("painted", 1);
+        }
+    }
+
+    /// Report what has been measured, at the end of a session.
+    pub(crate) fn report(&self) {
+        if let Some(stats) = self.imp().stats.borrow_mut().as_mut() {
+            stats.report();
+        }
+    }
+
     /// Told when the room for the desktop, or the screen's scale, changes.
     pub(crate) fn set_on_size(&self, sink: impl Fn() + 'static) {
         self.imp().on_size.replace(Some(Rc::new(sink)));
@@ -177,6 +212,11 @@ impl Display {
     /// Show a frame. Only its damaged parts are uploaded again: the old
     /// texture is handed to GDK as the one the new one updates.
     pub(crate) fn show_frame(&self, frame: rdp::Frame) {
+        let start = std::time::Instant::now();
+        // A frame replaced before it was painted: the older change counts.
+        let unpainted = self.imp().unpainted.get().unwrap_or(frame.made);
+        self.imp().unpainted.set(Some(unpainted.min(frame.made)));
+
         let (width, height) = (i32::from(frame.width), i32::from(frame.height));
         let previous = self.imp().texture.borrow().clone();
         let resized = previous
@@ -200,6 +240,11 @@ impl Display {
                 .set_update_region(Some(&gtk::cairo::Region::create_rectangles(&rects)));
         }
         self.imp().texture.replace(Some(builder.build()));
+        self.imp()
+            .stats
+            .borrow_mut()
+            .get_or_insert_with(|| crate::stats::Stats::new("screen"))
+            .time("texture", start);
         if resized {
             // A new desktop size: a new natural size at Actual Size, and a
             // new scale for the pointer.

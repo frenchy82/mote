@@ -6,6 +6,7 @@
 mod compat;
 mod connect;
 mod failure;
+mod frames;
 pub(crate) mod h264;
 pub(crate) mod keymap;
 mod rdstls;
@@ -62,8 +63,11 @@ pub(crate) struct Frame {
     pub(crate) width: u16,
     pub(crate) height: u16,
     pub(crate) stride: usize,
-    pub(crate) pixels: Vec<u8>,
+    pub(crate) pixels: frames::Pixels,
     pub(crate) damage: Vec<Rect>,
+    /// When the oldest change in it was decoded, to time its way to the
+    /// screen.
+    pub(crate) made: std::time::Instant,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -251,7 +255,7 @@ mod tests {
     /// The frame as a PPM picture, for `MOTE_TEST_PICTURE=<file.ppm>`.
     fn save_ppm(path: &str, frame: &Frame) {
         let mut out = format!("P6\n{} {}\n255\n", frame.width, frame.height).into_bytes();
-        for row in frame.pixels.chunks(frame.stride) {
+        for row in frame.pixels.as_ref().chunks(frame.stride) {
             for bgrx in row[..usize::from(frame.width) * 4].chunks(4) {
                 out.extend_from_slice(&[bgrx[2], bgrx[1], bgrx[0]]);
             }
@@ -278,14 +282,17 @@ mod tests {
         let var = |name: &str, default: &str| std::env::var(name).unwrap_or(default.into());
         let server = std::env::var("MOTE_TEST_SERVER").expect("MOTE_TEST_SERVER");
         let (host, port) = server.rsplit_once(':').expect("host:port");
+        // MOTE_TEST_SIZE=<width>x<height>: the desktop to ask for.
+        let size = var("MOTE_TEST_SIZE", "1024x768");
+        let (width, height) = size.split_once('x').expect("<width>x<height>");
         let target = Target {
             host: host.into(),
             port: port.parse().expect("port"),
             username: var("MOTE_TEST_USER", "mote"),
             password: var("MOTE_TEST_PASSWORD", "mote"),
             domain: String::new(),
-            width: 1024,
-            height: 768,
+            width: width.parse().expect("width"),
+            height: height.parse().expect("height"),
             scale: 100,
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.

@@ -11,6 +11,7 @@ mod i18n;
 mod import;
 mod rdp;
 mod secrets;
+mod stats;
 mod ui;
 
 use tracing_subscriber::EnvFilter;

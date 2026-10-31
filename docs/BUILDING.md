@@ -109,3 +109,26 @@ MOTE_TEST_SERVER=localhost:3399 cargo test -- --ignored live
 `MOTE_TEST_EXPECT=refused` expects the server to turn it down. `MOTE_LOG`
 sets what it logs; `MOTE_LOG=mote::wire=trace` adds the start of every
 message sent and received.
+
+### Measuring performance
+
+`MOTE_LOG=mote::stats=info`, for the app or the live test, logs what a
+session's pictures cost every five seconds and when it ends: frames and
+kilobytes a second, and as mean/p95/max milliseconds the time to decode an
+update, to copy it out for the interface, and from decoding to the paint
+that shows it. Without it nothing is timed.
+
+A desktop that changes all the time, the same way every run, makes the
+numbers comparable. The private GNOME Remote Desktop shows any program
+given in `GRD_CLIENT`, such as GStreamer's moving test pattern:
+
+```sh
+GRD_CLIENT='gst-launch-1.0 videotestsrc pattern=smpte horizontal-speed=4 is-live=true
+  ! video/x-raw,width=1920,height=1080,framerate=60/1 ! waylandsink fullscreen=true' \
+  systemd-run --user --collect --unit=mote-grd -E GRD_CLIENT temp/grd/run.sh
+MOTE_TEST_SERVER=localhost:3399 MOTE_TEST_SIZE=1920x1080 MOTE_TEST_SECONDS=12 \
+  MOTE_LOG=mote::stats=info cargo test -- --ignored live --nocapture
+```
+
+`MOTE_TEST_SIZE` is the desktop to ask for, `MOTE_TEST_SECONDS` how long to
+stay. `pattern=ball` changes a small part of the screen instead of all of it.

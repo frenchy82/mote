@@ -512,14 +512,15 @@ impl Session {
             }
             Event::Frame(frame) => {
                 self.display.show_frame(frame);
-                // After the frame is drawn: redrawing runs at a higher
-                // priority than idle callbacks.
-                if let Some(handle) = self.handle.clone() {
-                    gtk::glib::idle_add_local_once(move || handle.send(rdp::Command::FrameDone));
+                // The next frame can come now, and replace this one if it
+                // isn't painted yet: what is painted is the newest there is.
+                if let Some(handle) = &self.handle {
+                    handle.send(rdp::Command::FrameDone);
                 }
             }
             Event::Cursor(cursor) => self.display.set_remote_cursor(cursor),
             Event::Ended(ending) => {
+                self.display.report();
                 self.handle = None;
                 self.ended(ending, sender);
             }

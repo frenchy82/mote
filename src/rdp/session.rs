@@ -28,10 +28,13 @@ struct Desktop {
     image: DecodedImage,
     /// Changed since the last frame went out.
     damage: Vec<Rect>,
+    /// When the oldest of that change was decoded.
+    since: Option<std::time::Instant>,
     /// A frame is with the interface, not yet drawn.
     in_flight: bool,
     /// A frame has gone out.
     shown: bool,
+    frames: super::frames::Frames,
 }
 
 impl Desktop {
@@ -40,8 +43,10 @@ impl Desktop {
             // BGRX is what GDK takes without converting.
             image: DecodedImage::new(PixelFormat::BgrX32, width, height),
             damage: Vec::new(),
+            since: None,
             in_flight: false,
             shown: false,
+            frames: super::frames::Frames::new(),
         }
     }
 }
@@ -83,6 +88,8 @@ pub(super) async fn run(
     let mut resize = None;
     // The size last asked for, so a repeat isn't sent again.
     let mut asked = opened;
+    let mut stats = crate::stats::Stats::new("engine");
+    let mut received = 0;
     loop {
         let outputs = tokio::select! {
             frame = reader.read_pdu() => {
@@ -102,9 +109,18 @@ pub(super) async fn run(
                 if action == ironrdp_pdu::Action::X224 && super::compat::normalize_redirection(&mut payload) {
                     tracing::debug!("took a FreeRDP-style redirection header");
                 }
-                stage
+                received += payload.len() as u64;
+                stats.count("kB in", received / 1024);
+                received %= 1024;
+                let start = std::time::Instant::now();
+                let outputs = stage
                     .process(&mut desktop.image, action, &payload, reader.last_read_at())
-                    .map_err(|e| failed(&e, desktop.shown))?
+                    .map_err(|e| failed(&e, desktop.shown))?;
+                // Timed only when it drew something: most messages are small.
+                if outputs.iter().any(|o| matches!(o, ActiveStageOutput::GraphicsUpdate(_))) {
+                    stats.time("decode", start);
+                }
+                outputs
             }
             command = commands.recv() => match command {
                 Some(Command::Input(input)) => stage
@@ -143,7 +159,10 @@ pub(super) async fn run(
                             .map_err(|e| Failure::Lost(describe(&e)))?;
                     }
                 }
-                ActiveStageOutput::GraphicsUpdate(region) => desktop.damage.push(rect(&region)),
+                ActiveStageOutput::GraphicsUpdate(region) => {
+                    desktop.damage.push(rect(&region));
+                    desktop.since.get_or_insert_with(std::time::Instant::now);
+                }
                 ActiveStageOutput::PointerDefault => {
                     send(events, Event::Cursor(Cursor::Default)).await?;
                 }
@@ -192,13 +211,18 @@ pub(super) async fn run(
 
         if !desktop.damage.is_empty() && !desktop.in_flight {
             let image = &desktop.image;
+            let start = std::time::Instant::now();
+            let damage = std::mem::take(&mut desktop.damage);
             let frame = Frame {
                 width: image.width(),
                 height: image.height(),
                 stride: image.stride(),
-                pixels: image.data().to_vec(),
-                damage: std::mem::take(&mut desktop.damage),
+                pixels: desktop.frames.make(image.data(), image.stride(), &damage),
+                damage,
+                made: desktop.since.take().unwrap_or(start),
             };
+            stats.time("copy", start);
+            stats.count("frames", 1);
             desktop.in_flight = true;
             desktop.shown = true;
             send(events, Event::Frame(frame)).await?;

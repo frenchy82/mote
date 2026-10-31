@@ -152,8 +152,18 @@ system's OpenH264, or Cisco's OpenH264 downloaded on request from Settings,
 all loaded at run time; FFmpeg is what the Flatpak's GNOME runtime provides,
 and was tried inside it. GNOME Remote Desktop chooses AVC444 and xrdp AVC420,
 both sharper than the RemoteFX they used before, and KRdp, which sends only
-H.264, now connects. Decoding already runs on the session's own thread; the
-rest of the section is still to come.
+H.264, now connects. Decoding already runs on the session's own thread.
+
+The measurement harness is in place (BUILDING.md, under Measuring
+performance), and its first numbers set what came next. On this machine an
+H.264 frame takes about 2.5 ms to decode at 1920×1080 and 7 ms at 3840×2160,
+FFmpeg and OpenH264 alike, so hardware decoding waits until a slower machine
+shows a need. Copying the whole desktop out for each frame took 0.8 ms at
+1920×1080 and 3.5 ms at 3840×2160; frames now come from a few buffers used in
+turn, each brought up to date with only what changed, and a small change
+costs 0.01 ms. Every frame goes to GTK as it comes, replacing one not yet
+painted, so what the monitor shows at each refresh is the newest picture;
+GTK uploads only the changed parts. Quality presets are still to come.
 
 ### 7. Audio
 
