@@ -14,11 +14,6 @@
   font-weight: 600;
 }
 
-/* The search field sits in line with the rows' rounded highlights. */
-.sidebar-search {
-  margin: 6px 12px 2px 12px;
-}
-
 /* Group labels between the connection rows: no row height of their own,
    so the space above a group is wider than the space beneath its name. */
 .navigation-sidebar > row.sidebar-heading {

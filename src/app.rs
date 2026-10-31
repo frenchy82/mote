@@ -31,6 +31,7 @@ pub(crate) struct AppModel {
     list: gtk::ListBox,
     hint: gtk::Label,
     search: gtk::SearchEntry,
+    search_bar: gtk::SearchBar,
     details: adw::Bin,
     toasts: adw::ToastOverlay,
     split: adw::OverlaySplitView,
@@ -118,6 +119,11 @@ impl Component for AppModel {
                                 set_tooltip_text: Some(&i18n("New Connection")),
                                 set_action_name: Some("win.new-connection"),
                             },
+                            #[name = "search_button"]
+                            pack_start = &gtk::ToggleButton {
+                                set_icon_name: "system-search-symbolic",
+                                set_tooltip_text: Some(&i18n("Search")),
+                            },
                             pack_end = &gtk::MenuButton {
                                 set_icon_name: "open-menu-symbolic",
                                 set_tooltip_text: Some(&i18n("Main Menu")),
@@ -127,18 +133,25 @@ impl Component for AppModel {
                             },
                         },
 
-                        #[wrap(Some)]
-                        set_content = &gtk::Box {
-                            set_orientation: gtk::Orientation::Vertical,
+                        // Hidden until the search button or Ctrl+F; Escape
+                        // closes it and clears the search.
+                        #[local_ref]
+                        add_top_bar = search_bar -> gtk::SearchBar {
                             #[local_ref]
-                            search -> gtk::SearchEntry {
-                                add_css_class: "sidebar-search",
+                            #[wrap(Some)]
+                            set_child = search -> gtk::SearchEntry {
+                                set_hexpand: true,
                                 set_placeholder_text: Some(&i18n("Search or Enter an Address")),
                                 connect_search_changed[sender] => move |e| {
                                     sender.input(AppMsg::Search(e.text().into()));
                                 },
                                 connect_activate => AppMsg::SearchActivated,
                             },
+                        },
+
+                        #[wrap(Some)]
+                        set_content = &gtk::Box {
+                            set_orientation: gtk::Orientation::Vertical,
 
                             gtk::ScrolledWindow {
                                 set_vexpand: true,
@@ -249,6 +262,7 @@ impl Component for AppModel {
             list: list.clone(),
             hint: hint.clone(),
             search: gtk::SearchEntry::new(),
+            search_bar: gtk::SearchBar::new(),
             details: adw::Bin::new(),
             toasts: adw::ToastOverlay::new(),
             split: adw::OverlaySplitView::new(),
@@ -257,14 +271,21 @@ impl Component for AppModel {
             prefs: None,
         };
         let split = &model.split.clone();
-        let (search, details, toasts) = (
+        let (search, search_bar, details, toasts) = (
             &model.search.clone(),
+            &model.search_bar.clone(),
             &model.details.clone(),
             &model.toasts.clone(),
         );
         let main_menu = actions::main_menu();
         let connection_menu = actions::connection_menu();
         let widgets = view_output!();
+        search_bar.connect_entry(search);
+        search_bar
+            .bind_property("search-mode-enabled", &widgets.search_button, "active")
+            .bidirectional()
+            .sync_create()
+            .build();
 
         // Narrow, the sidebar slides over the connection instead.
         let narrow = adw::Breakpoint::new(adw::BreakpointCondition::new_length(
@@ -298,6 +319,7 @@ impl Component for AppModel {
             AppMsg::SearchActivated => self.search_activated(&sender),
             AppMsg::FocusSearch => {
                 self.split.set_show_sidebar(true);
+                self.search_bar.set_search_mode(true);
                 self.search.grab_focus();
             }
             AppMsg::EditSelected => {

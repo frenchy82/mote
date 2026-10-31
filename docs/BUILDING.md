@@ -39,8 +39,8 @@ With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
 of its window and quits, so a change to the interface can be checked without
 anyone at the keyboard. `MOTE_SHOWCASE_OPEN` takes comma-separated steps:
 `first` selects the first connection, `editor` opens the editor,
-`settings` or `settings:<page>` opens Settings and pictures that window, and
-`about` opens About.
+`settings` or `settings:<page>` opens Settings and pictures that window,
+`about` opens About, and `search:<text>` searches for that text.
 Point `XDG_CONFIG_HOME` at a scratch directory to keep it away from your own
 connections.
 
