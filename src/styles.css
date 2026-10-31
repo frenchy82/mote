@@ -1,0 +1,102 @@
+/* Mote's own styling, on top of libadwaita. The sidebar and Settings are
+   drawn the way Hylki's are, so the two apps read as one family. */
+
+.app-title {
+  font-weight: 700;
+}
+
+/* ---- Sidebar ---- */
+
+/* New Connection: a standing accent button shaped like a sidebar row, a
+   little taller than a plain row, split like a menu button at its end. */
+row.new-row {
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+row.new-row:hover {
+  background-color: shade(@accent_bg_color, 1.1);
+}
+row.new-row:active {
+  background-color: shade(@accent_bg_color, 0.9);
+}
+row.new-row .nav-icon,
+row.new-row .row-name {
+  color: @accent_fg_color;
+  opacity: 1;
+}
+row.new-row .new-split {
+  padding-right: 0;
+}
+row.new-row .new-split:dir(rtl) {
+  padding-left: 0;
+  padding-right: 8px;
+}
+row.new-row .new-split > separator {
+  background-color: alpha(@accent_fg_color, 0.55);
+  min-width: 1px;
+  margin: 3px 4px 3px 8px;
+}
+row.new-row .new-caret > button {
+  color: @accent_fg_color;
+  min-height: 0;
+  min-width: 0;
+  padding: 2px 6px;
+  margin: -4px -3px -4px 0;
+}
+row.new-row .new-caret > button:hover {
+  background-color: alpha(@accent_fg_color, 0.15);
+}
+row.new-row .new-caret > button:active,
+row.new-row .new-caret > button:checked {
+  background-color: alpha(@accent_fg_color, 0.28);
+}
+
+.nav-row {
+  padding: 7px 8px;
+}
+.nav-icon {
+  opacity: 0.75;
+}
+.row-name {
+  font-weight: 600;
+}
+
+/* The search field sits in line with the rows' rounded highlights. */
+.sidebar-search {
+  margin: 6px 12px 2px 12px;
+}
+
+/* Group labels between the connection rows: no row height of their own,
+   so the space above a group is wider than the space beneath its name. */
+.navigation-sidebar > row.sidebar-heading {
+  min-height: 0;
+  padding: 12px 12px 2px 12px;
+}
+
+/* What the sidebar says when a search finds nothing. */
+.sidebar-hint {
+  padding: 12px 18px;
+}
+
+/* ---- Connection details ---- */
+
+.details-header {
+  margin-bottom: 12px;
+}
+
+/* ---- Settings window ---- */
+
+/* Section headings between the category rows, set off like the sidebar's
+   own group labels. */
+.navigation-sidebar > row.settings-side-heading {
+  min-height: 0;
+  padding: 14px 12px 4px 12px;
+}
+.navigation-sidebar > row.settings-side-heading:first-child {
+  padding-top: 6px;
+}
+.settings-side > row {
+  min-height: 36px;
+}

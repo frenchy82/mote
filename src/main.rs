@@ -5,7 +5,12 @@
 #![warn(unreachable_pub)]
 
 mod app;
+mod config;
+mod connection;
 mod i18n;
+mod import;
+mod secrets;
+mod ui;
 
 use tracing_subscriber::EnvFilter;
 

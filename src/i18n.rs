@@ -43,13 +43,26 @@ pub(crate) fn i18n(msgid: &str) -> String {
 }
 
 /// The translation of `msgid`, with each `{name}` replaced by its value.
-#[allow(dead_code)]
 pub(crate) fn i18n_f(msgid: &str, args: &[(&str, &dyn std::fmt::Display)]) -> String {
-    let mut out = gettextrs::gettext(msgid);
+    fill(gettextrs::gettext(msgid), args)
+}
+
+/// The singular or plural translation for `n`, as the language counts, with
+/// placeholders filled as in [`i18n_f`].
+pub(crate) fn ni18n_f(
+    single: &str,
+    plural: &str,
+    n: u32,
+    args: &[(&str, &dyn std::fmt::Display)],
+) -> String {
+    fill(gettextrs::ngettext(single, plural, n), args)
+}
+
+fn fill(mut text: String, args: &[(&str, &dyn std::fmt::Display)]) -> String {
     for (name, value) in args {
-        out = out.replace(&format!("{{{name}}}"), &value.to_string());
+        text = text.replace(&format!("{{{name}}}"), &value.to_string());
     }
-    out
+    text
 }
 
 #[cfg(test)]

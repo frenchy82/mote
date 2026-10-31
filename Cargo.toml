@@ -16,6 +16,12 @@ adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
 relm4 = { version = "0.11", features = ["macros", "libadwaita"] }
 gettext-rs = { version = "0.8", features = ["gettext-system"] }
 tracing = "0.1"
+# Profiles and settings are TOML in the user's config directory.
+serde = { version = "1", features = ["derive"] }
+toml = "1"
+# GNOME's Secret Service client: the keyring on the host, the secret portal
+# inside Flatpak. Async on tokio, the runtime relm4's commands already run.
+oo7 = { version = "0.6", default-features = false, features = ["tokio", "native_crypto"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [profile.dev]
