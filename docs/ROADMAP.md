@@ -51,7 +51,7 @@ on something a section needs, that section adds it upstream.
 | 3 | First session | Done |
 | 4 | HiDPI and resizing | Testing |
 | 5 | Clipboard | |
-| 6 | Graphics pipeline | In progress |
+| 6 | Graphics pipeline | Testing |
 | 7 | Audio | |
 | 8 | Device redirection | |
 | 9 | Network | |
