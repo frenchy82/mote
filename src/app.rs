@@ -10,7 +10,7 @@ mod showcase;
 mod sidebar;
 
 use std::cell::Cell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -48,6 +48,8 @@ pub(crate) struct AppModel {
     panes: gtk::Stack,
     /// Open sessions, by connection.
     sessions: HashMap<String, Controller<Session>>,
+    /// The connections whose session is connected right now.
+    live: HashSet<String>,
     /// The windows of the sessions moved out of this one.
     detached: HashMap<String, adw::ApplicationWindow>,
 }
@@ -291,6 +293,7 @@ impl Component for AppModel {
             prefs: None,
             panes: gtk::Stack::new(),
             sessions: HashMap::new(),
+            live: HashSet::new(),
             detached: HashMap::new(),
         };
         let split = &model.split.clone();

@@ -89,7 +89,13 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 - Keyboard input as scancodes taken from the hardware keycode, so the remote
   layout decides what a key types; pointer, buttons, smooth and discrete
   scrolling; the server's cursor shapes.
-- Disconnect, reconnect, and readable errors.
+- Disconnect, reconnect, and readable errors that name the likely cause on a
+  Linux server and where to fix it: GNOME Remote Login without credentials,
+  the wrong port, a server without a certificate, xrdp set to the old RDP
+  security, outdated TLS, a password from the wrong place, and the reasons
+  a server gives for ending a session, such as another connection taking
+  it over.
+- xrdp signs in with the profile's account, without its own login screen.
 - Where a session lives: in the main window beside the sidebar, with the
   connection's row marked; moved to a window of its own and back; and
   fullscreen, with the header shown again at the screen's top edge.

@@ -127,7 +127,7 @@ impl AppModel {
                 group = Some(&conn.group);
                 self.list.append(&heading(&conn.group));
             }
-            let open = self.sessions.contains_key(&conn.id);
+            let open = self.live.contains(&conn.id);
             let row = connection_row(conn, self.settings.show_hosts, open);
             self.list.append(&row);
             if self.selected.as_deref() == Some(conn.id.as_str()) {
@@ -166,7 +166,7 @@ fn heading(text: &str) -> gtk::ListBoxRow {
     row
 }
 
-/// A connection's row; `open` when a session to it is open.
+/// A connection's row; `open` when a session to it is connected.
 fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     row.set_widget_name(&format!("{ROW_PREFIX}{}", conn.id));

@@ -44,6 +44,10 @@ impl AppModel {
                 domain,
                 password,
             } => self.remember(&id, username, domain, password, sender),
+            SessionOutput::Stopped(id) => {
+                self.live.remove(&id);
+                self.rebuild_list();
+            }
             SessionOutput::Closed(id) => self.close_session(&id),
             SessionOutput::ToggleSidebar => {
                 self.split.set_show_sidebar(!self.split.shows_sidebar())
@@ -57,6 +61,7 @@ impl AppModel {
         let Some(session) = self.sessions.remove(id) else {
             return;
         };
+        self.live.remove(id);
         match self.detached.remove(id) {
             Some(window) => window.destroy(),
             None => self.panes.remove(session.widget()),
@@ -122,6 +127,7 @@ impl AppModel {
     }
 
     fn session_connected(&mut self, id: &str) {
+        self.live.insert(id.to_owned());
         let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) else {
             return;
         };

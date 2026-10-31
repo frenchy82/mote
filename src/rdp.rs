@@ -5,6 +5,7 @@
 
 mod compat;
 mod connect;
+mod failure;
 pub(crate) mod keymap;
 mod rdstls;
 mod session;
@@ -15,6 +16,8 @@ use std::sync::Arc;
 use ironrdp_graphics::pointer::DecodedPointer;
 use ironrdp_pdu::input::fast_path::FastPathInputEvent;
 use tokio::sync::{mpsc, oneshot};
+
+pub(crate) use failure::{Disconnect, Ending, Failure, Security, Unreachable};
 
 /// Where to connect, and as whom.
 #[derive(Clone)]
@@ -82,54 +85,6 @@ pub(crate) enum Cursor {
     Hidden,
     /// RGBA, not premultiplied.
     Bitmap(Arc<DecodedPointer>),
-}
-
-pub(crate) enum Ending {
-    /// Closed from this side.
-    Closed,
-    /// The server ended the session, with its reason when it gave one.
-    ServerClosed(Option<String>),
-    Failed(Failure),
-}
-
-pub(crate) enum Failure {
-    /// The computer couldn't be reached.
-    Unreachable(Unreachable),
-    /// The user name or password was refused.
-    Refused,
-    /// The certificate wasn't trusted.
-    Untrusted,
-    /// The connection dropped.
-    Lost(String),
-    /// Anything else, as the engine describes it.
-    Protocol(String),
-}
-
-/// Why a computer couldn't be reached.
-pub(crate) enum Unreachable {
-    /// The name doesn't resolve.
-    NotFound,
-    /// Nothing listens on the port.
-    Refused,
-    NoAnswer,
-    /// It took the connection and closed it before anything began.
-    Closed,
-    Other(String),
-}
-
-impl Unreachable {
-    fn from_io(error: &std::io::Error) -> Self {
-        use std::io::ErrorKind;
-        match error.kind() {
-            ErrorKind::ConnectionRefused => Self::Refused,
-            ErrorKind::TimedOut | ErrorKind::HostUnreachable | ErrorKind::NetworkUnreachable => {
-                Self::NoAnswer
-            }
-            // The resolver's errors have no kind of their own.
-            _ if error.to_string().contains("lookup") => Self::NotFound,
-            _ => Self::Other(error.to_string()),
-        }
-    }
 }
 
 pub(crate) enum Command {
@@ -324,13 +279,30 @@ mod tests {
                 Event::Ended(ending) => {
                     let text = match ending {
                         Ending::Closed => "closed".to_owned(),
-                        Ending::ServerClosed(r) => format!("server closed {r:?}"),
+                        Ending::ServerClosed(_) => "server closed".to_owned(),
                         Ending::Failed(Failure::Refused) => "refused".to_owned(),
                         Ending::Failed(Failure::Untrusted) => "untrusted".to_owned(),
-                        Ending::Failed(Failure::Unreachable(_)) => "unreachable".to_owned(),
+                        Ending::Failed(Failure::Unreachable(why)) => match why {
+                            Unreachable::NotFound => "not found",
+                            Unreachable::Refused => "connection refused",
+                            Unreachable::NoAnswer => "no answer",
+                            Unreachable::Closed => "closed at once",
+                            Unreachable::NotRdp => "not rdp",
+                            Unreachable::Other(_) => "unreachable",
+                        }
+                        .to_owned(),
                         Ending::Failed(Failure::Lost(e) | Failure::Protocol(e)) => {
                             format!("failed: {e}")
                         }
+                        Ending::Failed(Failure::NotAllowed) => "not allowed".to_owned(),
+                        Ending::Failed(Failure::Security(security)) => match security {
+                            Security::NoCertificate => "no certificate",
+                            Security::LegacyOnly => "legacy only",
+                            Security::OldTls => "old tls",
+                            Security::Other(_) => "security",
+                        }
+                        .to_owned(),
+                        Ending::Failed(Failure::Rejected) => "rejected".to_owned(),
                     };
                     eprintln!("ended: {text}");
                     let expected = var("MOTE_TEST_EXPECT", "closed");

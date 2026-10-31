@@ -4,6 +4,7 @@
 //! brings its own header either way.
 
 mod display;
+mod endings;
 mod pages;
 
 use std::cell::{Cell, RefCell};
@@ -15,8 +16,8 @@ use relm4::prelude::*;
 use tokio::sync::oneshot;
 
 use crate::connection::Connection;
-use crate::i18n::{i18n, i18n_f};
-use crate::rdp::{self, Ending, Event, Failure, Trust, Unreachable};
+use crate::i18n::i18n;
+use crate::rdp::{self, Ending, Event, Trust};
 use crate::{config, secrets};
 use display::Display;
 
@@ -32,7 +33,6 @@ pub(crate) struct Session {
     handle: Option<rdp::Handle>,
     /// Counts connections, so a late event of an earlier one is ignored.
     attempt: u32,
-    connected_once: bool,
     /// In a window of its own rather than the main window.
     detached: bool,
     /// Whether the window holding it is fullscreen, shared with the
@@ -95,6 +95,8 @@ pub(crate) enum SessionOutput {
         domain: String,
         password: String,
     },
+    /// The session ended without the window closing: not connected now.
+    Stopped(String),
     Closed(String),
     ToggleSidebar,
     Detach(String),
@@ -204,7 +206,6 @@ impl Component for Session {
             page: Page::Connecting,
             handle: None,
             attempt: 0,
-            connected_once: false,
             detached: false,
             fullscreen: Rc::new(Cell::new(false)),
             watched: None,
@@ -360,20 +361,26 @@ impl Session {
             handle.send(rdp::Command::Close);
         }
         self.page = Page::Connecting;
-        // The desktop is asked for at the window's size, so wait for the
-        // window to have one.
-        if self.stack.width() == 0 {
+        // The desktop is asked for at the page's size, so wait for there to
+        // be one.
+        let Some((width, height)) = self.desktop_size() else {
+            // Polled rather than tied to the page's frame clock, which
+            // doesn't run while another connection is showing.
             let input = sender.input_sender().clone();
-            self.stack.add_tick_callback(move |stack, _| {
-                if stack.width() == 0 {
-                    return gtk::glib::ControlFlow::Continue;
+            let stack = self.stack.downgrade();
+            glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+                let Some(stack) = stack.upgrade() else {
+                    return glib::ControlFlow::Break;
+                };
+                let sized = stack.width() > 0 || window_of(&stack).is_some_and(|w| w.width() > 0);
+                if !sized {
+                    return glib::ControlFlow::Continue;
                 }
                 input.emit(SessionInput::Reconnect);
-                gtk::glib::ControlFlow::Break
+                glib::ControlFlow::Break
             });
             return;
-        }
-        let (width, height) = self.desktop_size();
+        };
         let target = rdp::Target {
             host: self.connection.host.clone(),
             port: self.connection.port,
@@ -404,12 +411,21 @@ impl Session {
     }
 
     /// The size to ask the server for: what the window has room for.
-    fn desktop_size(&self) -> (u16, u16) {
-        let (w, h) = (self.stack.width(), self.stack.height());
+    /// `None` until there is a size to go by. A session whose page isn't
+    /// showing has none of its own, and takes its window's.
+    fn desktop_size(&self) -> Option<(u16, u16)> {
+        let (w, h) = match (self.stack.width(), window_of(&self.stack)) {
+            (0, Some(window)) if window.width() > 0 => {
+                // Less the header the page would have.
+                (window.width(), window.height() - 46)
+            }
+            (0, _) => return None,
+            (w, _) => (w, self.stack.height()),
+        };
         // Servers want an even width, and nothing smaller than 200.
         let w = (w.clamp(200, 8192) & !1) as u16;
         let h = h.clamp(200, 8192) as u16;
-        (w, h)
+        Some((w, h))
     }
 
     fn event(&mut self, event: Event, sender: &ComponentSender<Self>, root: &adw::ToolbarView) {
@@ -422,12 +438,13 @@ impl Session {
             } => self.check_certificate(&host, port, fingerprint, reply, root),
             Event::Connected { width, height } => {
                 tracing::info!("connected, {width}×{height}");
-                self.page = Page::Desktop;
-                self.display.grab_focus();
-                if !self.connected_once {
-                    self.connected_once = true;
+                // A reactivation reports the desktop again; only a new
+                // connection counts.
+                if self.page != Page::Desktop {
                     let _ = sender.output(SessionOutput::Connected(self.connection.id.clone()));
                 }
+                self.page = Page::Desktop;
+                self.display.grab_focus();
                 if std::mem::take(&mut self.remember) {
                     let _ = sender.output(SessionOutput::Remember {
                         id: self.connection.id.clone(),
@@ -448,7 +465,7 @@ impl Session {
             Event::Cursor(cursor) => self.display.set_remote_cursor(cursor),
             Event::Ended(ending) => {
                 self.handle = None;
-                self.ended(ending);
+                self.ended(ending, sender);
             }
         }
     }
@@ -484,68 +501,24 @@ impl Session {
         dialog.present(Some(root));
     }
 
-    fn ended(&mut self, ending: Ending) {
+    fn ended(&mut self, ending: Ending, sender: &ComponentSender<Self>) {
         let was_connected = self.page == Page::Desktop;
-        let (title, description) = match ending {
-            // Closed from here: the window is on its way out.
-            Ending::Closed => return,
-            Ending::Failed(Failure::Refused) => {
+        if !matches!(ending, Ending::Closed) {
+            let _ = sender.output(SessionOutput::Stopped(self.connection.id.clone()));
+        }
+        match endings::shown(ending, &self.connection.host, was_connected) {
+            endings::Shown::Nothing => {}
+            endings::Shown::SignIn(message) => {
                 self.page = Page::SignIn;
-                self.sign_in
-                    .refused(&i18n("The user name or password was not accepted"));
-                return;
+                self.sign_in.refused(&message);
             }
-            Ending::Failed(Failure::Untrusted) => (
-                i18n("Not Connected"),
-                i18n("The computer’s identity was not trusted."),
-            ),
-            Ending::Failed(Failure::Unreachable(why)) => {
-                let host = self.connection.host.as_str();
-                let text = match why {
-                    Unreachable::NotFound => {
-                        i18n_f("{host} could not be found.", &[("host", &host)])
-                    }
-                    Unreachable::Refused => i18n_f(
-                        "{host} is not accepting remote desktop connections.",
-                        &[("host", &host)],
-                    ),
-                    Unreachable::NoAnswer => i18n_f("{host} did not answer.", &[("host", &host)]),
-                    Unreachable::Closed => i18n_f(
-                        "{host} closed the connection at once. Check that its remote desktop service is turned on and set up.",
-                        &[("host", &host)],
-                    ),
-                    Unreachable::Other(error) => {
-                        tracing::warn!("connecting: {error}");
-                        i18n_f("{host} could not be reached.", &[("host", &host)])
-                    }
-                };
-                (i18n("Could Not Connect"), text)
+            endings::Shown::Page { title, description } => {
+                self.ended.set_title(&title);
+                self.ended
+                    .set_description(Some(&gtk::glib::markup_escape_text(&description)));
+                self.page = Page::Ended;
             }
-            Ending::Failed(Failure::Lost(error)) => {
-                tracing::warn!("connection lost: {error}");
-                (
-                    i18n("Disconnected"),
-                    i18n("The connection to the computer was lost."),
-                )
-            }
-            Ending::Failed(Failure::Protocol(error)) => {
-                tracing::warn!("session failed: {error}");
-                let title = if was_connected {
-                    i18n("Disconnected")
-                } else {
-                    i18n("Could Not Connect")
-                };
-                (title, error)
-            }
-            Ending::ServerClosed(reason) => (
-                i18n("Disconnected"),
-                reason.unwrap_or_else(|| i18n("The computer ended the session.")),
-            ),
-        };
-        self.ended.set_title(&title);
-        self.ended
-            .set_description(Some(&gtk::glib::markup_escape_text(&description)));
-        self.page = Page::Ended;
+        }
     }
 }
 

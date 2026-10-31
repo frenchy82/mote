@@ -7,7 +7,7 @@ use ironrdp_connector::credssp::CredsspSequence;
 use ironrdp_connector::sspi::generator::NetworkRequest;
 use ironrdp_connector::{
     BitmapConfig, ClientConnector, ClientConnectorState, Config, ConnectionOutcome,
-    ConnectionResult, ConnectorErrorKind, ConnectorResult, Credentials, DesktopSize, ServerName,
+    ConnectionResult, ConnectorResult, Credentials, DesktopSize, ServerName,
 };
 use ironrdp_pdu::gcc;
 use ironrdp_pdu::nego::SecurityProtocol;
@@ -175,7 +175,7 @@ async fn attempt(
         ironrdp_tls::CertificateValidation::DangerouslyAcceptInvalidCertificate,
     )
     .await
-    .map_err(|e| Failure::opening(&e))?;
+    .map_err(|e| Failure::tls(&e))?;
     let mut tls = super::tap::Tap::new(tls);
     let der = certificate
         .to_der()
@@ -376,7 +376,9 @@ fn config(target: &Target) -> Config {
         platform: MajorPlatformType::UNIX,
         hardware_id: None,
         request_data: None,
-        autologon: false,
+        // xrdp signs in with the account in the Client Info PDU only when
+        // asked to; servers that did NLA already ignore it.
+        autologon: !target.password.is_empty(),
         enable_audio_playback: false,
         enable_audio_capture: false,
         performance_flags: PerformanceFlags::default(),
@@ -387,28 +389,6 @@ fn config(target: &Target) -> Config {
         pointer_software_rendering: false,
         multitransport_flags: None,
         support_dyn_vc_gfx_protocol: true,
-    }
-}
-
-impl Failure {
-    /// A failure before the session's security is set up. A server that
-    /// closes the connection then turns every client away.
-    fn opening(error: &(dyn std::error::Error + 'static)) -> Self {
-        use std::io::ErrorKind;
-        match super::io_kind(error) {
-            Some(ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof | ErrorKind::BrokenPipe) => {
-                tracing::warn!("opening: {}", describe(error));
-                Self::Unreachable(Unreachable::Closed)
-            }
-            _ => Self::Protocol(describe(error)),
-        }
-    }
-
-    fn from_connector(error: &ironrdp_connector::ConnectorError) -> Self {
-        match error.kind() {
-            ConnectorErrorKind::AccessDenied | ConnectorErrorKind::Credssp(_) => Self::Refused,
-            _ => Self::Protocol(describe(error)),
-        }
     }
 }
 

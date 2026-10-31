@@ -13,7 +13,7 @@ use ironrdp_tokio::{FramedWrite as _, single_sequence_step_read, split_tokio_fra
 use tokio::sync::mpsc;
 
 use super::connect::Framed;
-use super::{Command, Cursor, Ending, Event, Failure, Frame, Rect, describe};
+use super::{Command, Cursor, Disconnect, Ending, Event, Failure, Frame, Rect, describe};
 
 pub(super) enum Outcome {
     Ended(Ending),
@@ -71,10 +71,24 @@ pub(super) async fn run(
     }
     .build();
 
+    // The reason the server gave, ahead of ending the session.
+    let mut reason = None;
     loop {
         let outputs = tokio::select! {
             frame = reader.read_pdu() => {
-                let (action, mut payload) = frame.map_err(|e| Failure::Lost(describe(&e)))?;
+                let (action, mut payload) = match frame {
+                    Ok(frame) => frame,
+                    // A server that said why can close without more ado.
+                    Err(_) if reason.is_some() => {
+                        return Ok(Outcome::Ended(Ending::ServerClosed(reason)));
+                    }
+                    Err(e) => return Err(Failure::Lost(describe(&e))),
+                };
+                if action == ironrdp_pdu::Action::X224
+                    && let Some(info) = super::compat::error_info(&payload)
+                {
+                    reason = Disconnect::from_error_info(info).or(reason);
+                }
                 if action == ironrdp_pdu::Action::X224 && super::compat::normalize_redirection(&mut payload) {
                     tracing::debug!("took a FreeRDP-style redirection header");
                 }
@@ -143,11 +157,12 @@ pub(super) async fn run(
                     )
                     .await?;
                 }
-                ActiveStageOutput::Terminate(reason) => {
-                    return Ok(Outcome::Ended(Ending::ServerClosed(match reason {
-                        GracefulDisconnectReason::Other(text) => Some(text),
+                ActiveStageOutput::Terminate(why) => {
+                    let said = match why {
+                        GracefulDisconnectReason::Other(text) => Some(Disconnect::Other(text)),
                         _ => None,
-                    })));
+                    };
+                    return Ok(Outcome::Ended(Ending::ServerClosed(reason.or(said))));
                 }
                 ActiveStageOutput::ServerRedirection(pdu) => return Ok(Outcome::Redirect(pdu)),
                 _ => {}

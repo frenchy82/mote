@@ -38,6 +38,8 @@ ironrdp-dvc = "0.10"
 ironrdp-egfx = "0.5"
 # Each session runs on its own thread, on a single-threaded runtime.
 tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
+# Its errors, to tell an old TLS version from other handshake failures.
+rustls = { version = "0.23", default-features = false }
 # The server certificate's DER, for its fingerprint.
 x509-cert = "0.3"
 

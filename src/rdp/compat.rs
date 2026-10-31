@@ -1,6 +1,8 @@
 //! Fixes for what servers send that IronRDP doesn't yet take as it comes.
 
 use ironrdp_pdu::mcs;
+use ironrdp_pdu::rdp::headers::{self, ShareDataPdu};
+use ironrdp_pdu::rdp::server_error_info::{ErrorInfo, ServerSetErrorInfoPdu};
 
 /// The Enhanced Security Server Redirection PDU's `pduType`, as the spec
 /// has it: type 0xA with version 0 ([MS-RDPBCGR] 2.2.13.3.1).
@@ -29,6 +31,16 @@ pub(super) fn normalize_redirection(frame: &mut [u8]) -> bool {
     true
 }
 
+/// The reason in a Set Error Info PDU, which IronRDP turns into English
+/// before it reaches here.
+pub(super) fn error_info(frame: &[u8]) -> Option<ErrorInfo> {
+    let indication = mcs::decode_send_data_indication(frame).ok()?;
+    match headers::decode_share_data(indication).ok()?.pdu {
+        ShareDataPdu::ServerSetErrorInfo(ServerSetErrorInfoPdu(info)) => Some(info),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
@@ -55,6 +67,43 @@ mod tests {
         let mut bytes = frame(REDIRECTION_V1);
         assert!(normalize_redirection(&mut bytes));
         assert_eq!(bytes, frame(REDIRECTION));
+    }
+
+    #[test]
+    fn reads_the_reason_a_server_gives() {
+        use ironrdp_pdu::rdp::client_info::CompressionType;
+        use ironrdp_pdu::rdp::headers::{
+            CompressionFlags, ShareControlHeader, ShareControlPdu, ShareDataHeader, StreamPriority,
+        };
+        use ironrdp_pdu::rdp::server_error_info::ProtocolIndependentCode;
+
+        let taken_over = ErrorInfo::ProtocolIndependentCode(
+            ProtocolIndependentCode::DisconnectedByOtherconnection,
+        );
+        let header = ShareControlHeader {
+            share_control_pdu: ShareControlPdu::Data(ShareDataHeader {
+                share_data_pdu: ShareDataPdu::ServerSetErrorInfo(ServerSetErrorInfoPdu(taken_over)),
+                stream_priority: StreamPriority::Low,
+                compression_flags: CompressionFlags::empty(),
+                compression_type: CompressionType::K8,
+            }),
+            pdu_source: 1002,
+            share_id: 0x0001_03ea,
+        };
+        let bytes =
+            ironrdp_core::encode_vec(&X224(McsMessage::SendDataIndication(SendDataIndication {
+                initiator_id: 1002,
+                channel_id: 1003,
+                user_data: Cow::Owned(ironrdp_core::encode_vec(&header).expect("encodes")),
+            })))
+            .expect("encodes");
+        assert!(matches!(
+            error_info(&bytes),
+            Some(ErrorInfo::ProtocolIndependentCode(
+                ProtocolIndependentCode::DisconnectedByOtherconnection
+            ))
+        ));
+        assert!(error_info(&frame(0x0017)).is_none());
     }
 
     #[test]
