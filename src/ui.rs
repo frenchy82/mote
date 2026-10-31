@@ -2,3 +2,4 @@
 
 pub(crate) mod editor;
 pub(crate) mod preferences;
+pub(crate) mod session;

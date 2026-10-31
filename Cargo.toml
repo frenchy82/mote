@@ -23,6 +23,23 @@ toml = "1"
 # inside Flatpak. Async on tokio, the runtime relm4's commands already run.
 oo7 = { version = "0.6", default-features = false, features = ["tokio", "native_crypto"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# The RDP engine. The `ironrdp` umbrella crate lags its parts (it pins an
+# older connector), so the parts are named one by one, all from one release.
+ironrdp-connector = "0.12"
+ironrdp-session = "0.13"
+ironrdp-tokio = "0.12"
+ironrdp-tls = { version = "0.3", features = ["rustls-ring"] }
+ironrdp-input = "0.9"
+ironrdp-graphics = "0.11"
+ironrdp-pdu = "0.11"
+ironrdp-core = "0.3"
+ironrdp-dvc = "0.10"
+# The Graphics Pipeline, which GNOME Remote Desktop requires.
+ironrdp-egfx = "0.5"
+# Each session runs on its own thread, on a single-threaded runtime.
+tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
+# The server certificate's DER, for its fingerprint.
+x509-cert = "0.3"
 
 [build-dependencies]
 glib-build-tools = "0.22"

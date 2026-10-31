@@ -23,6 +23,13 @@ pub(super) fn page(conn: &Connection) -> adw::PreferencesPage {
         address.set_selectable(true);
         header.append(&address);
     }
+    let connect = gtk::Button::with_label(&i18n("Connect"));
+    connect.add_css_class("pill");
+    connect.add_css_class("suggested-action");
+    connect.set_halign(gtk::Align::Center);
+    connect.set_margin_top(12);
+    connect.set_action_name(Some("win.connect"));
+    header.append(&connect);
     let top = adw::PreferencesGroup::new();
     top.add(&header);
     page.add(&top);

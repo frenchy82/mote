@@ -5,10 +5,12 @@
 mod actions;
 mod details;
 mod files;
+mod sessions;
 mod showcase;
 mod sidebar;
 
 use std::cell::Cell;
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -20,6 +22,7 @@ use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
 use crate::ui::editor::{Editor, EditorInit, EditorOutput};
 use crate::ui::preferences::{PrefChange, Preferences};
+use crate::ui::session::Session;
 use crate::{APP_ID, APP_NAME, secrets};
 
 pub(crate) struct AppModel {
@@ -40,6 +43,8 @@ pub(crate) struct AppModel {
     quiet: Rc<Cell<bool>>,
     editor: Option<Controller<Editor>>,
     prefs: Option<Controller<Preferences>>,
+    /// Open sessions, by connection.
+    sessions: HashMap<String, Controller<Session>>,
 }
 
 #[derive(Debug)]
@@ -52,6 +57,15 @@ pub(crate) enum AppMsg {
     SearchActivated,
     FocusSearch,
     EditSelected,
+    ConnectSelected,
+    SessionConnected(String),
+    SessionRemember {
+        id: String,
+        username: String,
+        domain: String,
+        password: String,
+    },
+    SessionClosed(String),
     DuplicateSelected,
     DeleteSelected,
     Delete(String),
@@ -69,6 +83,7 @@ pub(crate) enum AppMsg {
     Pref(PrefChange),
     About,
     ShowcaseSettingsPage(String),
+    ShowcaseMinimize,
     ShowcaseCapture(String),
 }
 
@@ -270,6 +285,7 @@ impl Component for AppModel {
             quiet,
             editor: None,
             prefs: None,
+            sessions: HashMap::new(),
         };
         let split = &model.split.clone();
         let (search, search_bar, details, toasts) = (
@@ -328,6 +344,21 @@ impl Component for AppModel {
                     self.open_editor(conn, false, &sender, root);
                 }
             }
+            AppMsg::ConnectSelected => {
+                if let Some(id) = self.selected.clone() {
+                    self.connect(&id, &sender);
+                }
+            }
+            AppMsg::SessionConnected(id) => self.session_connected(&id),
+            AppMsg::SessionRemember {
+                id,
+                username,
+                domain,
+                password,
+            } => self.remember(&id, username, domain, password, &sender),
+            AppMsg::SessionClosed(id) => {
+                self.sessions.remove(&id);
+            }
             AppMsg::DuplicateSelected => self.duplicate_selected(&sender),
             AppMsg::DeleteSelected => {
                 if let Some(conn) = self.selected_connection() {
@@ -361,6 +392,7 @@ impl Component for AppModel {
             AppMsg::Pref(change) => self.apply_pref(change),
             AppMsg::About => actions::present_about(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
+            AppMsg::ShowcaseMinimize => root.minimize(),
             AppMsg::ShowcaseCapture(path) => self.showcase_capture(&path, root),
         }
     }

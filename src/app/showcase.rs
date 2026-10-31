@@ -6,7 +6,8 @@
 //!   `first` selects the first connection, `editor` opens it in the editor
 //!   (or a new one), `settings` or `settings:<page>` opens Settings and
 //!   captures that window instead, `about` opens About, `search:<text>`
-//!   opens the search with that text in it.
+//!   opens the search with that text in it, and `connect:<name>` connects
+//!   to the connection of that name and captures its session window.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -39,6 +40,21 @@ impl AppModel {
                     sender.input(AppMsg::ShowcaseSettingsPage(page.to_owned()));
                 }
                 ("about", _) => sender.input(AppMsg::About),
+                ("connect", name) => {
+                    if let Some(id) = self
+                        .connections
+                        .iter()
+                        .find(|c| c.title() == name)
+                        .map(|c| c.id.clone())
+                    {
+                        sender.input(AppMsg::Select(id));
+                        sender.input(AppMsg::ConnectSelected);
+                        // Nobody clicked Connect, so the compositor keeps
+                        // the new window behind this one, where input
+                        // can't reach it.
+                        sender.input(AppMsg::ShowcaseMinimize);
+                    }
+                }
                 ("search", text) => {
                     sender.input(AppMsg::FocusSearch);
                     self.search.set_text(text);
@@ -65,8 +81,10 @@ impl AppModel {
     }
 
     pub(super) fn showcase_capture(&self, path: &str, root: &adw::ApplicationWindow) {
-        let window: gtk::Widget = match &self.prefs {
-            Some(prefs) if prefs.widget().is_visible() => prefs.widget().clone().upcast(),
+        let session = self.sessions.values().next().map(|s| s.widget().clone());
+        let window: gtk::Widget = match (&self.prefs, session) {
+            (_, Some(session)) => session.upcast(),
+            (Some(prefs), _) if prefs.widget().is_visible() => prefs.widget().clone().upcast(),
             _ => root.clone().upcast(),
         };
         match capture(&window, path) {

@@ -116,6 +116,47 @@ pub(crate) fn save_connections(connections: &[Connection]) {
     save(&dir().join("connections.toml"), &file);
 }
 
+/// A server certificate trusted on first use, by the address it was
+/// reached at.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct TrustedServer {
+    host: String,
+    port: u16,
+    fingerprint: String,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+struct CertificatesFile {
+    #[serde(default, rename = "server")]
+    servers: Vec<TrustedServer>,
+}
+
+fn certificates_path() -> PathBuf {
+    dir().join("certificates.toml")
+}
+
+/// The fingerprint trusted for `host:port`, if any.
+pub(crate) fn trusted_fingerprint(host: &str, port: u16) -> Option<String> {
+    load::<CertificatesFile>(&certificates_path())?
+        .servers
+        .into_iter()
+        .find(|s| s.port == port && s.host.eq_ignore_ascii_case(host))
+        .map(|s| s.fingerprint)
+}
+
+/// Trust `fingerprint` for `host:port` from now on, in place of any other.
+pub(crate) fn trust_certificate(host: &str, port: u16, fingerprint: &str) {
+    let mut file = load::<CertificatesFile>(&certificates_path()).unwrap_or_default();
+    file.servers
+        .retain(|s| !(s.port == port && s.host.eq_ignore_ascii_case(host)));
+    file.servers.push(TrustedServer {
+        host: host.to_owned(),
+        port,
+        fingerprint: fingerprint.to_owned(),
+    });
+    save(&certificates_path(), &file);
+}
+
 /// Read a TOML file. One that doesn't parse (written by a newer version, or
 /// edited by hand) is moved aside first, so the next save can't overwrite
 /// what the user had.

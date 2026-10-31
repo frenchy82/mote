@@ -9,6 +9,7 @@ mod config;
 mod connection;
 mod i18n;
 mod import;
+mod rdp;
 mod secrets;
 mod ui;
 

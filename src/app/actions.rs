@@ -13,6 +13,7 @@ const ACTIONS: &[(&str, &[&str])] = &[
     ("new-connection", &["<Control>n"]),
     ("import-rdp", &["<Control>o"]),
     ("import-remmina", &[]),
+    ("connect", &["<Control>Return"]),
     ("edit", &["<Control>e"]),
     ("duplicate", &[]),
     ("export-rdp", &[]),
@@ -27,6 +28,7 @@ fn message(action: &str) -> AppMsg {
         "new-connection" => AppMsg::NewConnection(None),
         "import-rdp" => AppMsg::ImportRdp,
         "import-remmina" => AppMsg::ImportRemmina,
+        "connect" => AppMsg::ConnectSelected,
         "edit" => AppMsg::EditSelected,
         "duplicate" => AppMsg::DuplicateSelected,
         "export-rdp" => AppMsg::ExportSelected,
@@ -58,8 +60,20 @@ pub(super) fn install(window: &adw::ApplicationWindow, sender: &ComponentSender<
         })
         .build();
     app.add_action_entries([quit]);
-    app.set_accels_for_action("app.quit", &["<Control>q"]);
-    app.set_accels_for_action("window.close", &["<Control>w"]);
+
+    // Quit and Close are this window's shortcuts, not the application's:
+    // in a session window every key belongs to the remote desktop, and
+    // application shortcuts would reach it first. The win.* ones above
+    // pass through there, since a session window has no such actions.
+    let shortcuts = gtk::ShortcutController::new();
+    shortcuts.set_scope(gtk::ShortcutScope::Managed);
+    for (accel, action) in [("<Control>q", "app.quit"), ("<Control>w", "window.close")] {
+        shortcuts.add_shortcut(gtk::Shortcut::new(
+            gtk::ShortcutTrigger::parse_string(accel),
+            Some(gtk::NamedAction::new(action)),
+        ));
+    }
+    window.add_controller(shortcuts);
 }
 
 /// The burger menu above the sidebar, in Hylki's order: Settings first,
@@ -74,7 +88,10 @@ pub(super) fn main_menu() -> gio::Menu {
     help.append(Some(&i18n("About Mote")), Some("win.about"));
     menu.append_section(None, &help);
     let quit = gio::Menu::new();
-    quit.append(Some(&i18n("Quit")), Some("app.quit"));
+    let item = gio::MenuItem::new(Some(&i18n("Quit")), Some("app.quit"));
+    // Shown beside the item; the shortcut itself is the window's.
+    item.set_attribute_value("accel", Some(&"<Control>q".to_variant()));
+    quit.append_item(&item);
     menu.append_section(None, &quit);
     menu
 }

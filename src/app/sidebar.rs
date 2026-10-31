@@ -15,7 +15,8 @@ use crate::i18n::{i18n, i18n_f};
 
 const ROW_PREFIX: &str = "conn:";
 
-/// Selecting a row shows its connection; Delete asks to delete it.
+/// Selecting a row shows its connection, a double click connects to it,
+/// and Delete asks to delete it.
 pub(super) fn connect_list(
     list: &gtk::ListBox,
     quiet: &Rc<Cell<bool>>,
@@ -30,6 +31,15 @@ pub(super) fn connect_list(
             input.emit(AppMsg::Select(id));
         }
     });
+    // A double click connects, as it opens a file in Files.
+    let clicks = gtk::GestureClick::new();
+    let input = sender.input_sender().clone();
+    clicks.connect_pressed(move |_, n_press, _, _| {
+        if n_press == 2 {
+            input.emit(AppMsg::ConnectSelected);
+        }
+    });
+    list.add_controller(clicks);
     let keys = gtk::EventControllerKey::new();
     let input = sender.input_sender().clone();
     keys.connect_key_pressed(move |_, key, _, mods| {
