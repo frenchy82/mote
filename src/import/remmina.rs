@@ -85,6 +85,7 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
                     _ => Quality::Best,
                 }
             }
+            "disableclipboard" => conn.clipboard = value != "1",
             _ => {}
         }
     }
@@ -107,10 +108,12 @@ mod tests {
     }
 
     #[test]
-    fn reads_the_network_and_codec() {
-        let text = "[remmina]\nprotocol=RDP\nserver=lab\nnetwork=wan\ncolordepth=65\n";
+    fn reads_the_network_codec_and_clipboard() {
+        let text =
+            "[remmina]\nprotocol=RDP\nserver=lab\nnetwork=wan\ncolordepth=65\ndisableclipboard=1\n";
         let c = parse(text).unwrap();
         assert_eq!((c.network, c.quality), (Network::Wan, Quality::Avc420));
+        assert!(!c.clipboard);
     }
 
     #[test]

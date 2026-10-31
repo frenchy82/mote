@@ -37,6 +37,7 @@ struct Rows {
     scaling: adw::ComboRow,
     quality: adw::ComboRow,
     network: adw::ComboRow,
+    clipboard: adw::SwitchRow,
 }
 
 #[derive(Debug)]
@@ -122,6 +123,7 @@ impl Component for Editor {
             scaling: adw::ComboRow::new(),
             quality: adw::ComboRow::new(),
             network: adw::ComboRow::new(),
+            clipboard: adw::SwitchRow::new(),
         };
         let labels: Vec<String> = Scaling::ALL
             .into_iter()
@@ -162,6 +164,10 @@ impl Component for Editor {
                 .position(|n| *n == c.network)
                 .unwrap_or_default() as u32,
         );
+        rows.clipboard.set_title(&i18n("Clipboard"));
+        rows.clipboard
+            .set_subtitle(&i18n("Text only with KRdp; xrdp leaves out folders"));
+        rows.clipboard.set_active(c.clipboard);
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
         rows.password.set_title(&i18n("Password"));
@@ -211,6 +217,10 @@ impl Component for Editor {
         network.set_title(&i18n("Network"));
         network.add(&rows.network);
         page.add(&network);
+        let sharing = adw::PreferencesGroup::new();
+        sharing.set_title(&i18n("Sharing"));
+        sharing.add(&rows.clipboard);
+        page.add(&sharing);
 
         if !init.is_new {
             let id = c.id.clone();
@@ -271,6 +281,7 @@ impl Component for Editor {
                         .get(r.network.selected() as usize)
                         .copied()
                         .unwrap_or_default(),
+                    clipboard: r.clipboard.is_active(),
                     ..self.base.clone()
                 }
                 .normalized();

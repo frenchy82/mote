@@ -33,6 +33,7 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
                     .parse()
                     .map_or_else(|_| Network::default(), Network::from_number);
             }
+            "redirectclipboard" => conn.clipboard = value != "0",
             _ => {}
         }
     }
@@ -54,6 +55,7 @@ pub(crate) fn export(conn: &Connection) -> Vec<u8> {
     }
     lines.push("prompt for credentials:i:0".to_owned());
     lines.push(format!("connection type:i:{}", conn.network.number()));
+    lines.push(format!("redirectclipboard:i:{}", u8::from(conn.clipboard)));
     let text = lines.join("\r\n") + "\r\n";
     let mut out = vec![0xFF, 0xFE];
     for unit in text.encode_utf16() {
@@ -112,11 +114,13 @@ mod tests {
             port: 3390,
             username: "jo".into(),
             network: Network::Satellite,
+            clipboard: false,
             ..Connection::default()
         };
         let back = parse(&export(&c), "box").unwrap();
         assert!(back.same_target(&c));
         assert_eq!(back.network, Network::Satellite);
+        assert!(!back.clipboard);
     }
 
     #[test]
