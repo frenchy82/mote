@@ -60,7 +60,7 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
                         "{host} has no certificate for secure connections. Set one up in its remote desktop settings.",
                     ),
                     Security::LegacyOnly => named(
-                        "{host} only offers the old RDP security, which is not safe. On xrdp, set security_layer to tls or negotiate in xrdp.ini.",
+                        "{host} only offers the old RDP security, which is not safe. On xrdp, check that xrdp.ini sets security_layer to tls or negotiate, and that its certificate and key files exist.",
                     ),
                     Security::OldTls => named(
                         "{host} only offers an outdated version of TLS. Update its remote desktop server, or allow TLS 1.2 or later.",
@@ -74,7 +74,7 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
             Failure::Rejected => page(
                 could_not(),
                 named(
-                    "{host} ended the connection while it was being set up. Some servers, such as KRdp, need H.264 video, which is not supported yet.",
+                    "{host} ended the connection as it began, without saying why. KRdp does this when the user name or password is wrong.",
                 ),
             ),
             Failure::Lost(error) => {
@@ -94,6 +94,12 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
                 page(title, error)
             }
         },
+        Ending::ServerClosed(Some(Disconnect::Graphics)) => page(
+            could_not(),
+            named(
+                "{host} can only send its picture as H.264 video, which is not supported yet. KRdp works this way.",
+            ),
+        ),
         Ending::ServerClosed(Some(Disconnect::FreshCredentials)) => {
             Shown::SignIn(i18n("The computer asked for the password again."))
         }
@@ -112,7 +118,7 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
                 Some(Disconnect::ByAdministrator) => named("Someone on {host} ended the session."),
                 Some(Disconnect::Shutdown) => named("{host} is shutting down or restarting."),
                 Some(Disconnect::Licensing(text) | Disconnect::Other(text)) => text,
-                Some(Disconnect::FreshCredentials) | None => {
+                Some(Disconnect::FreshCredentials | Disconnect::Graphics) | None => {
                     i18n("The computer ended the session.")
                 }
             },

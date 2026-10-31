@@ -256,6 +256,18 @@ mod tests {
             height: 768,
         };
         let (handle, mut events) = start(target);
+        // MOTE_TEST_SECONDS: stay connected that long, for a desktop that
+        // takes a while to draw itself.
+        let stay = std::env::var("MOTE_TEST_SECONDS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok());
+        if let Some(seconds) = stay {
+            let closer = handle.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(seconds));
+                closer.send(Command::Close);
+            });
+        }
         let mut frames = 0;
         while let Some(event) = events.blocking_recv() {
             match event {
@@ -271,14 +283,21 @@ mod tests {
                     if let Ok(path) = std::env::var("MOTE_TEST_PICTURE") {
                         save_ppm(&path, &frame);
                     }
-                    eprintln!("frame {} damage {:?}", frames, frame.damage.first());
-                    // An idle desktop sends nothing more.
-                    handle.send(Command::Close);
+                    if frames == 1 {
+                        eprintln!("frame 1 damage {:?}", frame.damage.first());
+                    }
+                    if stay.is_some() {
+                        handle.send(Command::FrameDone);
+                    } else {
+                        // An idle desktop sends nothing more.
+                        handle.send(Command::Close);
+                    }
                 }
                 Event::Cursor(_) => eprintln!("cursor"),
                 Event::Ended(ending) => {
                     let text = match ending {
                         Ending::Closed => "closed".to_owned(),
+                        Ending::ServerClosed(Some(Disconnect::Graphics)) => "needs h264".to_owned(),
                         Ending::ServerClosed(_) => "server closed".to_owned(),
                         Ending::Failed(Failure::Refused) => "refused".to_owned(),
                         Ending::Failed(Failure::Untrusted) => "untrusted".to_owned(),
@@ -314,6 +333,7 @@ mod tests {
                 }
             }
         }
-        assert_eq!(frames, 1);
+        eprintln!("frames {frames}");
+        assert!(frames >= 1);
     }
 }

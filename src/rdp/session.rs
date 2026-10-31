@@ -1,6 +1,7 @@
 //! A running session: frames in, input out, until one side ends it.
 
 use ironrdp_connector::ConnectionResult;
+use ironrdp_connector::Sequence as _;
 use ironrdp_connector::connection_activation::ConnectionActivationState;
 use ironrdp_graphics::image_processing::PixelFormat;
 use ironrdp_pdu::geometry::{InclusiveRectangle, Rectangle as _};
@@ -9,7 +10,7 @@ use ironrdp_session::image::DecodedImage;
 use ironrdp_session::{
     ActiveStage, ActiveStageBuilder, ActiveStageOutput, GracefulDisconnectReason,
 };
-use ironrdp_tokio::{FramedWrite as _, single_sequence_step_read, split_tokio_framed};
+use ironrdp_tokio::{FramedWrite as _, split_tokio_framed};
 use tokio::sync::mpsc;
 
 use super::connect::Framed;
@@ -28,6 +29,8 @@ struct Desktop {
     damage: Vec<Rect>,
     /// A frame is with the interface, not yet drawn.
     in_flight: bool,
+    /// A frame has gone out.
+    shown: bool,
 }
 
 impl Desktop {
@@ -37,6 +40,7 @@ impl Desktop {
             image: DecodedImage::new(PixelFormat::BgrX32, width, height),
             damage: Vec::new(),
             in_flight: false,
+            shown: false,
         }
     }
 }
@@ -94,7 +98,7 @@ pub(super) async fn run(
                 }
                 stage
                     .process(&mut desktop.image, action, &payload, reader.last_read_at())
-                    .map_err(|e| Failure::Protocol(describe(&e)))?
+                    .map_err(|e| failed(&e, desktop.shown))?
             }
             command = commands.recv() => match command {
                 Some(Command::Input(input)) => stage
@@ -140,14 +144,17 @@ pub(super) async fn run(
                     send(events, Event::Cursor(Cursor::Bitmap(pointer))).await?;
                 }
                 ActiveStageOutput::DeactivateAll => {
-                    reactivate(
+                    if let Some(reason) = reactivate(
                         &mut stage,
                         &activation,
                         &mut reader,
                         &mut writer,
                         &mut desktop,
                     )
-                    .await?;
+                    .await?
+                    {
+                        return Ok(Outcome::Ended(Ending::ServerClosed(Some(reason))));
+                    }
                     send(
                         events,
                         Event::Connected {
@@ -179,26 +186,44 @@ pub(super) async fn run(
                 damage: std::mem::take(&mut desktop.damage),
             };
             desktop.in_flight = true;
+            desktop.shown = true;
             send(events, Event::Frame(frame)).await?;
         }
     }
 }
 
 /// The Deactivation-Reactivation Sequence: the server renegotiates, often
-/// with a new desktop size.
+/// with a new desktop size. `Ok(Some(reason))` when the server ends the
+/// session instead, as KRdp does when the client can't decode H.264.
 async fn reactivate(
     stage: &mut ActiveStage,
     activation: &ironrdp_connector::connection_activation::ConnectionActivationFactory,
     reader: &mut ironrdp_tokio::TokioFramed<tokio::io::ReadHalf<Box<dyn super::connect::Stream>>>,
     writer: &mut ironrdp_tokio::TokioFramed<tokio::io::WriteHalf<Box<dyn super::connect::Stream>>>,
     desktop: &mut Desktop,
-) -> Result<(), Failure> {
+) -> Result<Option<Disconnect>, Failure> {
     let mut sequence = activation.create();
     let mut buf = ironrdp_core::WriteBuf::new();
     loop {
-        let written = single_sequence_step_read(reader, &mut sequence, &mut buf)
-            .await
-            .map_err(|e| Failure::Protocol(describe(&e)))?;
+        buf.clear();
+        // Read here rather than in IronRDP's step, which turns the server's
+        // Set Error Info into English.
+        let written = match sequence.next_pdu_hint() {
+            Some(hint) => {
+                let pdu = reader
+                    .read_by_hint(hint)
+                    .await
+                    .map_err(|e| Failure::Lost(describe(&e)))?;
+                if let Some(reason) =
+                    super::compat::error_info(&pdu).and_then(Disconnect::from_error_info)
+                {
+                    return Ok(Some(reason));
+                }
+                sequence.step(&pdu, reader.last_read_at(), &mut buf)
+            }
+            None => sequence.step_no_input(&mut buf),
+        }
+        .map_err(|e| failed(&e, desktop.shown))?;
         if written.size().is_some() {
             writer
                 .write_all(buf.filled())
@@ -227,8 +252,19 @@ async fn reactivate(
                 ));
             }
             *desktop = Desktop::new(desktop_size.width, desktop_size.height);
-            return Ok(());
+            return Ok(None);
         }
+    }
+}
+
+/// A session error. A hang-up before the first frame, with no reason given,
+/// is KRdp's answer to a wrong password.
+fn failed(error: &(dyn std::error::Error + 'static), shown: bool) -> Failure {
+    let text = describe(error);
+    if !shown && text.contains("disconnect provider ultimatum") {
+        Failure::Rejected
+    } else {
+        Failure::Protocol(text)
     }
 }
 

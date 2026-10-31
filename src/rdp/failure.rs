@@ -7,7 +7,7 @@
 use ironrdp_connector::{ConnectorError, ConnectorErrorKind};
 use ironrdp_pdu::nego::FailureCode;
 use ironrdp_pdu::rdp::server_error_info::{
-    ErrorInfo, ProtocolIndependentCode, ProtocolIndependentLicensingCode,
+    ErrorInfo, ProtocolIndependentCode, ProtocolIndependentLicensingCode, RdpSpecificCode,
 };
 
 use super::{describe, io_kind};
@@ -31,7 +31,7 @@ pub(crate) enum Failure {
     Untrusted,
     /// No security both sides accept.
     Security(Security),
-    /// The server ended the connection while it was being set up.
+    /// The server ended the connection as it began, giving no reason.
     Rejected,
     /// The connection dropped.
     Lost(String),
@@ -77,6 +77,9 @@ pub(crate) enum Disconnect {
     Shutdown,
     /// The server wants the credentials typed again.
     FreshCredentials,
+    /// The server can't send its picture in a form this client decodes:
+    /// KRdp, which needs H.264.
+    Graphics,
     Licensing(String),
     Other(String),
 }
@@ -103,6 +106,12 @@ impl Failure {
         use std::io::ErrorKind;
         match error.kind() {
             ConnectorErrorKind::Negotiation(failure) => Self::Security(security(failure.code())),
+            // xrdp falls back to Standard RDP Security, rather than refusing
+            // as the spec has it, when set to it or when its certificate is
+            // missing; IronRDP says so only in its message.
+            ConnectorErrorKind::Reason(text) if text.contains("STANDARD_RDP_SECURITY") => {
+                Self::Security(Security::LegacyOnly)
+            }
             // What came back wasn't an X.224 Connection Confirm.
             ConnectorErrorKind::Decode(_) => Self::Unreachable(Unreachable::NotRdp),
             // Not even framed as RDP: an SSH or VNC port, say.
@@ -231,6 +240,7 @@ impl Disconnect {
                     Self::Licensing(code.description().to_owned())
                 }
             }
+            ErrorInfo::RdpSpecificCode(RdpSpecificCode::GraphicsSubsystemFailed) => Self::Graphics,
             other => Self::Other(other.description()),
         })
     }

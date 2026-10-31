@@ -103,9 +103,11 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 Built, and tried against a headless GNOME Remote Desktop: the certificate
 question, sign-in and a refused password, typing and clicking on the remote
 desktop, and a server that stops, isn't running, or closes every connection
-at once. GNOME Remote Login, on a second computer, hands the session over to
-its login screen. Still to try: the handover to the user's session after
-signing in there, xrdp and KRdp.
+at once. Then against real servers on Fedora 44: GNOME Remote Login, through
+the handover to its login screen and on to the user's session; xrdp 0.10.6
+with Xfce, signing in without its login screen, and set to the old RDP
+security or without a certificate; and KRdp 6.6.4, which turns the session
+down until H.264 arrives in section 6.
 
 GNOME Remote Desktop refuses a client without the graphics pipeline, so its
 basics arrived here rather than in section 6: the pipeline's channel, with
