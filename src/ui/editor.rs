@@ -38,6 +38,8 @@ struct Rows {
     quality: adw::ComboRow,
     network: adw::ComboRow,
     clipboard: adw::SwitchRow,
+    sound: adw::SwitchRow,
+    microphone: adw::SwitchRow,
 }
 
 #[derive(Debug)]
@@ -124,6 +126,8 @@ impl Component for Editor {
             quality: adw::ComboRow::new(),
             network: adw::ComboRow::new(),
             clipboard: adw::SwitchRow::new(),
+            sound: adw::SwitchRow::new(),
+            microphone: adw::SwitchRow::new(),
         };
         let labels: Vec<String> = Scaling::ALL
             .into_iter()
@@ -168,6 +172,14 @@ impl Component for Editor {
         rows.clipboard
             .set_subtitle(&i18n("Text only with KRdp; xrdp leaves out folders"));
         rows.clipboard.set_active(c.clipboard);
+        // Both depend on the server the same way.
+        let audio_limit = i18n("Not with KRdp; xrdp needs its PipeWire module");
+        rows.sound.set_title(&i18n("Sound"));
+        rows.sound.set_subtitle(&audio_limit);
+        rows.sound.set_active(c.sound);
+        rows.microphone.set_title(&i18n("Microphone"));
+        rows.microphone.set_subtitle(&audio_limit);
+        rows.microphone.set_active(c.microphone);
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
         rows.password.set_title(&i18n("Password"));
@@ -220,6 +232,8 @@ impl Component for Editor {
         let sharing = adw::PreferencesGroup::new();
         sharing.set_title(&i18n("Sharing"));
         sharing.add(&rows.clipboard);
+        sharing.add(&rows.sound);
+        sharing.add(&rows.microphone);
         page.add(&sharing);
 
         if !init.is_new {
@@ -282,6 +296,8 @@ impl Component for Editor {
                         .copied()
                         .unwrap_or_default(),
                     clipboard: r.clipboard.is_active(),
+                    sound: r.sound.is_active(),
+                    microphone: r.microphone.is_active(),
                     ..self.base.clone()
                 }
                 .normalized();

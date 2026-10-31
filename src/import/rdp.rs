@@ -34,6 +34,10 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
                     .map_or_else(|_| Network::default(), Network::from_number);
             }
             "redirectclipboard" => conn.clipboard = value != "0",
+            // 0 plays here; 1 leaves the sound on the remote machine and 2
+            // turns it off, which these servers treat alike.
+            "audiomode" => conn.sound = value == "0",
+            "audiocapturemode" => conn.microphone = value != "0",
             _ => {}
         }
     }
@@ -56,6 +60,8 @@ pub(crate) fn export(conn: &Connection) -> Vec<u8> {
     lines.push("prompt for credentials:i:0".to_owned());
     lines.push(format!("connection type:i:{}", conn.network.number()));
     lines.push(format!("redirectclipboard:i:{}", u8::from(conn.clipboard)));
+    lines.push(format!("audiomode:i:{}", u8::from(!conn.sound)));
+    lines.push(format!("audiocapturemode:i:{}", u8::from(conn.microphone)));
     let text = lines.join("\r\n") + "\r\n";
     let mut out = vec![0xFF, 0xFE];
     for unit in text.encode_utf16() {
@@ -115,12 +121,15 @@ mod tests {
             username: "jo".into(),
             network: Network::Satellite,
             clipboard: false,
+            sound: false,
+            microphone: true,
             ..Connection::default()
         };
         let back = parse(&export(&c), "box").unwrap();
         assert!(back.same_target(&c));
         assert_eq!(back.network, Network::Satellite);
         assert!(!back.clipboard);
+        assert!(!back.sound && back.microphone);
     }
 
     #[test]
