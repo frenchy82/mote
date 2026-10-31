@@ -186,7 +186,7 @@ impl Component for AppModel {
                         #[wrap(Some)]
                         set_content = &gtk::Stack {
                             add_named[Some("empty")] = &adw::StatusPage {
-                                set_icon_name: Some("network-server-symbolic"),
+                                set_icon_name: Some("co.hyprlab.Mote-symbolic"),
                                 set_title: &i18n("No Connections"),
                                 set_description: Some(&i18n("Add a connection, or import one from an .rdp file or from Remmina.")),
                                 #[wrap(Some)]
@@ -199,7 +199,7 @@ impl Component for AppModel {
                                 },
                             },
                             add_named[Some("none")] = &adw::StatusPage {
-                                set_icon_name: Some("network-server-symbolic"),
+                                set_icon_name: Some("co.hyprlab.Mote-symbolic"),
                                 set_title: &i18n("No Connection Selected"),
                             },
                             #[local_ref]

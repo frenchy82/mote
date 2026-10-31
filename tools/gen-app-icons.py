@@ -1,37 +1,43 @@
 #!/usr/bin/env python3
-"""Regenerate the app icon from its master, data/icons/src/default.png.
+"""Regenerate the app icon from its master, data/icons/src/default.svg.
 
-The master is a 1024² PNG drawn edge to edge. GNOME's app icon grid puts a
-square icon in 104 of its 128 pixels, so each size is the master shrunk to
-that box and centered; without the margin Mote would stand larger than the
-icons beside it in the dash and the overview.
+The master is drawn on GNOME's 128 pixel app icon grid. It becomes the
+scalable hicolor icon, 256 and 512 pixel PNGs beside it for anything that
+wants a bitmap, and the README artwork, data/repo/logo.png. The PNGs are
+rendered with librsvg, the renderer GNOME uses, so they match what the
+desktop draws from the SVG.
 
-Writes the hicolor icons (data/icons/hicolor/<n>x<n>/apps/co.hyprlab.Mote.png,
-which data/mote.gresource.xml also embeds in the binary) and the README
-artwork, data/repo/logo.png.
+The symbolic icon (data/icons/hicolor/symbolic/apps) is drawn by hand, not
+generated, so it is left alone.
 
-Requires ImageMagick.
+Requires python3-gobject with the Rsvg typelib, and pycairo.
 """
-import pathlib, subprocess
+import pathlib, shutil, sys
+
+import cairo, gi
+gi.require_version("Rsvg", "2.0")
+from gi.repository import Rsvg
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-MASTER = ROOT / "data/icons/src/default.png"
+MASTER = ROOT / "data/icons/src/default.svg"
 HICOLOR = ROOT / "data/icons/hicolor"
 APP_ID = "co.hyprlab.Mote"
-SIZES = (32, 48, 64, 128, 256, 512)
 
 
 def render(png: pathlib.Path, size: int) -> None:
     png.parent.mkdir(parents=True, exist_ok=True)
-    body = round(size * 104 / 128)
-    subprocess.run(
-        ["magick", str(MASTER), "-filter", "Lanczos", "-resize", f"{body}x{body}",
-         "-background", "none", "-gravity", "center", "-extent", f"{size}x{size}",
-         "-strip", str(png)],
-        check=True,
-    )
+    handle = Rsvg.Handle.new_from_file(str(MASTER))
+    surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, size, size)
+    rect = Rsvg.Rectangle()
+    rect.x, rect.y, rect.width, rect.height = 0, 0, size, size
+    if not handle.render_document(cairo.Context(surface), rect):
+        sys.exit(f"librsvg could not render {MASTER}")
+    surface.write_to_png(str(png))
 
 
-for size in SIZES:
+scalable = HICOLOR / f"scalable/apps/{APP_ID}.svg"
+scalable.parent.mkdir(parents=True, exist_ok=True)
+shutil.copyfile(MASTER, scalable)
+for size in (256, 512):
     render(HICOLOR / f"{size}x{size}/apps/{APP_ID}.png", size)
 render(ROOT / "data/repo/logo.png", 512)

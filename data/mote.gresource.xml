@@ -1,13 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- The app icon, built into the binary (build.rs) so a run straight from
-     target/ shows it too. GTK searches <base path>/icons as part of hicolor. -->
+<!-- The app icons, built into the binary (build.rs) so a run straight from
+     target/ shows them too. GTK searches <base path>/icons as part of hicolor. -->
 <gresources>
   <gresource prefix="/co/hyprlab/Mote">
-    <file alias="icons/32x32/apps/co.hyprlab.Mote.png">icons/hicolor/32x32/apps/co.hyprlab.Mote.png</file>
-    <file alias="icons/48x48/apps/co.hyprlab.Mote.png">icons/hicolor/48x48/apps/co.hyprlab.Mote.png</file>
-    <file alias="icons/64x64/apps/co.hyprlab.Mote.png">icons/hicolor/64x64/apps/co.hyprlab.Mote.png</file>
-    <file alias="icons/128x128/apps/co.hyprlab.Mote.png">icons/hicolor/128x128/apps/co.hyprlab.Mote.png</file>
-    <file alias="icons/256x256/apps/co.hyprlab.Mote.png">icons/hicolor/256x256/apps/co.hyprlab.Mote.png</file>
-    <file alias="icons/512x512/apps/co.hyprlab.Mote.png">icons/hicolor/512x512/apps/co.hyprlab.Mote.png</file>
+    <file alias="icons/scalable/apps/co.hyprlab.Mote.svg">icons/hicolor/scalable/apps/co.hyprlab.Mote.svg</file>
+    <file alias="icons/symbolic/apps/co.hyprlab.Mote-symbolic.svg">icons/hicolor/symbolic/apps/co.hyprlab.Mote-symbolic.svg</file>
   </gresource>
 </gresources>
