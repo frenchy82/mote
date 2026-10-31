@@ -174,6 +174,15 @@ Tried against all three servers, which differ:
   within a second of that, holding nothing new, is taken as the echo and
   leaves the local clipboard alone.
 
+Copying a picture file to GNOME Remote Login froze Carbon's screen. It runs
+Copyous, a clipboard history extension that previews a copied picture with
+GdkPixbuf on GNOME Shell's own thread. GNOME Remote Desktop serves the
+file from a FUSE mount that asks the client for each read as it comes, 4
+kilobytes per round trip, and Carbon is on Wi-Fi: the shell waited for
+the whole picture to cross. Any client would do the same. Copyous leaves a
+file alone that matches its `file-preview-exclusion-patterns`, such as
+`file:///run/user/*/gnome-remote-desktop/**`.
+
 Tried in the app against the headless GNOME Remote Desktop, with a GTK
 application on each side, and through the engine against all three. Not
 yet tried: the Flatpak, where local files come through the file transfer
