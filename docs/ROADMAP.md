@@ -18,26 +18,24 @@ Every section that touches the protocol is checked against:
 
 ## Protocol engine
 
-To be decided before section 3. The proposal is
 [IronRDP](https://github.com/Devolutions/IronRDP), the RDP stack Devolutions
 writes in Rust. At 0.17 it has a client connector with TLS and CredSSP (NLA),
 the graphics pipeline with OpenH264 decoding, the clipboard, display control,
 sound, drive redirection, smart cards and RD Gateway, all as separate crates.
 Being Rust, it runs on the session's own async runtime and needs no C bindings.
 
-The alternative is FreeRDP 3 through bindings, the engine Remmina uses. It
-supports more devices (USB, serial and parallel ports, printers) but costs a
-C API surface, a callback-driven event loop and a larger Flatpak. If IronRDP
-comes up short on something a section needs, that section adds it upstream
-or reconsiders.
+FreeRDP 3, the engine Remmina uses, was the alternative. It supports more
+devices (USB, serial and parallel ports), at the cost of a C API surface, a
+callback-driven event loop and a larger Flatpak. Where IronRDP comes up short
+on something a section needs, that section adds it upstream.
 
 ## Sections
 
 | # | Section | State |
 | --- | --- | --- |
 | 1 | Foundation | Done |
-| 2 | Connections | Next |
-| 3 | First session | |
+| 2 | Connections | Done |
+| 3 | First session | Next |
 | 4 | HiDPI and resizing | |
 | 5 | Clipboard | |
 | 6 | Graphics pipeline | |
@@ -60,10 +58,12 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
   config directory.
 - Passwords in the Secret Service (the GNOME keyring, or the secret portal
   inside Flatpak), never in the profile.
-- The connection list: search, groups, last-used order, a quick-connect field
-  that takes `host[:port]`.
+- The connection list: search, groups, last-used order, and a search field
+  that takes `host[:port]`: Enter on an address nothing matches starts a new
+  connection to it. Connecting straight from it comes with section 3.
 - The connection editor, as a libadwaita dialog with preferences pages.
-- Import of `.rdp` files and of Remmina's `.remmina` profiles.
+- Import of `.rdp` files and of Remmina's `.remmina` profiles, and export
+  to `.rdp`.
 
 ### 3. First session
 

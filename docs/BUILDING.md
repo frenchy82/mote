@@ -33,6 +33,16 @@ for example `MOTE_LOG=mote=debug`.
 A release build (`cargo build --release`) is slower to make and is only
 needed for packaging or for judging performance.
 
+## Pictures of the interface
+
+With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
+of its window and quits, so a change to the interface can be checked without
+anyone at the keyboard. `MOTE_SHOWCASE_OPEN` takes comma-separated steps:
+`first` selects the first connection, `editor` opens the editor, and
+`settings` or `settings:<page>` opens Settings and pictures that window.
+Point `XDG_CONFIG_HOME` at a scratch directory to keep it away from your own
+connections.
+
 ## Tests
 
 ```sh
