@@ -403,6 +403,7 @@ impl Clipboard {
                 Ok(Vec::new())
             }
             Note::Wanted(format) => {
+                tracing::debug!("the server asks for format {:#x}", format.value());
                 let (reply, receiver) = oneshot::channel();
                 self.answers.push_back(Answer {
                     format,
@@ -421,7 +422,7 @@ impl Clipboard {
                             .await;
                     }
                     None => {
-                        tracing::debug!("the server asked for format {:#x}", format.value());
+                        tracing::debug!("nothing here as format {:#x}", format.value());
                         let _ = reply.send(None);
                     }
                 }
@@ -471,6 +472,13 @@ impl Clipboard {
                 self.fetched(step, stage)
             }
             Note::FileWanted(request) => {
+                tracing::debug!(
+                    "the server asks for file {} {:?} at {}, {} bytes",
+                    request.index,
+                    request.flags,
+                    request.position,
+                    request.requested_size
+                );
                 let response = files::serve(&self.offered, &request);
                 let messages = channel(stage).map(|c| c.submit_file_contents(response));
                 send(stage, messages)

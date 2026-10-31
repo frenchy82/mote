@@ -351,11 +351,24 @@ mod tests {
                         Kind::Image if png => Some(Content::Png(
                             b"\x89PNG\x0d\x0a\x1a\x0a\x00\x00\x00\x0dIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0dIDATx\x9cc\xf8\xcf\xc0\xf0\x1f\x00\x05\x00\x01\xff\x89\x99=\x1d\x00\x00\x00\x00IEND\xaeB`\x82".to_vec(),
                         )),
-                        Kind::Image => Some(Content::Image(Image {
-                            width: 2,
-                            height: 1,
-                            rgba: vec![255, 0, 0, 255, 0, 0, 255, 255],
-                        })),
+                        // MOTE_TEST_IMAGE=<width>x<height>: a larger picture.
+                        Kind::Image => Some(Content::Image(
+                            std::env::var("MOTE_TEST_IMAGE")
+                                .ok()
+                                .and_then(|s| {
+                                    let (w, h) = s.split_once('x')?;
+                                    let (width, height): (u32, u32) = (w.parse().ok()?, h.parse().ok()?);
+                                    let rgba = (0..width * height)
+                                        .flat_map(|i| [(i % 251) as u8, (i % 241) as u8, (i % 239) as u8, 255])
+                                        .collect();
+                                    Some(Image { width, height, rgba })
+                                })
+                                .unwrap_or(Image {
+                                    width: 2,
+                                    height: 1,
+                                    rgba: vec![255, 0, 0, 255, 0, 0, 255, 255],
+                                }),
+                        )),
                         Kind::Files => None,
                     });
                 }
