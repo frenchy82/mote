@@ -110,6 +110,15 @@ MOTE_TEST_SERVER=localhost:3399 cargo test -- --ignored live
 sets what it logs; `MOTE_LOG=mote::wire=trace` adds the start of every
 message sent and received.
 
+### The clipboard
+
+`MOTE_TEST_CLIPBOARD=<text>` makes the live test offer the server that
+text, with HTML and a picture beside it, and fetch whatever is copied on
+the remote desktop while it runs (`MOTE_TEST_SECONDS`), files into
+`MOTE_TEST_FETCH` (`/tmp/mote-fetch` by default). `MOTE_TEST_FILES` offers
+files instead, as paths split by `:`. `MOTE_LOG=mote=debug` logs the
+formats each side offers.
+
 ### Measuring performance
 
 `MOTE_LOG=mote::stats=info`, for the app or the live test, logs what a

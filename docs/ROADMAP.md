@@ -50,7 +50,7 @@ on something a section needs, that section adds it upstream.
 | 2 | Connections | Done |
 | 3 | First session | Done |
 | 4 | HiDPI and resizing | Testing |
-| 5 | Clipboard | |
+| 5 | Clipboard | Testing |
 | 6 | Graphics pipeline | Testing |
 | 7 | Audio | |
 | 8 | Device redirection | |
@@ -136,6 +136,48 @@ screens of different scales.
 
 Text, rich text, images and files in both directions (MS-RDPECLIP), through
 GDK's clipboard, with a per-connection switch.
+
+Built on IronRDP's clipboard channel. What is copied on either side is
+offered to the other and fetched only when something pastes it: text, HTML,
+pictures (PNG here; PNG and DIB on the wire) and files with their folders.
+Files pasted here from a remote desktop are fetched into the cache
+directory, which the host sees from inside the Flatpak too, and cleared out
+when the app next starts. Wayland gives a window the clipboard only while
+it has the focus, so something copied elsewhere reaches the server once the
+session's window is focused again. The switch is in the editor, and comes
+in and out with `.rdp` files (`redirectclipboard`) and Remmina profiles
+(`disableclipboard`).
+
+Tried against all three servers, which differ:
+
+| Server | Text | HTML | Pictures | Files |
+| --- | --- | --- | --- | --- |
+| GNOME Remote Desktop | Both ways | Neither way | Both ways | Both ways, with folders |
+| xrdp | Both ways | Neither way | Both ways | Both ways, without folders |
+| KRdp | Both ways | Neither way | Neither way | Neither way |
+
+- GNOME Remote Desktop converts HTML with FreeRDP's WinPR, whose conversion
+  from Windows' HTML Format to `text/html` can't succeed in WinPR 3.32, the
+  version Fedora 44 has: HTML fails for every client, and the plain text
+  beside it is what pastes. It fails a request that comes while it answers
+  another, so Mote asks for one thing at a time. It gives its applications a
+  picture as PNG when the client offers PNG, and as BMP otherwise, so Mote
+  offers both.
+- xrdp offers text and BMP pictures, nothing richer, and leaves folders out
+  when files are copied either way. It passes Windows' CRLF line endings on
+  to its applications, where GNOME Remote Desktop and KRdp turn them into
+  LF, so Mote sends text with the LF endings it has. When what was copied
+  there is gone before it is pasted here, xrdp never answers; a paste waits
+  30 seconds at most.
+- KRdp shares plain text only, and offers a picture as empty text. It
+  announces back what it has just taken from the client; an announcement
+  within a second of that, holding nothing new, is taken as the echo and
+  leaves the local clipboard alone.
+
+Tried in the app against the headless GNOME Remote Desktop, with a GTK
+application on each side, and through the engine against all three. Not
+yet tried: the Flatpak, where local files come through the file transfer
+portal.
 
 ### 6. Graphics pipeline
 
