@@ -45,6 +45,11 @@ ironrdp-rdpsnd = "0.11"
 ironrdp-rdpeai = "0.2"
 # Static channels, which Mote wraps the sound channel's in.
 ironrdp-svc = "0.10"
+# A shared folder, served by IronRDP's backend for Unix, and the calls
+# Mote's corrections to it make on the folder.
+ironrdp-rdpdr = "0.9"
+ironrdp-rdpdr-native = "0.9"
+nix = { version = "0.31", features = ["fs"] }
 # H.264 through the system's OpenH264, loaded at run time: no C++ to build,
 # and Cisco's patent license stays with Cisco's library.
 openh264 = { version = "0.9", default-features = false, features = ["libloading"] }

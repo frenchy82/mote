@@ -154,6 +154,10 @@ async fn attempt(
     if let Some(channel) = audio.static_channel() {
         connector = connector.with_static_channel(channel);
     }
+    if let Some(folder) = &target.folder {
+        let computer = gtk::glib::host_name().chars().take(15).collect::<String>();
+        connector = connector.with_static_channel(super::devices::channel(folder, &computer));
+    }
     if let Some(pdu) = redirect {
         connector = with_redirection(connector, pdu);
     }

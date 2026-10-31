@@ -30,6 +30,8 @@ pub(crate) struct Connection {
     pub(crate) sound: bool,
     /// Send the microphone to the remote desktop.
     pub(crate) microphone: bool,
+    /// A folder lent to the remote desktop; empty for none.
+    pub(crate) folder: String,
 }
 
 /// How the remote desktop meets the window.
@@ -163,6 +165,7 @@ impl Default for Connection {
             clipboard: true,
             sound: true,
             microphone: false,
+            folder: String::new(),
         }
     }
 }
@@ -172,6 +175,12 @@ pub(crate) fn new_id() -> String {
 }
 
 impl Connection {
+    /// The folder to lend, if there is one still there to lend.
+    pub(crate) fn shared_folder(&self) -> Option<std::path::PathBuf> {
+        let folder = std::path::PathBuf::from(&self.folder);
+        (!self.folder.is_empty() && folder.is_dir()).then_some(folder)
+    }
+
     /// What the connection is called on screen.
     pub(crate) fn title(&self) -> &str {
         if self.name.trim().is_empty() {

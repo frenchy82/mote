@@ -7,6 +7,7 @@ mod audio;
 pub(crate) mod clipboard;
 mod compat;
 mod connect;
+mod devices;
 mod failure;
 mod frames;
 pub(crate) mod h264;
@@ -44,6 +45,8 @@ pub(crate) struct Target {
     /// Play the remote desktop's sound here; send the microphone there.
     pub(crate) sound: bool,
     pub(crate) microphone: bool,
+    /// A folder to lend the remote desktop.
+    pub(crate) folder: Option<std::path::PathBuf>,
 }
 
 pub(crate) enum Event {
@@ -446,6 +449,8 @@ mod tests {
             // sends the microphone.
             sound: std::env::var_os("MOTE_TEST_SOUND").is_some(),
             microphone: std::env::var_os("MOTE_TEST_MICROPHONE").is_some(),
+            // MOTE_TEST_FOLDER=<dir>: lend that folder.
+            folder: std::env::var_os("MOTE_TEST_FOLDER").map(Into::into),
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
         if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {
