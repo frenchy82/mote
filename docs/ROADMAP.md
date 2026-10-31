@@ -48,8 +48,8 @@ on something a section needs, that section adds it upstream.
 | --- | --- | --- |
 | 1 | Foundation | Done |
 | 2 | Connections | Done |
-| 3 | First session | Testing |
-| 4 | HiDPI and resizing | |
+| 3 | First session | Done |
+| 4 | HiDPI and resizing | Testing |
 | 5 | Clipboard | |
 | 6 | Graphics pipeline | |
 | 7 | Audio | |
@@ -122,6 +122,15 @@ the codecs IronRDP decodes without H.264.
 - Scaling modes: resize the remote desktop, fit to the window, or one remote
   pixel per device pixel.
 - Fullscreen.
+
+Built: the desktop is asked for in device pixels with the screen's scale,
+and Display Control resizes it with the window, a moment after the window
+settles; the pointer is drawn at the same scale. The scaling mode is chosen
+per connection, in the editor or the session's menu. Fullscreen arrived with
+section 3. Tried at 1×, 1.25× and 2× against a headless GNOME Remote
+Desktop, and resizing against GNOME Remote Login and xrdp, which reopens its
+graphics channel after a resize. Not yet tried: moving a window between
+screens of different scales.
 
 ### 5. Clipboard
 

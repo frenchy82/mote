@@ -1,19 +1,23 @@
-//! The remote desktop on screen: frames drawn as one texture, scaled to fit
-//! the widget, and the keyboard, pointer and wheel sent back as input.
+//! The remote desktop on screen: frames drawn as one texture, placed as the
+//! scaling mode says, and the keyboard, pointer and wheel sent back as input.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use gtk::glib::subclass::prelude::*;
 use gtk::prelude::*;
-use gtk::subclass::widget::WidgetImpl;
+use gtk::subclass::widget::{WidgetImpl, WidgetImplExt};
 use gtk::{gdk, glib, graphene, gsk};
+use ironrdp_graphics::pointer::DecodedPointer;
 use ironrdp_input::{Database, MouseButton, MousePosition, Operation, Scancode, WheelRotations};
 use ironrdp_pdu::input::fast_path::FastPathInputEvent;
 
+use crate::connection::Scaling;
 use crate::rdp::{self, keymap};
 
 type InputSink = Rc<dyn Fn(Vec<FastPathInputEvent>)>;
+type SizeSink = Rc<dyn Fn()>;
 
 mod imp {
     use super::*;
@@ -22,6 +26,13 @@ mod imp {
     pub(crate) struct Display {
         pub(super) texture: RefCell<Option<gdk::Texture>>,
         pub(super) input: RefCell<Option<InputSink>>,
+        /// Told when the widget's size or the screen's scale changes.
+        pub(super) on_size: RefCell<Option<SizeSink>>,
+        pub(super) mode: Cell<Scaling>,
+        /// The server's pointer, kept to draw it again at a new scale.
+        pub(super) pointer: RefCell<Option<Arc<DecodedPointer>>>,
+        /// The surface whose scale is followed, and the handler doing it.
+        pub(super) watched: RefCell<Option<(gdk::Surface, glib::SignalHandlerId)>>,
         /// What is held down on the server's side, so a key or button
         /// still down when focus leaves can be let go of.
         pub(super) state: RefCell<Database>,
@@ -49,19 +60,67 @@ mod imp {
     }
 
     impl WidgetImpl for Display {
+        /// At Actual Size the desktop's size, so that a scrolled window can
+        /// scroll it; otherwise nothing, to take whatever room there is.
+        fn measure(&self, orientation: gtk::Orientation, _: i32) -> (i32, i32, i32, i32) {
+            let widget = self.obj();
+            let texture = self.texture.borrow();
+            match (self.mode.get(), texture.as_ref()) {
+                (Scaling::Actual, Some(texture)) => {
+                    let pixels = match orientation {
+                        gtk::Orientation::Horizontal => texture.width(),
+                        _ => texture.height(),
+                    };
+                    let size = (f64::from(pixels) / device_scale(&*widget)).ceil() as i32;
+                    (size, size, -1, -1)
+                }
+                _ => (0, 0, -1, -1),
+            }
+        }
+
+        fn size_allocate(&self, width: i32, height: i32, baseline: i32) {
+            self.parent_size_allocate(width, height, baseline);
+            self.obj().size_changed();
+        }
+
+        fn realize(&self) {
+            self.parent_realize();
+            let widget = self.obj();
+            let Some(surface) = widget.native().and_then(|n| n.surface()) else {
+                return;
+            };
+            let handler = surface.connect_scale_notify(glib::clone!(
+                #[weak]
+                widget,
+                move |_| {
+                    // The window moved to a screen with another scale.
+                    widget.queue_resize();
+                    widget.size_changed();
+                }
+            ));
+            self.watched.replace(Some((surface, handler)));
+        }
+
+        fn unrealize(&self) {
+            if let Some((surface, handler)) = self.watched.take() {
+                surface.disconnect(handler);
+            }
+            self.parent_unrealize();
+        }
+
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             let widget = self.obj();
             let (w, h) = (widget.width() as f32, widget.height() as f32);
             snapshot.append_color(&gdk::RGBA::BLACK, &graphene::Rect::new(0.0, 0.0, w, h));
             if let Some(texture) = self.texture.borrow().as_ref() {
-                let fit = Fit::new(&*widget, texture);
+                let place = Placement::new(&*widget, texture, self.mode.get());
                 let bounds = graphene::Rect::new(
-                    fit.x as f32,
-                    fit.y as f32,
-                    texture.width() as f32 * fit.scale as f32,
-                    texture.height() as f32 * fit.scale as f32,
+                    place.x as f32,
+                    place.y as f32,
+                    texture.width() as f32 * place.scale as f32,
+                    texture.height() as f32 * place.scale as f32,
                 );
-                snapshot.append_scaled_texture(texture, gsk::ScalingFilter::Linear, &bounds);
+                snapshot.append_scaled_texture(texture, place.filter, &bounds);
             }
         }
     }
@@ -79,10 +138,40 @@ impl Default for Display {
     }
 }
 
+/// The screen's scale where the widget is, fractional ones included.
+pub(super) fn device_scale(widget: &impl IsA<gtk::Widget>) -> f64 {
+    widget
+        .native()
+        .and_then(|n| n.surface())
+        .map(|s| s.scale())
+        .filter(|s| *s > 0.0)
+        .unwrap_or_else(|| f64::from(widget.scale_factor()))
+}
+
 impl Display {
     /// Where input goes: to the session.
     pub(crate) fn set_input(&self, sink: impl Fn(Vec<FastPathInputEvent>) + 'static) {
         self.imp().input.replace(Some(Rc::new(sink)));
+    }
+
+    /// Told when the room for the desktop, or the screen's scale, changes.
+    pub(crate) fn set_on_size(&self, sink: impl Fn() + 'static) {
+        self.imp().on_size.replace(Some(Rc::new(sink)));
+    }
+
+    pub(crate) fn set_mode(&self, mode: Scaling) {
+        self.imp().mode.set(mode);
+        self.queue_resize();
+        self.queue_draw();
+        self.refresh_cursor();
+    }
+
+    fn size_changed(&self) {
+        self.refresh_cursor();
+        let sink = self.imp().on_size.borrow().clone();
+        if let Some(sink) = sink {
+            sink();
+        }
     }
 
     /// Show a frame. Only its damaged parts are uploaded again: the old
@@ -90,6 +179,9 @@ impl Display {
     pub(crate) fn show_frame(&self, frame: rdp::Frame) {
         let (width, height) = (i32::from(frame.width), i32::from(frame.height));
         let previous = self.imp().texture.borrow().clone();
+        let resized = previous
+            .as_ref()
+            .is_none_or(|t| t.width() != width || t.height() != height);
         let bytes = glib::Bytes::from_owned(frame.pixels);
         let mut builder = gdk::MemoryTextureBuilder::new()
             .set_bytes(Some(&bytes))
@@ -97,7 +189,7 @@ impl Display {
             .set_height(height)
             .set_stride(frame.stride)
             .set_format(gdk::MemoryFormat::B8g8r8x8);
-        if let Some(previous) = previous.filter(|t| t.width() == width && t.height() == height) {
+        if let Some(previous) = previous.filter(|_| !resized) {
             let rects: Vec<_> = frame
                 .damage
                 .iter()
@@ -108,34 +200,73 @@ impl Display {
                 .set_update_region(Some(&gtk::cairo::Region::create_rectangles(&rects)));
         }
         self.imp().texture.replace(Some(builder.build()));
+        if resized {
+            // A new desktop size: a new natural size at Actual Size, and a
+            // new scale for the pointer.
+            self.queue_resize();
+            self.refresh_cursor();
+        }
         self.queue_draw();
     }
 
     pub(crate) fn set_remote_cursor(&self, cursor: rdp::Cursor) {
         let cursor = match cursor {
-            rdp::Cursor::Default => None,
-            rdp::Cursor::Hidden => gdk::Cursor::from_name("none", None),
+            rdp::Cursor::Default => {
+                self.imp().pointer.replace(None);
+                None
+            }
+            rdp::Cursor::Hidden => {
+                self.imp().pointer.replace(None);
+                gdk::Cursor::from_name("none", None)
+            }
             rdp::Cursor::Bitmap(pointer) => {
-                let (w, h) = (i32::from(pointer.width), i32::from(pointer.height));
-                if w == 0 || h == 0 {
-                    gdk::Cursor::from_name("none", None)
-                } else {
-                    let texture = gdk::MemoryTexture::new(
-                        w,
-                        h,
-                        gdk::MemoryFormat::R8g8b8a8,
-                        &glib::Bytes::from(&pointer.bitmap_data),
-                        w as usize * 4,
-                    );
-                    Some(gdk::Cursor::from_texture(
-                        &texture,
-                        i32::from(pointer.hotspot_x),
-                        i32::from(pointer.hotspot_y),
-                        None,
-                    ))
-                }
+                self.imp().pointer.replace(Some(pointer));
+                return self.refresh_cursor();
             }
         };
+        self.set_cursor(cursor.as_ref());
+    }
+
+    /// Draw the server's pointer at the size the desktop is drawn at, so it
+    /// is as sharp as the screen allows.
+    fn refresh_cursor(&self) {
+        let Some(pointer) = self.imp().pointer.borrow().clone() else {
+            return;
+        };
+        let (w, h) = (i32::from(pointer.width), i32::from(pointer.height));
+        if w == 0 || h == 0 {
+            self.set_cursor(gdk::Cursor::from_name("none", None).as_ref());
+            return;
+        }
+        let scale = self
+            .imp()
+            .texture
+            .borrow()
+            .as_ref()
+            .map_or(1.0 / device_scale(self), |t| {
+                Placement::new(self, t, self.imp().mode.get()).scale
+            });
+        let texture = gdk::MemoryTexture::new(
+            w,
+            h,
+            gdk::MemoryFormat::R8g8b8a8,
+            &glib::Bytes::from(&pointer.bitmap_data),
+            w as usize * 4,
+        );
+        let logical = |pixels: u16| ((f64::from(pixels) * scale).round() as i32).max(1);
+        let size = (logical(pointer.width), logical(pointer.height));
+        let hotspot = (
+            (f64::from(pointer.hotspot_x) * scale).round() as i32,
+            (f64::from(pointer.hotspot_y) * scale).round() as i32,
+        );
+        let cursor = gdk::Cursor::from_callback(
+            move |_, _, _, width, height, hotspot_x, hotspot_y| {
+                (*width, *height) = size;
+                (*hotspot_x, *hotspot_y) = hotspot;
+                texture.clone().upcast()
+            },
+            None,
+        );
         self.set_cursor(cursor.as_ref());
     }
 
@@ -157,32 +288,53 @@ impl Display {
     /// The desktop position under a point of the widget.
     fn remote_point(&self, x: f64, y: f64) -> Option<MousePosition> {
         let texture = self.imp().texture.borrow().clone()?;
-        let fit = Fit::new(self, &texture);
+        let place = Placement::new(self, &texture, self.imp().mode.get());
         let max_x = f64::from(texture.width() - 1);
         let max_y = f64::from(texture.height() - 1);
         Some(MousePosition {
-            x: ((x - fit.x) / fit.scale).clamp(0.0, max_x) as u16,
-            y: ((y - fit.y) / fit.scale).clamp(0.0, max_y) as u16,
+            x: ((x - place.x) / place.scale).clamp(0.0, max_x) as u16,
+            y: ((y - place.y) / place.scale).clamp(0.0, max_y) as u16,
         })
     }
 }
 
-/// How the desktop sits in the widget: scaled to fit, centered.
-struct Fit {
+/// Where the desktop sits in the widget, and at what scale: widget pixels
+/// to a desktop pixel.
+struct Placement {
     x: f64,
     y: f64,
     scale: f64,
+    filter: gsk::ScalingFilter,
 }
 
-impl Fit {
-    fn new(widget: &impl IsA<gtk::Widget>, texture: &gdk::Texture) -> Self {
+impl Placement {
+    fn new(widget: &impl IsA<gtk::Widget>, texture: &gdk::Texture, mode: Scaling) -> Self {
+        let device = device_scale(widget);
         let (w, h) = (f64::from(widget.width()), f64::from(widget.height()));
         let (tw, th) = (f64::from(texture.width()), f64::from(texture.height()));
-        let scale = (w / tw).min(h / th);
+        let fit = (w / tw).min(h / th);
+        // One desktop pixel to one screen pixel.
+        let actual = 1.0 / device;
+        let scale = match mode {
+            Scaling::Fit => fit,
+            // Until the server catches up with a resize, shrink to fit a
+            // desktop that is too large, but never enlarge one.
+            Scaling::Resize => actual.min(fit),
+            Scaling::Actual => actual,
+        };
+        // Centered, and on whole screen pixels, so 1:1 stays sharp.
+        let align =
+            |room: f64, used: f64| (((room - used) / 2.0).max(0.0) * device).floor() / device;
+        let sharp = (scale * device - 1.0).abs() < 1e-6;
         Self {
-            x: (w - tw * scale) / 2.0,
-            y: (h - th * scale) / 2.0,
+            x: align(w, tw * scale),
+            y: align(h, th * scale),
             scale,
+            filter: if sharp {
+                gsk::ScalingFilter::Nearest
+            } else {
+                gsk::ScalingFilter::Linear
+            },
         }
     }
 }

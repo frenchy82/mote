@@ -27,9 +27,11 @@ pub(crate) struct Target {
     pub(crate) username: String,
     pub(crate) password: String,
     pub(crate) domain: String,
-    /// The desktop size to ask for, in pixels.
+    /// The desktop size to ask for, in the screen's own pixels.
     pub(crate) width: u16,
     pub(crate) height: u16,
+    /// The screen's scale, in percent: 200 on a 2× screen.
+    pub(crate) scale: u32,
 }
 
 pub(crate) enum Event {
@@ -89,6 +91,13 @@ pub(crate) enum Cursor {
 
 pub(crate) enum Command {
     Input(Vec<FastPathInputEvent>),
+    /// Make the remote desktop this size, in the screen's own pixels, at
+    /// this scale in percent.
+    Resize {
+        width: u32,
+        height: u32,
+        scale: u32,
+    },
     /// The last frame is on screen; the next can come.
     FrameDone,
     Close,
@@ -161,7 +170,12 @@ async fn drive(
             connected = connect::connect(target, redirect.take(), events) => connected?,
             () = closed(commands) => return Ok(Ending::Closed),
         };
-        match session::run(framed, result, events, commands).await? {
+        let opened = (
+            u32::from(target.width),
+            u32::from(target.height),
+            target.scale,
+        );
+        match session::run(framed, result, events, commands, opened).await? {
             session::Outcome::Ended(ending) => return Ok(ending),
             // A server can hand the session on after it starts: GNOME's
             // Remote Login does, once someone logs in at its login screen.
@@ -254,6 +268,7 @@ mod tests {
             domain: String::new(),
             width: 1024,
             height: 768,
+            scale: 100,
         };
         let (handle, mut events) = start(target);
         // MOTE_TEST_SECONDS: stay connected that long, for a desktop that
@@ -269,6 +284,7 @@ mod tests {
             });
         }
         let mut frames = 0;
+        let mut last_size = (0, 0);
         while let Some(event) = events.blocking_recv() {
             match event {
                 Event::Certificate {
@@ -285,6 +301,25 @@ mod tests {
                     }
                     if frames == 1 {
                         eprintln!("frame 1 damage {:?}", frame.damage.first());
+                        // MOTE_TEST_RESIZE=<width>x<height>@<scale>: ask for
+                        // that size after the first frame.
+                        if let Some((width, height, scale)) =
+                            std::env::var("MOTE_TEST_RESIZE").ok().and_then(|s| {
+                                let (size, scale) = s.split_once('@')?;
+                                let (w, h) = size.split_once('x')?;
+                                Some((w.parse().ok()?, h.parse().ok()?, scale.parse().ok()?))
+                            })
+                        {
+                            handle.send(Command::Resize {
+                                width,
+                                height,
+                                scale,
+                            });
+                        }
+                    }
+                    if frame.width != last_size.0 || frame.height != last_size.1 {
+                        eprintln!("frame size {}x{}", frame.width, frame.height);
+                        last_size = (frame.width, frame.height);
                     }
                     if stay.is_some() {
                         handle.send(Command::FrameDone);

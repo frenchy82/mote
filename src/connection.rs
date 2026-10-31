@@ -21,6 +21,39 @@ pub(crate) struct Connection {
     pub(crate) domain: String,
     /// Unix seconds of the last session, 0 for never.
     pub(crate) last_used: i64,
+    pub(crate) scaling: Scaling,
+}
+
+/// How the remote desktop meets the window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum Scaling {
+    /// The remote desktop takes the window's size and the screen's scale,
+    /// and follows both.
+    #[default]
+    Resize,
+    /// The remote desktop keeps its size; its picture is scaled to fit.
+    Fit,
+    /// One remote pixel to each pixel of the screen, scrolled when larger
+    /// than the window.
+    Actual,
+}
+
+impl Scaling {
+    pub(crate) const ALL: [Self; 3] = [Self::Resize, Self::Fit, Self::Actual];
+
+    /// The name an action state carries.
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            Self::Resize => "resize",
+            Self::Fit => "fit",
+            Self::Actual => "actual",
+        }
+    }
+
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|s| s.key() == key)
+    }
 }
 
 impl Default for Connection {
@@ -34,6 +67,7 @@ impl Default for Connection {
             username: String::new(),
             domain: String::new(),
             last_used: 0,
+            scaling: Scaling::default(),
         }
     }
 }

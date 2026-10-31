@@ -7,6 +7,8 @@ mod display;
 mod endings;
 mod pages;
 
+pub(crate) use pages::scaling_label;
+
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -15,7 +17,7 @@ use gtk::{gio, glib};
 use relm4::prelude::*;
 use tokio::sync::oneshot;
 
-use crate::connection::Connection;
+use crate::connection::{Connection, Scaling};
 use crate::i18n::i18n;
 use crate::rdp::{self, Ending, Event, Trust};
 use crate::{config, secrets};
@@ -40,6 +42,9 @@ pub(crate) struct Session {
     fullscreen: Rc<Cell<bool>>,
     /// The window whose fullscreen state is followed.
     watched: Option<gtk::Window>,
+    scaling: Scaling,
+    /// Counts size changes, so only the last of a quick run is sent.
+    resizes: u32,
     display: Display,
     sign_in: pages::SignIn,
     ended: adw::StatusPage,
@@ -82,6 +87,11 @@ pub(crate) enum SessionInput {
     /// Its window was mapped, perhaps a different one than before.
     Mapped,
     FullscreenChanged(bool),
+    SetScaling(Scaling),
+    /// The room for the desktop, or the screen's scale, changed.
+    Resized,
+    /// Send the size, unless a newer change came since.
+    SendSize(u32),
 }
 
 #[derive(Debug)]
@@ -99,6 +109,8 @@ pub(crate) enum SessionOutput {
     Stopped(String),
     Closed(String),
     ToggleSidebar,
+    /// The scaling mode was changed, to be kept.
+    Scaling(String, Scaling),
     Detach(String),
     Attach(String),
 }
@@ -182,7 +194,9 @@ impl Component for Session {
                     set_transition_type: gtk::StackTransitionType::Crossfade,
                     add_named: (sign_in_page, Some("sign-in")),
                     add_named: (&pages::connecting(&model.connection), Some("connecting")),
-                    add_named: (display, Some("desktop")),
+                    // Scrolls only at Actual Size, when the desktop is larger
+                    // than the window.
+                    add_named: (&gtk::ScrolledWindow::builder().child(display).build(), Some("desktop")),
                     add_named: (ended, Some("ended")),
                     #[watch]
                     set_visible_child_name: model.page.name(),
@@ -209,6 +223,8 @@ impl Component for Session {
             detached: false,
             fullscreen: Rc::new(Cell::new(false)),
             watched: None,
+            scaling: connection.scaling,
+            resizes: 0,
             display: Display::default(),
             sign_in,
             ended,
@@ -217,7 +233,12 @@ impl Component for Session {
             menu: pages::menu(false),
             connection,
         };
-        install_actions(&root, &sender);
+        install_actions(&root, &sender, model.scaling);
+        model.display.set_mode(model.scaling);
+        let input = sender.input_sender().clone();
+        model
+            .display
+            .set_on_size(move || input.emit(SessionInput::Resized));
         reveal_at_top_edge(&root, &model.fullscreen);
         let (stack, toasts, display, ended) = (
             &model.stack.clone(),
@@ -289,6 +310,35 @@ impl Component for Session {
                 }
             }
             SessionInput::Mapped => self.watch_window(root, &sender),
+            SessionInput::SetScaling(scaling) => {
+                self.scaling = scaling;
+                self.display.set_mode(scaling);
+                let _ = sender.output(SessionOutput::Scaling(self.connection.id.clone(), scaling));
+                sender.input(SessionInput::Resized);
+            }
+            SessionInput::Resized => {
+                // A window being dragged to a new size changes it many
+                // times a second; the server hears the size it settles on.
+                self.resizes = self.resizes.wrapping_add(1);
+                let (input, resizes) = (sender.input_sender().clone(), self.resizes);
+                glib::timeout_add_local_once(std::time::Duration::from_millis(300), move || {
+                    input.emit(SessionInput::SendSize(resizes));
+                });
+            }
+            SessionInput::SendSize(resizes) => {
+                if resizes == self.resizes
+                    && self.scaling == Scaling::Resize
+                    && self.page == Page::Desktop
+                    && let (Some(handle), Some((width, height, scale))) =
+                        (&self.handle, self.desktop_size())
+                {
+                    handle.send(rdp::Command::Resize {
+                        width: width.into(),
+                        height: height.into(),
+                        scale,
+                    });
+                }
+            }
             SessionInput::FullscreenChanged(fullscreen) => {
                 self.fullscreen.set(fullscreen);
                 root.set_reveal_top_bars(!fullscreen);
@@ -363,7 +413,7 @@ impl Session {
         self.page = Page::Connecting;
         // The desktop is asked for at the page's size, so wait for there to
         // be one.
-        let Some((width, height)) = self.desktop_size() else {
+        let Some((width, height, scale)) = self.desktop_size() else {
             // Polled rather than tied to the page's frame clock, which
             // doesn't run while another connection is showing.
             let input = sender.input_sender().clone();
@@ -389,6 +439,7 @@ impl Session {
             domain: self.domain.clone(),
             width,
             height,
+            scale,
         };
         let (handle, mut events) = rdp::start(target);
         let input = handle.clone();
@@ -410,10 +461,12 @@ impl Session {
         });
     }
 
-    /// The size to ask the server for: what the window has room for.
-    /// `None` until there is a size to go by. A session whose page isn't
-    /// showing has none of its own, and takes its window's.
-    fn desktop_size(&self) -> Option<(u16, u16)> {
+    /// The size to ask the server for, in the screen's own pixels, and the
+    /// screen's scale in percent: the room the window has, so that one
+    /// desktop pixel is one screen pixel. `None` until there is a size to
+    /// go by. A session whose page isn't showing has none of its own, and
+    /// takes its window's.
+    fn desktop_size(&self) -> Option<(u16, u16, u32)> {
         let (w, h) = match (self.stack.width(), window_of(&self.stack)) {
             (0, Some(window)) if window.width() > 0 => {
                 // Less the header the page would have.
@@ -422,10 +475,13 @@ impl Session {
             (0, _) => return None,
             (w, _) => (w, self.stack.height()),
         };
+        let device = display::device_scale(&self.stack);
+        let pixels = |logical: i32| (f64::from(logical) * device).round() as i32;
         // Servers want an even width, and nothing smaller than 200.
-        let w = (w.clamp(200, 8192) & !1) as u16;
-        let h = h.clamp(200, 8192) as u16;
-        Some((w, h))
+        let w = (pixels(w).clamp(200, 8192) & !1) as u16;
+        let h = pixels(h).clamp(200, 8192) as u16;
+        let scale = ((device * 100.0).round() as u32).clamp(100, 500);
+        Some((w, h, scale))
     }
 
     fn event(&mut self, event: Event, sender: &ComponentSender<Self>, root: &adw::ToolbarView) {
@@ -527,8 +583,22 @@ fn window_of(widget: &impl IsA<gtk::Widget>) -> Option<gtk::Window> {
 }
 
 /// The session menu's actions, under `session.`.
-fn install_actions(root: &adw::ToolbarView, sender: &ComponentSender<Session>) {
+fn install_actions(root: &adw::ToolbarView, sender: &ComponentSender<Session>, scaling: Scaling) {
     let group = gio::SimpleActionGroup::new();
+    let scale = gio::SimpleAction::new_stateful(
+        "scaling",
+        Some(glib::VariantTy::STRING),
+        &scaling.key().to_variant(),
+    );
+    let input = sender.input_sender().clone();
+    scale.connect_activate(move |action, value| {
+        let Some(scaling) = value.and_then(|v| v.str()).and_then(Scaling::from_key) else {
+            return;
+        };
+        action.set_state(&scaling.key().to_variant());
+        input.emit(SessionInput::SetScaling(scaling));
+    });
+    group.add_action(&scale);
     for (name, message) in [
         (
             "disconnect",

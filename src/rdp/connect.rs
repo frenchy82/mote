@@ -305,14 +305,20 @@ async fn credssp(
     Ok(())
 }
 
-/// The dynamic channels, carrying the Graphics Pipeline. Its output lands in
-/// the session's image by way of the session itself.
+/// The dynamic channels: the Graphics Pipeline, whose output lands in the
+/// session's image by way of the session itself, and Display Control. Each
+/// is made afresh whenever the server opens it: xrdp opens both again after
+/// a resize.
 fn channels() -> ironrdp_dvc::DrdynvcClient {
     struct Pictures;
     impl ironrdp_egfx::client::GraphicsPipelineHandler for Pictures {}
-    ironrdp_dvc::DrdynvcClient::new().with_dynamic_channel(
-        ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(Pictures), None),
-    )
+    ironrdp_dvc::DrdynvcClient::new()
+        .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, || {
+            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(Pictures), None)
+        })
+        .with_dynamic_channel_factory(ironrdp_displaycontrol::CHANNEL_NAME, || {
+            ironrdp_displaycontrol::client::DisplayControlClient::new(|_| Ok(Vec::new()))
+        })
 }
 
 fn with_redirection(connector: ClientConnector, pdu: &ServerRedirectionPdu) -> ClientConnector {
@@ -339,10 +345,15 @@ fn config(target: &Target) -> Config {
             height: target.height,
         },
         monitor_layout: None,
-        desktop_scale_factor: 0,
+        desktop_scale_factor: target.scale,
         desktop_physical_size: None,
         desktop_orientation: None,
-        device_scale_factor: None,
+        // Of the three the protocol allows, the nearest.
+        device_scale_factor: Some(match target.scale {
+            ..125 => 100,
+            125..165 => 140,
+            _ => 180,
+        }),
         monitor_extended_layout: None,
         relative_mouse_input: false,
         enable_tls: true,

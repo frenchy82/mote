@@ -34,6 +34,8 @@ ironrdp-graphics = "0.11"
 ironrdp-pdu = "0.11"
 ironrdp-core = "0.3"
 ironrdp-dvc = "0.10"
+# Display Control, which resizes the remote desktop with the window.
+ironrdp-displaycontrol = "0.10"
 # The Graphics Pipeline, which GNOME Remote Desktop requires.
 ironrdp-egfx = "0.5"
 # Each session runs on its own thread, on a single-threaded runtime.

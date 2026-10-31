@@ -52,6 +52,12 @@ impl AppModel {
             SessionOutput::ToggleSidebar => {
                 self.split.set_show_sidebar(!self.split.shows_sidebar())
             }
+            SessionOutput::Scaling(id, scaling) => {
+                if let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) {
+                    connection.scaling = scaling;
+                    config::save_connections(&self.connections);
+                }
+            }
             SessionOutput::Detach(id) => self.detach(&id, sender),
             SessionOutput::Attach(id) => self.attach(&id),
         }

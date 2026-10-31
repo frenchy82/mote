@@ -5,7 +5,7 @@ use adw::prelude::*;
 use relm4::prelude::*;
 
 use super::{Session, SessionInput};
-use crate::connection::Connection;
+use crate::connection::{Connection, Scaling};
 use crate::i18n::{i18n, i18n_f};
 
 /// What the sign-in page holds.
@@ -122,10 +122,26 @@ pub(super) fn menu(detached: bool) -> gtk::gio::Menu {
         Some("session.move"),
     );
     menu.append_section(None, &place);
+    let scaling = gtk::gio::Menu::new();
+    for mode in Scaling::ALL {
+        let item = gtk::gio::MenuItem::new(Some(&scaling_label(mode)), None);
+        item.set_action_and_target_value(Some("session.scaling"), Some(&mode.key().to_variant()));
+        scaling.append_item(&item);
+    }
+    menu.append_section(None, &scaling);
     let end = gtk::gio::Menu::new();
     end.append(Some(&i18n("Disconnect")), Some("session.disconnect"));
     menu.append_section(None, &end);
     menu
+}
+
+/// The scaling modes as the menu and the editor name them.
+pub(crate) fn scaling_label(mode: Scaling) -> String {
+    match mode {
+        Scaling::Resize => i18n("Resize to Window"),
+        Scaling::Fit => i18n("Scale to Fit"),
+        Scaling::Actual => i18n("Actual Size"),
+    }
 }
 
 pub(super) fn connecting(connection: &Connection) -> adw::StatusPage {

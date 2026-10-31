@@ -3,6 +3,7 @@
 use ironrdp_connector::ConnectionResult;
 use ironrdp_connector::Sequence as _;
 use ironrdp_connector::connection_activation::ConnectionActivationState;
+use ironrdp_displaycontrol::pdu::MonitorLayoutEntry;
 use ironrdp_graphics::image_processing::PixelFormat;
 use ironrdp_pdu::geometry::{InclusiveRectangle, Rectangle as _};
 use ironrdp_pdu::rdp::server_redirection::ServerRedirectionPdu;
@@ -50,6 +51,7 @@ pub(super) async fn run(
     result: ConnectionResult,
     events: &mpsc::Sender<Event>,
     commands: &mut mpsc::UnboundedReceiver<Command>,
+    opened: (u32, u32, u32),
 ) -> Result<Outcome, Failure> {
     let (mut reader, mut writer) = split_tokio_framed(framed);
     let size = result.desktop_size;
@@ -77,6 +79,10 @@ pub(super) async fn run(
 
     // The reason the server gave, ahead of ending the session.
     let mut reason = None;
+    // A resize asked for before Display Control is up, sent once it is.
+    let mut resize = None;
+    // The size last asked for, so a repeat isn't sent again.
+    let mut asked = opened;
     loop {
         let outputs = tokio::select! {
             frame = reader.read_pdu() => {
@@ -106,6 +112,10 @@ pub(super) async fn run(
                     .map_err(|e| Failure::Protocol(describe(&e)))?,
                 Some(Command::FrameDone) => {
                     desktop.in_flight = false;
+                    Vec::new()
+                }
+                Some(Command::Resize { width, height, scale }) => {
+                    resize = Some((width, height, scale));
                     Vec::new()
                 }
                 Some(Command::Close) | None => {
@@ -174,6 +184,10 @@ pub(super) async fn run(
                 ActiveStageOutput::ServerRedirection(pdu) => return Ok(Outcome::Redirect(pdu)),
                 _ => {}
             }
+        }
+
+        if let Some(size) = resize.take() {
+            resize = send_resize(&mut stage, &mut writer, &mut asked, size).await?;
         }
 
         if !desktop.damage.is_empty() && !desktop.in_flight {
@@ -255,6 +269,42 @@ async fn reactivate(
             return Ok(None);
         }
     }
+}
+
+/// Ask the server for a new desktop size over Display Control. Returns the
+/// request back when the channel isn't up yet; a server without it keeps
+/// its size, and the picture is scaled instead.
+async fn send_resize(
+    stage: &mut ActiveStage,
+    writer: &mut ironrdp_tokio::TokioFramed<tokio::io::WriteHalf<Box<dyn super::connect::Stream>>>,
+    asked: &mut (u32, u32, u32),
+    (width, height, scale): (u32, u32, u32),
+) -> Result<Option<(u32, u32, u32)>, Failure> {
+    let (width, height) = MonitorLayoutEntry::adjust_display_size(width, height);
+    if *asked == (width, height, scale) {
+        return Ok(None);
+    }
+    match stage.display_control_ready() {
+        Some(true) => {}
+        Some(false) => return Ok(Some((width, height, scale))),
+        None => {
+            tracing::debug!("the server has no Display Control; scaling instead");
+            return Ok(None);
+        }
+    }
+    match stage.encode_resize(width, height, Some(scale), None) {
+        Some(Ok(frame)) => {
+            tracing::debug!("asking for {width}×{height} at {scale}%");
+            *asked = (width, height, scale);
+            writer
+                .write_all(&frame)
+                .await
+                .map_err(|e| Failure::Lost(describe(&e)))?;
+        }
+        Some(Err(e)) => tracing::warn!("resizing: {}", describe(&e)),
+        None => return Ok(Some((width, height, scale))),
+    }
+    Ok(None)
 }
 
 /// A session error. A hang-up before the first frame, with no reason given,

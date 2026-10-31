@@ -7,7 +7,7 @@ use std::rc::Rc;
 use adw::prelude::*;
 use relm4::prelude::*;
 
-use crate::connection::{Connection, split_address};
+use crate::connection::{Connection, Scaling, split_address};
 use crate::i18n::i18n;
 use crate::secrets;
 
@@ -34,6 +34,7 @@ struct Rows {
     username: adw::EntryRow,
     domain: adw::EntryRow,
     password: adw::PasswordEntryRow,
+    scaling: adw::ComboRow,
 }
 
 #[derive(Debug)]
@@ -116,7 +117,21 @@ impl Component for Editor {
             username: entry(&i18n("User Name"), &c.username),
             domain: entry(&i18n("Domain"), &c.domain),
             password: adw::PasswordEntryRow::new(),
+            scaling: adw::ComboRow::new(),
         };
+        let labels: Vec<String> = Scaling::ALL
+            .into_iter()
+            .map(crate::ui::session::scaling_label)
+            .collect();
+        let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+        rows.scaling.set_title(&i18n("Scaling"));
+        rows.scaling.set_model(Some(&gtk::StringList::new(&labels)));
+        rows.scaling.set_selected(
+            Scaling::ALL
+                .iter()
+                .position(|s| *s == c.scaling)
+                .unwrap_or_default() as u32,
+        );
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
         rows.password.set_title(&i18n("Password"));
@@ -157,6 +172,10 @@ impl Component for Editor {
             account.add(row);
         }
         page.add(&account);
+        let display = adw::PreferencesGroup::new();
+        display.set_title(&i18n("Display"));
+        display.add(&rows.scaling);
+        page.add(&display);
 
         if !init.is_new {
             let id = c.id.clone();
@@ -205,6 +224,10 @@ impl Component for Editor {
                     group: r.group.text().into(),
                     username: r.username.text().into(),
                     domain: r.domain.text().into(),
+                    scaling: Scaling::ALL
+                        .get(r.scaling.selected() as usize)
+                        .copied()
+                        .unwrap_or_default(),
                     ..self.base.clone()
                 }
                 .normalized();

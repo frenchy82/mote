@@ -8,7 +8,8 @@
 //!   captures that window instead, `about` opens About, `search:<text>`
 //!   opens the search with that text in it, and `connect:<name>` connects
 //!   to the connection of that name; `detach` and `fullscreen` then do that
-//!   to its session.
+//!   to its session, and `scaling:<resize|fit|actual>` sets its scaling.
+//!   `delay:<seconds>` makes the steps after it wait that long.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -17,6 +18,7 @@ use adw::prelude::*;
 use relm4::prelude::*;
 
 use super::{AppModel, AppMsg};
+use crate::connection::Scaling;
 use crate::ui::preferences::PrefInput;
 use crate::ui::session::SessionInput;
 
@@ -26,22 +28,39 @@ impl AppModel {
             return;
         };
         let steps = std::env::var("MOTE_SHOWCASE_OPEN").unwrap_or_default();
+        let input = sender.input_sender().clone();
+        // Seconds the steps after a `delay:<seconds>` wait.
+        let mut wait = 0;
         for step in steps.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(seconds) = step.strip_prefix("delay:") {
+                wait += seconds.parse::<u64>().unwrap_or(1);
+                continue;
+            }
+            let send = |message: AppMsg| {
+                if wait == 0 {
+                    input.emit(message);
+                } else {
+                    let input = input.clone();
+                    gtk::glib::timeout_add_local_once(Duration::from_secs(wait), move || {
+                        input.emit(message);
+                    });
+                }
+            };
             match step.split_once(':').unwrap_or((step, "")) {
                 ("first", _) => {
                     if let Some(id) = super::sidebar::first_visible(&self.list) {
-                        sender.input(AppMsg::Select(id));
+                        send(AppMsg::Select(id));
                     }
                 }
                 ("editor", _) => match super::sidebar::first_visible(&self.list) {
-                    Some(_) if steps.contains("first") => sender.input(AppMsg::EditSelected),
-                    _ => sender.input(AppMsg::NewConnection(None)),
+                    Some(_) if steps.contains("first") => send(AppMsg::EditSelected),
+                    _ => send(AppMsg::NewConnection(None)),
                 },
                 ("settings", page) => {
-                    sender.input(AppMsg::OpenSettings);
-                    sender.input(AppMsg::ShowcaseSettingsPage(page.to_owned()));
+                    send(AppMsg::OpenSettings);
+                    send(AppMsg::ShowcaseSettingsPage(page.to_owned()));
                 }
-                ("about", _) => sender.input(AppMsg::About),
+                ("about", _) => send(AppMsg::About),
                 ("connect", name) => {
                     if let Some(id) = self
                         .connections
@@ -49,15 +68,15 @@ impl AppModel {
                         .find(|c| c.title() == name)
                         .map(|c| c.id.clone())
                     {
-                        sender.input(AppMsg::Select(id));
-                        sender.input(AppMsg::ConnectSelected);
+                        send(AppMsg::Select(id));
+                        send(AppMsg::ConnectSelected);
                     }
                 }
-                (step @ ("detach" | "fullscreen"), _) => {
-                    sender.input(AppMsg::ShowcaseSession(step.to_owned()));
+                (name @ ("detach" | "fullscreen" | "scaling"), argument) => {
+                    send(AppMsg::ShowcaseSession(format!("{name}:{argument}")));
                 }
                 ("search", text) => {
-                    sender.input(AppMsg::FocusSearch);
+                    send(AppMsg::FocusSearch);
                     self.search.set_text(text);
                 }
                 (other, _) => tracing::warn!("showcase: unknown step {other}"),
@@ -67,7 +86,6 @@ impl AppModel {
             .ok()
             .and_then(|d| d.parse().ok())
             .unwrap_or(3);
-        let input = sender.input_sender().clone();
         gtk::glib::timeout_add_local_once(Duration::from_secs(delay), move || {
             input.emit(AppMsg::ShowcaseCapture(path));
         });
@@ -77,8 +95,12 @@ impl AppModel {
         let Some(session) = self.sessions.values().next() else {
             return;
         };
-        session.emit(match step {
-            "detach" => SessionInput::ToggleDetached,
+        session.emit(match step.split_once(':') {
+            Some(("scaling", key)) => match Scaling::from_key(key) {
+                Some(scaling) => SessionInput::SetScaling(scaling),
+                None => return,
+            },
+            Some(("detach", _)) => SessionInput::ToggleDetached,
             _ => SessionInput::ToggleFullscreen,
         });
     }
