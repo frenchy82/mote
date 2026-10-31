@@ -152,7 +152,7 @@ async fn attempt(
 
     let should_upgrade = ironrdp_tokio::connect_begin(&mut framed, &mut connector)
         .await
-        .map_err(|e| Failure::from_connector(&e))?;
+        .map_err(|e| Failure::opening(&e))?;
     let (stream, leftover) = framed.into_inner();
     // The certificate is checked here, by fingerprint, before anything is
     // sent: servers on a LAN have self-signed certificates no authority
@@ -163,7 +163,7 @@ async fn attempt(
         ironrdp_tls::CertificateValidation::DangerouslyAcceptInvalidCertificate,
     )
     .await
-    .map_err(|e| Failure::Lost(describe(&e)))?;
+    .map_err(|e| Failure::opening(&e))?;
     let der = certificate
         .to_der()
         .map_err(|e| Failure::Protocol(e.to_string()))?;
@@ -367,6 +367,19 @@ fn config(target: &Target) -> Config {
 }
 
 impl Failure {
+    /// A failure before the session's security is set up. A server that
+    /// closes the connection then turns every client away.
+    fn opening(error: &(dyn std::error::Error + 'static)) -> Self {
+        use std::io::ErrorKind;
+        match super::io_kind(error) {
+            Some(ErrorKind::ConnectionReset | ErrorKind::UnexpectedEof | ErrorKind::BrokenPipe) => {
+                tracing::warn!("opening: {}", describe(error));
+                Self::Unreachable(Unreachable::Closed)
+            }
+            _ => Self::Protocol(describe(error)),
+        }
+    }
+
     fn from_connector(error: &ironrdp_connector::ConnectorError) -> Self {
         match error.kind() {
             ConnectorErrorKind::AccessDenied | ConnectorErrorKind::Credssp(_) => Self::Refused,

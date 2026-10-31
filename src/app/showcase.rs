@@ -7,7 +7,8 @@
 //!   (or a new one), `settings` or `settings:<page>` opens Settings and
 //!   captures that window instead, `about` opens About, `search:<text>`
 //!   opens the search with that text in it, and `connect:<name>` connects
-//!   to the connection of that name and captures its session window.
+//!   to the connection of that name; `detach` and `fullscreen` then do that
+//!   to its session.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -17,6 +18,7 @@ use relm4::prelude::*;
 
 use super::{AppModel, AppMsg};
 use crate::ui::preferences::PrefInput;
+use crate::ui::session::SessionInput;
 
 impl AppModel {
     pub(super) fn arm_showcase(&self, sender: &ComponentSender<Self>) {
@@ -49,11 +51,10 @@ impl AppModel {
                     {
                         sender.input(AppMsg::Select(id));
                         sender.input(AppMsg::ConnectSelected);
-                        // Nobody clicked Connect, so the compositor keeps
-                        // the new window behind this one, where input
-                        // can't reach it.
-                        sender.input(AppMsg::ShowcaseMinimize);
                     }
+                }
+                (step @ ("detach" | "fullscreen"), _) => {
+                    sender.input(AppMsg::ShowcaseSession(step.to_owned()));
                 }
                 ("search", text) => {
                     sender.input(AppMsg::FocusSearch);
@@ -72,6 +73,16 @@ impl AppModel {
         });
     }
 
+    pub(super) fn showcase_session(&self, step: &str) {
+        let Some(session) = self.sessions.values().next() else {
+            return;
+        };
+        session.emit(match step {
+            "detach" => SessionInput::ToggleDetached,
+            _ => SessionInput::ToggleFullscreen,
+        });
+    }
+
     pub(super) fn showcase_settings_page(&self, page: &str) {
         if let Some(prefs) = &self.prefs
             && !page.is_empty()
@@ -81,9 +92,9 @@ impl AppModel {
     }
 
     pub(super) fn showcase_capture(&self, path: &str, root: &adw::ApplicationWindow) {
-        let session = self.sessions.values().next().map(|s| s.widget().clone());
-        let window: gtk::Widget = match (&self.prefs, session) {
-            (_, Some(session)) => session.upcast(),
+        let detached = self.detached.values().next().cloned();
+        let window: gtk::Widget = match (&self.prefs, detached) {
+            (_, Some(window)) => window.upcast(),
             (Some(prefs), _) if prefs.widget().is_visible() => prefs.widget().clone().upcast(),
             _ => root.clone().upcast(),
         };

@@ -10,6 +10,10 @@
 .nav-row {
   padding: 7px 8px;
 }
+/* Marks a connection with a session open. */
+.session-dot {
+  color: @accent_color;
+}
 .row-name {
   font-weight: 600;
 }

@@ -109,6 +109,8 @@ pub(crate) enum Unreachable {
     /// Nothing listens on the port.
     Refused,
     NoAnswer,
+    /// It took the connection and closed it before anything began.
+    Closed,
     Other(String),
 }
 
@@ -223,6 +225,18 @@ async fn closed(commands: &mut mpsc::UnboundedReceiver<Command>) {
             return;
         }
     }
+}
+
+/// The I/O error at the root of an error, if there is one.
+fn io_kind(error: &(dyn std::error::Error + 'static)) -> Option<std::io::ErrorKind> {
+    let mut current = Some(error);
+    while let Some(e) = current {
+        if let Some(io) = e.downcast_ref::<std::io::Error>() {
+            return Some(io.kind());
+        }
+        current = e.source();
+    }
+    None
 }
 
 /// An error and its causes, on one line.

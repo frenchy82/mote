@@ -109,6 +109,25 @@ impl SignIn {
     }
 }
 
+/// The session menu. Detached, it offers the way back.
+pub(super) fn menu(detached: bool) -> gtk::gio::Menu {
+    let menu = gtk::gio::Menu::new();
+    let place = gtk::gio::Menu::new();
+    place.append(
+        Some(&if detached {
+            i18n("Return to Main Window")
+        } else {
+            i18n("Open in New Window")
+        }),
+        Some("session.move"),
+    );
+    menu.append_section(None, &place);
+    let end = gtk::gio::Menu::new();
+    end.append(Some(&i18n("Disconnect")), Some("session.disconnect"));
+    menu.append_section(None, &end);
+    menu
+}
+
 pub(super) fn connecting(connection: &Connection) -> adw::StatusPage {
     let page = adw::StatusPage::new();
     page.set_paintable(Some(&adw::SpinnerPaintable::new(Some(&page))));

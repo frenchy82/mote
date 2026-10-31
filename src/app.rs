@@ -15,6 +15,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use adw::prelude::*;
+use gtk::glib;
 use relm4::prelude::*;
 
 use crate::config::{self, ColorScheme, Settings};
@@ -22,7 +23,7 @@ use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
 use crate::ui::editor::{Editor, EditorInit, EditorOutput};
 use crate::ui::preferences::{PrefChange, Preferences};
-use crate::ui::session::Session;
+use crate::ui::session::{Session, SessionOutput};
 use crate::{APP_ID, APP_NAME, secrets};
 
 pub(crate) struct AppModel {
@@ -43,8 +44,12 @@ pub(crate) struct AppModel {
     quiet: Rc<Cell<bool>>,
     editor: Option<Controller<Editor>>,
     prefs: Option<Controller<Preferences>>,
+    /// The content pane: the chosen connection, or a session's page.
+    panes: gtk::Stack,
     /// Open sessions, by connection.
     sessions: HashMap<String, Controller<Session>>,
+    /// The windows of the sessions moved out of this one.
+    detached: HashMap<String, adw::ApplicationWindow>,
 }
 
 #[derive(Debug)]
@@ -58,14 +63,9 @@ pub(crate) enum AppMsg {
     FocusSearch,
     EditSelected,
     ConnectSelected,
-    SessionConnected(String),
-    SessionRemember {
-        id: String,
-        username: String,
-        domain: String,
-        password: String,
-    },
-    SessionClosed(String),
+    Session(SessionOutput),
+    /// End a session, as closing its window does.
+    CloseSession(String),
     DuplicateSelected,
     DeleteSelected,
     Delete(String),
@@ -83,7 +83,7 @@ pub(crate) enum AppMsg {
     Pref(PrefChange),
     About,
     ShowcaseSettingsPage(String),
-    ShowcaseMinimize,
+    ShowcaseSession(String),
     ShowcaseCapture(String),
 }
 
@@ -185,8 +185,11 @@ impl Component for AppModel {
                         },
                     },
 
+                    // The chosen connection, or the session open to it.
+                    #[local_ref]
                     #[wrap(Some)]
-                    set_content = &adw::ToolbarView {
+                    set_content = panes -> gtk::Stack {
+                    add_named[Some("browse")] = &adw::ToolbarView {
                         add_top_bar = &adw::HeaderBar {
                             add_css_class: "flat",
                             // The connection names itself in the page below.
@@ -243,6 +246,7 @@ impl Component for AppModel {
                             set_visible_child_name: model.content_page(),
                         },
                     },
+                    },
                 },
             },
         }
@@ -285,9 +289,12 @@ impl Component for AppModel {
             quiet,
             editor: None,
             prefs: None,
+            panes: gtk::Stack::new(),
             sessions: HashMap::new(),
+            detached: HashMap::new(),
         };
         let split = &model.split.clone();
+        let panes = &model.panes.clone();
         let (search, search_bar, details, toasts) = (
             &model.search.clone(),
             &model.search_bar.clone(),
@@ -313,6 +320,20 @@ impl Component for AppModel {
         narrow.add_setter(split, "collapsed", Some(&true.to_value()));
         root.add_breakpoint(narrow);
 
+        // Fullscreen is for a session: the sidebar steps aside meanwhile.
+        let sidebar_before = Cell::new(true);
+        root.connect_fullscreened_notify(glib::clone!(
+            #[weak]
+            split,
+            move |window| {
+                if window.is_fullscreen() {
+                    sidebar_before.set(split.shows_sidebar());
+                    split.set_show_sidebar(false);
+                } else {
+                    split.set_show_sidebar(sidebar_before.get());
+                }
+            }
+        ));
         actions::install(&root, &sender);
         model.rebuild_list();
         model.arm_showcase(&sender);
@@ -349,16 +370,8 @@ impl Component for AppModel {
                     self.connect(&id, &sender);
                 }
             }
-            AppMsg::SessionConnected(id) => self.session_connected(&id),
-            AppMsg::SessionRemember {
-                id,
-                username,
-                domain,
-                password,
-            } => self.remember(&id, username, domain, password, &sender),
-            AppMsg::SessionClosed(id) => {
-                self.sessions.remove(&id);
-            }
+            AppMsg::Session(output) => self.session_output(output, &sender),
+            AppMsg::CloseSession(id) => self.end_session(&id),
             AppMsg::DuplicateSelected => self.duplicate_selected(&sender),
             AppMsg::DeleteSelected => {
                 if let Some(conn) = self.selected_connection() {
@@ -392,7 +405,7 @@ impl Component for AppModel {
             AppMsg::Pref(change) => self.apply_pref(change),
             AppMsg::About => actions::present_about(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
-            AppMsg::ShowcaseMinimize => root.minimize(),
+            AppMsg::ShowcaseSession(step) => self.showcase_session(&step),
             AppMsg::ShowcaseCapture(path) => self.showcase_capture(&path, root),
         }
     }
@@ -429,14 +442,25 @@ impl AppModel {
 
     fn select(&mut self, id: Option<String>) {
         self.selected = id.filter(|id| self.connections.iter().any(|c| &c.id == id));
-        match self.selected_connection() {
-            Some(conn) => self.details.set_child(Some(&details::page(conn))),
-            None => self.details.set_child(None::<&gtk::Widget>),
-        }
+        self.refresh_details();
+        // A connection with a session open here shows the session.
+        let page = self
+            .selected
+            .as_deref()
+            .and_then(|id| self.session_page(id))
+            .unwrap_or_else(|| "browse".to_owned());
+        self.panes.set_visible_child_name(&page);
         self.highlight_selected();
         // Narrow, the sidebar covers the connection; get it out of the way.
         if self.selected.is_some() && self.split.is_collapsed() {
             self.split.set_show_sidebar(false);
+        }
+    }
+
+    fn refresh_details(&self) {
+        match self.selected_connection() {
+            Some(conn) => self.details.set_child(Some(&details::page(conn))),
+            None => self.details.set_child(None::<&gtk::Widget>),
         }
     }
 

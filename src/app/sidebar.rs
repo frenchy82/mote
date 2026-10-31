@@ -127,7 +127,8 @@ impl AppModel {
                 group = Some(&conn.group);
                 self.list.append(&heading(&conn.group));
             }
-            let row = connection_row(conn, self.settings.show_hosts);
+            let open = self.sessions.contains_key(&conn.id);
+            let row = connection_row(conn, self.settings.show_hosts, open);
             self.list.append(&row);
             if self.selected.as_deref() == Some(conn.id.as_str()) {
                 self.list.select_row(Some(&row));
@@ -165,7 +166,8 @@ fn heading(text: &str) -> gtk::ListBoxRow {
     row
 }
 
-fn connection_row(conn: &Connection, show_host: bool) -> gtk::ListBoxRow {
+/// A connection's row; `open` when a session to it is open.
+fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     row.set_widget_name(&format!("{ROW_PREFIX}{}", conn.id));
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
@@ -189,6 +191,13 @@ fn connection_row(conn: &Connection, show_host: bool) -> gtk::ListBoxRow {
         text.append(&host);
     }
     line.append(&text);
+    if open {
+        let dot = gtk::Image::from_icon_name("media-record-symbolic");
+        dot.set_pixel_size(8);
+        dot.add_css_class("session-dot");
+        dot.set_tooltip_text(Some(&i18n("Connected")));
+        line.append(&dot);
+    }
     row.set_child(Some(&line));
     row.set_tooltip_text(Some(&conn.address()));
     row

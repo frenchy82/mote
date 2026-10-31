@@ -1,13 +1,16 @@
-//! A session's window: asks for what the connection lacks, connects, shows
-//! the remote desktop, and says plainly how it ended.
+//! A session: asks for what the connection lacks, connects, shows the
+//! remote desktop, and says plainly how it ended. It lives in the main
+//! window's content pane, or in a window of its own once detached, and
+//! brings its own header either way.
 
 mod display;
 mod pages;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::prelude::*;
+use gtk::{gio, glib};
 use relm4::prelude::*;
 use tokio::sync::oneshot;
 
@@ -30,11 +33,19 @@ pub(crate) struct Session {
     /// Counts connections, so a late event of an earlier one is ignored.
     attempt: u32,
     connected_once: bool,
+    /// In a window of its own rather than the main window.
+    detached: bool,
+    /// Whether the window holding it is fullscreen, shared with the
+    /// pointer watch that shows the header at the screen's top edge.
+    fullscreen: Rc<Cell<bool>>,
+    /// The window whose fullscreen state is followed.
+    watched: Option<gtk::Window>,
     display: Display,
     sign_in: pages::SignIn,
     ended: adw::StatusPage,
     stack: gtk::Stack,
     toasts: adw::ToastOverlay,
+    menu: gio::Menu,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,8 +72,16 @@ pub(crate) enum SessionInput {
     /// Connect with what the sign-in page holds.
     SignIn,
     Reconnect,
-    Present,
-    Close,
+    /// End the session and close it.
+    Disconnect,
+    ToggleFullscreen,
+    /// Ask to move into a window of its own, or back.
+    ToggleDetached,
+    /// Where it is now, as the main window placed it.
+    SetDetached(bool),
+    /// Its window was mapped, perhaps a different one than before.
+    Mapped,
+    FullscreenChanged(bool),
 }
 
 #[derive(Debug)]
@@ -77,6 +96,9 @@ pub(crate) enum SessionOutput {
         password: String,
     },
     Closed(String),
+    ToggleSidebar,
+    Detach(String),
+    Attach(String),
 }
 
 pub(crate) enum SessionCmd {
@@ -101,36 +123,67 @@ impl Component for Session {
     type CommandOutput = SessionCmd;
 
     view! {
-        adw::ApplicationWindow {
-            set_default_size: (1280, 800),
-            set_title: Some(model.connection.title()),
-            connect_close_request[sender] => move |_| {
-                sender.input(SessionInput::Close);
-                gtk::glib::Propagation::Proceed
+        adw::ToolbarView {
+            connect_map => SessionInput::Mapped,
+
+            add_top_bar = &adw::HeaderBar {
+                #[wrap(Some)]
+                set_title_widget = &adw::WindowTitle {
+                    set_title: model.connection.title(),
+                    set_subtitle: &model.connection.address(),
+                },
+                pack_start = &gtk::Button {
+                    set_icon_name: "sidebar-show-symbolic",
+                    set_tooltip_text: Some(&i18n("Toggle Sidebar")),
+                    connect_clicked[sender] => move |_| {
+                        let _ = sender.output(SessionOutput::ToggleSidebar);
+                    },
+                    #[watch]
+                    set_visible: !model.detached && !model.fullscreen.get(),
+                },
+                pack_end = &gtk::MenuButton {
+                    set_icon_name: "view-more-symbolic",
+                    set_tooltip_text: Some(&i18n("Session Menu")),
+                    #[watch]
+                    set_menu_model: Some(&model.menu),
+                },
+                pack_end = &gtk::Button {
+                    #[watch]
+                    set_icon_name: if model.fullscreen.get() {
+                        "view-restore-symbolic"
+                    } else {
+                        "view-fullscreen-symbolic"
+                    },
+                    #[watch]
+                    set_tooltip_text: Some(&if model.fullscreen.get() {
+                        i18n("Leave Fullscreen")
+                    } else {
+                        i18n("Fullscreen")
+                    }),
+                    connect_clicked => SessionInput::ToggleFullscreen,
+                },
+                pack_end = &gtk::Button {
+                    set_icon_name: "window-new-symbolic",
+                    set_tooltip_text: Some(&i18n("Open in New Window")),
+                    connect_clicked => SessionInput::ToggleDetached,
+                    #[watch]
+                    set_visible: !model.detached,
+                },
             },
 
             #[local_ref]
-            toasts -> adw::ToastOverlay {
+            #[wrap(Some)]
+            set_content = toasts -> adw::ToastOverlay {
+                #[local_ref]
                 #[wrap(Some)]
-                set_child = &adw::ToolbarView {
-                    add_top_bar = &adw::HeaderBar {
-                        #[wrap(Some)]
-                        set_title_widget = &adw::WindowTitle {
-                            set_title: &model.connection.title(),
-                            set_subtitle: &model.connection.address(),
-                        },
-                    },
-                    #[local_ref]
-                    #[wrap(Some)]
-                    set_content = stack -> gtk::Stack {
-                        set_transition_type: gtk::StackTransitionType::Crossfade,
-                        add_named: (sign_in_page, Some("sign-in")),
-                        add_named: (&pages::connecting(&model.connection), Some("connecting")),
-                        add_named: (display, Some("desktop")),
-                        add_named: (ended, Some("ended")),
-                        #[watch]
-                        set_visible_child_name: model.page.name(),
-                    },
+                set_child = stack -> gtk::Stack {
+                    set_transition_type: gtk::StackTransitionType::Crossfade,
+                    add_named: (sign_in_page, Some("sign-in")),
+                    add_named: (&pages::connecting(&model.connection), Some("connecting")),
+                    add_named: (display, Some("desktop")),
+                    add_named: (ended, Some("ended")),
+                    #[watch]
+                    set_visible_child_name: model.page.name(),
                 },
             },
         }
@@ -141,7 +194,6 @@ impl Component for Session {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
-        root.set_application(Some(&relm4::main_adw_application()));
         let sign_in = pages::SignIn::new(&connection, &sender);
         let ended = pages::ended(&sender);
         let model = Session {
@@ -153,13 +205,19 @@ impl Component for Session {
             handle: None,
             attempt: 0,
             connected_once: false,
+            detached: false,
+            fullscreen: Rc::new(Cell::new(false)),
+            watched: None,
             display: Display::default(),
             sign_in,
             ended,
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
+            menu: pages::menu(false),
             connection,
         };
+        install_actions(&root, &sender);
+        reveal_at_top_edge(&root, &model.fullscreen);
         let (stack, toasts, display, ended) = (
             &model.stack.clone(),
             &model.toasts.clone(),
@@ -195,12 +253,52 @@ impl Component for Session {
                 self.connect(&sender);
             }
             SessionInput::Reconnect => self.connect(&sender),
-            SessionInput::Present => root.present(),
-            SessionInput::Close => {
+            SessionInput::Disconnect => {
                 if let Some(handle) = self.handle.take() {
                     handle.send(rdp::Command::Close);
                 }
+                self.leave_fullscreen(root);
                 let _ = sender.output(SessionOutput::Closed(self.connection.id.clone()));
+            }
+            SessionInput::ToggleFullscreen => {
+                if let Some(window) = window_of(root) {
+                    if self.fullscreen.get() {
+                        window.unfullscreen();
+                    } else {
+                        window.fullscreen();
+                        self.display.grab_focus();
+                    }
+                }
+            }
+            SessionInput::ToggleDetached => {
+                // A window leaving fullscreen first comes back as it was.
+                self.leave_fullscreen(root);
+                let id = self.connection.id.clone();
+                let _ = sender.output(if self.detached {
+                    SessionOutput::Attach(id)
+                } else {
+                    SessionOutput::Detach(id)
+                });
+            }
+            SessionInput::SetDetached(detached) => {
+                self.detached = detached;
+                self.menu = pages::menu(detached);
+                if self.page == Page::Desktop {
+                    self.display.grab_focus();
+                }
+            }
+            SessionInput::Mapped => self.watch_window(root, &sender),
+            SessionInput::FullscreenChanged(fullscreen) => {
+                self.fullscreen.set(fullscreen);
+                root.set_reveal_top_bars(!fullscreen);
+                // Shown at the top edge, the header covers the desktop
+                // rather than pushing it down.
+                root.set_extend_content_to_top_edge(fullscreen);
+                root.set_top_bar_style(if fullscreen {
+                    adw::ToolbarStyle::Raised
+                } else {
+                    adw::ToolbarStyle::Flat
+                });
             }
         }
     }
@@ -232,6 +330,31 @@ impl Component for Session {
 }
 
 impl Session {
+    /// Follow the fullscreen state of the window it is in, which changes
+    /// when it moves between the main window and one of its own.
+    fn watch_window(&mut self, root: &adw::ToolbarView, sender: &ComponentSender<Self>) {
+        let Some(window) = window_of(root) else {
+            return;
+        };
+        if self.watched.as_ref() == Some(&window) {
+            return;
+        }
+        let input = sender.input_sender().clone();
+        window.connect_fullscreened_notify(move |window| {
+            input.emit(SessionInput::FullscreenChanged(window.is_fullscreen()));
+        });
+        sender.input(SessionInput::FullscreenChanged(window.is_fullscreen()));
+        self.watched = Some(window);
+    }
+
+    fn leave_fullscreen(&self, root: &adw::ToolbarView) {
+        if self.fullscreen.get()
+            && let Some(window) = window_of(root)
+        {
+            window.unfullscreen();
+        }
+    }
+
     fn connect(&mut self, sender: &ComponentSender<Self>) {
         if let Some(handle) = self.handle.take() {
             handle.send(rdp::Command::Close);
@@ -289,12 +412,7 @@ impl Session {
         (w, h)
     }
 
-    fn event(
-        &mut self,
-        event: Event,
-        sender: &ComponentSender<Self>,
-        root: &adw::ApplicationWindow,
-    ) {
+    fn event(&mut self, event: Event, sender: &ComponentSender<Self>, root: &adw::ToolbarView) {
         match event {
             Event::Certificate {
                 host,
@@ -341,7 +459,7 @@ impl Session {
         port: u16,
         fingerprint: String,
         reply: oneshot::Sender<Trust>,
-        root: &adw::ApplicationWindow,
+        root: &adw::ToolbarView,
     ) {
         let known = config::trusted_fingerprint(host, port);
         if known.as_deref() == Some(fingerprint.as_str()) {
@@ -392,6 +510,10 @@ impl Session {
                         &[("host", &host)],
                     ),
                     Unreachable::NoAnswer => i18n_f("{host} did not answer.", &[("host", &host)]),
+                    Unreachable::Closed => i18n_f(
+                        "{host} closed the connection at once. Check that its remote desktop service is turned on and set up.",
+                        &[("host", &host)],
+                    ),
                     Unreachable::Other(error) => {
                         tracing::warn!("connecting: {error}");
                         i18n_f("{host} could not be reached.", &[("host", &host)])
@@ -406,14 +528,15 @@ impl Session {
                     i18n("The connection to the computer was lost."),
                 )
             }
-            Ending::Failed(Failure::Protocol(error)) => (
-                if was_connected {
+            Ending::Failed(Failure::Protocol(error)) => {
+                tracing::warn!("session failed: {error}");
+                let title = if was_connected {
                     i18n("Disconnected")
                 } else {
                     i18n("Could Not Connect")
-                },
-                error,
-            ),
+                };
+                (title, error)
+            }
             Ending::ServerClosed(reason) => (
                 i18n("Disconnected"),
                 reason.unwrap_or_else(|| i18n("The computer ended the session.")),
@@ -424,4 +547,50 @@ impl Session {
             .set_description(Some(&gtk::glib::markup_escape_text(&description)));
         self.page = Page::Ended;
     }
+}
+
+fn window_of(widget: &impl IsA<gtk::Widget>) -> Option<gtk::Window> {
+    widget.root().and_downcast::<gtk::Window>()
+}
+
+/// The session menu's actions, under `session.`.
+fn install_actions(root: &adw::ToolbarView, sender: &ComponentSender<Session>) {
+    let group = gio::SimpleActionGroup::new();
+    for (name, message) in [
+        (
+            "disconnect",
+            (|| SessionInput::Disconnect) as fn() -> SessionInput,
+        ),
+        ("move", || SessionInput::ToggleDetached),
+    ] {
+        let action = gio::SimpleAction::new(name, None);
+        let input = sender.input_sender().clone();
+        action.connect_activate(move |_, _| input.emit(message()));
+        group.add_action(&action);
+    }
+    root.insert_action_group("session", Some(&group));
+}
+
+/// Fullscreen, the header hides; the pointer at the top edge brings it back
+/// until the pointer moves well clear of it.
+fn reveal_at_top_edge(root: &adw::ToolbarView, fullscreen: &Rc<Cell<bool>>) {
+    let motion = gtk::EventControllerMotion::new();
+    // Before the desktop sees the pointer, so the header shows over it.
+    motion.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let fullscreen = fullscreen.clone();
+    motion.connect_motion(glib::clone!(
+        #[weak]
+        root,
+        move |_, _, y| {
+            if !fullscreen.get() {
+                return;
+            }
+            if y <= 2.0 {
+                root.set_reveal_top_bars(true);
+            } else if root.reveals_top_bars() && y > f64::from(root.top_bar_height()) + 48.0 {
+                root.set_reveal_top_bars(false);
+            }
+        }
+    ));
+    root.add_controller(motion);
 }
