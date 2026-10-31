@@ -1,7 +1,6 @@
-//! The sidebar's contents: the New Connection button and the connection
-//! list, rebuilt whole when the connections, the search or the settings
-//! change. A list of a few dozen rows rebuilds faster than it can be kept
-//! in step.
+//! The sidebar's connection list, rebuilt whole when the connections, the
+//! search or the settings change. A list of a few dozen rows rebuilds faster
+//! than it can be kept in step.
 
 use std::cell::Cell;
 use std::rc::Rc;
@@ -15,48 +14,6 @@ use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
 
 const ROW_PREFIX: &str = "conn:";
-
-/// New Connection, drawn like a row so it matches the sidebar, split like a
-/// menu button: the caret at its end offers the imports.
-pub(super) fn new_connection_button(sender: &ComponentSender<AppModel>) -> gtk::ListBox {
-    let list = gtk::ListBox::new();
-    list.set_selection_mode(gtk::SelectionMode::None);
-    list.add_css_class("navigation-sidebar");
-    let row = gtk::ListBoxRow::new();
-    row.add_css_class("new-row");
-
-    let line = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    line.add_css_class("nav-row");
-    line.add_css_class("new-split");
-    let main = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    main.set_hexpand(true);
-    main.set_halign(gtk::Align::Center);
-    let icon = gtk::Image::from_icon_name("list-add-symbolic");
-    icon.add_css_class("nav-icon");
-    main.append(&icon);
-    let label = gtk::Label::new(Some(&i18n("New Connection")));
-    label.add_css_class("row-name");
-    // The button shrinks with the sidebar rather than holding it open.
-    label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-    main.append(&label);
-    line.append(&main);
-    line.append(&gtk::Separator::new(gtk::Orientation::Vertical));
-
-    let caret = gtk::MenuButton::new();
-    caret.set_icon_name("pan-down-symbolic");
-    caret.add_css_class("flat");
-    caret.add_css_class("new-caret");
-    caret.set_valign(gtk::Align::Center);
-    caret.set_tooltip_text(Some(&i18n("Import Connections")));
-    caret.set_menu_model(Some(&super::actions::import_menu()));
-    line.append(&caret);
-
-    row.set_child(Some(&line));
-    list.append(&row);
-    let input = sender.input_sender().clone();
-    list.connect_row_activated(move |_, _| input.emit(AppMsg::NewConnection(None)));
-    list
-}
 
 /// Selecting a row shows its connection; Delete asks to delete it.
 pub(super) fn connect_list(

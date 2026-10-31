@@ -113,6 +113,11 @@ impl Component for AppModel {
                                 set_label: APP_NAME,
                                 add_css_class: "app-title",
                             },
+                            pack_start = &gtk::Button {
+                                set_icon_name: "list-add-symbolic",
+                                set_tooltip_text: Some(&i18n("New Connection")),
+                                set_action_name: Some("win.new-connection"),
+                            },
                             pack_end = &gtk::MenuButton {
                                 set_icon_name: "open-menu-symbolic",
                                 set_tooltip_text: Some(&i18n("Main Menu")),
@@ -125,8 +130,6 @@ impl Component for AppModel {
                         #[wrap(Some)]
                         set_content = &gtk::Box {
                             set_orientation: gtk::Orientation::Vertical,
-                            append: &new_button,
-
                             #[local_ref]
                             search -> gtk::SearchEntry {
                                 add_css_class: "sidebar-search",
@@ -259,7 +262,6 @@ impl Component for AppModel {
             &model.details.clone(),
             &model.toasts.clone(),
         );
-        let new_button = sidebar::new_connection_button(&sender);
         let main_menu = actions::main_menu();
         let connection_menu = actions::connection_menu();
         let widgets = view_output!();

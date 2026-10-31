@@ -7,57 +7,8 @@
 
 /* ---- Sidebar ---- */
 
-/* New Connection: a standing accent button shaped like a sidebar row, a
-   little taller than a plain row, split like a menu button at its end. */
-row.new-row {
-  background-color: @accent_bg_color;
-  color: @accent_fg_color;
-  padding-top: 5px;
-  padding-bottom: 5px;
-}
-row.new-row:hover {
-  background-color: shade(@accent_bg_color, 1.1);
-}
-row.new-row:active {
-  background-color: shade(@accent_bg_color, 0.9);
-}
-row.new-row .nav-icon,
-row.new-row .row-name {
-  color: @accent_fg_color;
-  opacity: 1;
-}
-row.new-row .new-split {
-  padding-right: 0;
-}
-row.new-row .new-split:dir(rtl) {
-  padding-left: 0;
-  padding-right: 8px;
-}
-row.new-row .new-split > separator {
-  background-color: alpha(@accent_fg_color, 0.55);
-  min-width: 1px;
-  margin: 3px 4px 3px 8px;
-}
-row.new-row .new-caret > button {
-  color: @accent_fg_color;
-  min-height: 0;
-  min-width: 0;
-  padding: 2px 6px;
-  margin: -4px -3px -4px 0;
-}
-row.new-row .new-caret > button:hover {
-  background-color: alpha(@accent_fg_color, 0.15);
-}
-row.new-row .new-caret > button:active,
-row.new-row .new-caret > button:checked {
-  background-color: alpha(@accent_fg_color, 0.28);
-}
-
 .nav-row {
   padding: 7px 8px;
-}
-.nav-icon {
-  opacity: 0.75;
 }
 .row-name {
   font-weight: 600;

@@ -79,7 +79,7 @@ pub(super) fn main_menu() -> gio::Menu {
     menu
 }
 
-/// The imports, for the main menu and New Connection's caret.
+/// The imports, in the main menu.
 pub(super) fn import_menu() -> gio::Menu {
     let menu = gio::Menu::new();
     menu.append(Some(&i18n("Import .rdp Files…")), Some("win.import-rdp"));
