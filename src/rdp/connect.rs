@@ -40,17 +40,18 @@ pub(super) async fn connect(
     mut redirect: Option<Box<ServerRedirectionPdu>>,
     events: &mpsc::Sender<Event>,
     clipboard: &mut super::clipboard::Clipboard,
+    audio: &super::audio::Audio,
 ) -> Result<(ConnectionResult, Framed), Failure> {
     let mut retried = false;
     for _ in 0..MAX_HOPS {
-        let result = match attempt(target, redirect.as_deref(), events, clipboard).await {
+        let result = match attempt(target, redirect.as_deref(), events, clipboard, audio).await {
             // A server can give up on a connection while its certificate
             // waits on the user; once trusted, a second try goes straight
             // through.
             Err(Attempt::AfterQuestion(_)) if !retried => {
                 tracing::info!("retrying after the certificate question");
                 retried = true;
-                attempt(target, redirect.as_deref(), events, clipboard).await
+                attempt(target, redirect.as_deref(), events, clipboard, audio).await
             }
             result => result,
         };
@@ -127,6 +128,7 @@ async fn attempt(
     redirect: Option<&ServerRedirectionPdu>,
     events: &mpsc::Sender<Event>,
     clipboard: &mut super::clipboard::Clipboard,
+    audio: &super::audio::Audio,
 ) -> Result<(ConnectionOutcome, Framed), Attempt> {
     let stream = match tokio::time::timeout(
         TCP_TIMEOUT,
@@ -144,9 +146,12 @@ async fn attempt(
         .map_err(|e| Failure::Unreachable(Unreachable::from_io(&e)))?;
     let mut framed = TokioFramed::new(stream);
 
-    let mut connector = ClientConnector::new(config(target), client_addr)
-        .with_static_channel(channels(target.quality));
+    let mut connector = ClientConnector::new(config(target, audio), client_addr)
+        .with_static_channel(channels(target.quality, audio));
     if let Some(channel) = clipboard.channel() {
+        connector = connector.with_static_channel(channel);
+    }
+    if let Some(channel) = audio.static_channel() {
         connector = connector.with_static_channel(channel);
     }
     if let Some(pdu) = redirect {
@@ -316,7 +321,7 @@ async fn credssp(
 /// session itself, and Display Control. Each
 /// is made afresh whenever the server opens it: xrdp opens both again after
 /// a resize.
-fn channels(quality: Quality) -> ironrdp_dvc::DrdynvcClient {
+fn channels(quality: Quality, audio: &super::audio::Audio) -> ironrdp_dvc::DrdynvcClient {
     /// What the server chose, logged for measurements.
     #[derive(Default)]
     struct Pictures(Option<ironrdp_egfx::pdu::Codec1Type>);
@@ -332,7 +337,7 @@ fn channels(quality: Quality) -> ironrdp_dvc::DrdynvcClient {
             }
         }
     }
-    ironrdp_dvc::DrdynvcClient::new()
+    let mut channels = ironrdp_dvc::DrdynvcClient::new()
         .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, move || {
             let h264 = match quality {
                 Quality::RemoteFx => None,
@@ -345,7 +350,15 @@ fn channels(quality: Quality) -> ironrdp_dvc::DrdynvcClient {
         })
         .with_dynamic_channel_factory(ironrdp_displaycontrol::CHANNEL_NAME, || {
             ironrdp_displaycontrol::client::DisplayControlClient::new(|_| Ok(Vec::new()))
-        })
+        });
+    if let Some(playback) = audio.playback() {
+        channels = channels
+            .with_dynamic_channel_factory(ironrdp_rdpsnd::client::DVC_CHANNEL_NAME, playback);
+    }
+    if let Some(capture) = audio.capture() {
+        channels = channels.with_dynamic_channel_factory(ironrdp_rdpeai::CHANNEL_NAME, capture);
+    }
+    channels
 }
 
 fn with_redirection(connector: ClientConnector, pdu: &ServerRedirectionPdu) -> ClientConnector {
@@ -364,7 +377,7 @@ fn with_redirection(connector: ClientConnector, pdu: &ServerRedirectionPdu) -> C
     connector
 }
 
-fn config(target: &Target) -> Config {
+fn config(target: &Target, audio: &super::audio::Audio) -> Config {
     let client_name = gtk::glib::host_name().chars().take(15).collect::<String>();
     Config {
         desktop_size: DesktopSize {
@@ -428,8 +441,8 @@ fn config(target: &Target) -> Config {
         // xrdp signs in with the account in the Client Info PDU only when
         // asked to; servers that did NLA already ignore it.
         autologon: !target.password.is_empty(),
-        enable_audio_playback: false,
-        enable_audio_capture: false,
+        enable_audio_playback: audio.plays(),
+        enable_audio_capture: audio.records(),
         performance_flags: PerformanceFlags::default(),
         license_cache: None,
         timezone_info: TimezoneInfo::default(),

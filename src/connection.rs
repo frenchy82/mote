@@ -26,6 +26,10 @@ pub(crate) struct Connection {
     pub(crate) network: Network,
     /// Share the clipboard with the remote desktop.
     pub(crate) clipboard: bool,
+    /// Play the remote desktop's sound here, rather than leave it there.
+    pub(crate) sound: bool,
+    /// Send the microphone to the remote desktop.
+    pub(crate) microphone: bool,
 }
 
 /// How the remote desktop meets the window.
@@ -157,6 +161,8 @@ impl Default for Connection {
             quality: Quality::default(),
             network: Network::default(),
             clipboard: true,
+            sound: true,
+            microphone: false,
         }
     }
 }

@@ -3,6 +3,7 @@
 //! to it with [`Command`]s and hears back through [`Event`]s; nothing here
 //! touches a widget.
 
+mod audio;
 pub(crate) mod clipboard;
 mod compat;
 mod connect;
@@ -40,6 +41,9 @@ pub(crate) struct Target {
     pub(crate) network: crate::connection::Network,
     /// Share the clipboard.
     pub(crate) clipboard: bool,
+    /// Play the remote desktop's sound here; send the microphone there.
+    pub(crate) sound: bool,
+    pub(crate) microphone: bool,
 }
 
 pub(crate) enum Event {
@@ -180,9 +184,10 @@ async fn drive(
     let mut redirect = None;
     let mut clipboard = clipboard::Clipboard::new(target.clipboard);
     let mut early = Vec::new();
+    let mut audio = audio::Audio::new(target.sound, target.microphone);
     for _ in 0..MAX_HOPS {
         let (result, framed) = tokio::select! {
-            connected = connect::connect(target, redirect.take(), events, &mut clipboard) => connected?,
+            connected = connect::connect(target, redirect.take(), events, &mut clipboard, &audio) => connected?,
             () = closed(commands, &mut early) => return Ok(Ending::Closed),
         };
         for command in early.drain(..) {
@@ -193,7 +198,17 @@ async fn drive(
             u32::from(target.height),
             target.scale,
         );
-        match session::run(framed, result, events, commands, opened, &mut clipboard).await? {
+        match session::run(
+            framed,
+            result,
+            events,
+            commands,
+            opened,
+            &mut clipboard,
+            &mut audio,
+        )
+        .await?
+        {
             session::Outcome::Ended(ending) => return Ok(ending),
             // A server can hand the session on after it starts: GNOME's
             // Remote Login does, once someone logs in at its login screen.
@@ -427,6 +442,10 @@ mod tests {
                 }
             },
             clipboard: true,
+            // MOTE_TEST_SOUND=1 plays the server's sound; MOTE_TEST_MICROPHONE=1
+            // sends the microphone.
+            sound: std::env::var_os("MOTE_TEST_SOUND").is_some(),
+            microphone: std::env::var_os("MOTE_TEST_MICROPHONE").is_some(),
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
         if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {

@@ -449,6 +449,8 @@ impl Session {
             quality: self.connection.quality,
             network: self.connection.network,
             clipboard: self.connection.clipboard,
+            sound: self.connection.sound,
+            microphone: self.connection.microphone,
         };
         let (handle, mut events) = rdp::start(target);
         let input = handle.clone();

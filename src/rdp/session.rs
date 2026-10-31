@@ -58,6 +58,7 @@ pub(super) async fn run(
     commands: &mut mpsc::UnboundedReceiver<Command>,
     opened: (u32, u32, u32),
     clipboard: &mut super::clipboard::Clipboard,
+    audio: &mut super::audio::Audio,
 ) -> Result<Outcome, Failure> {
     let (mut reader, mut writer) = split_tokio_framed(framed);
     let size = result.desktop_size;
@@ -156,6 +157,12 @@ pub(super) async fn run(
                 clipboard.answer(format, content, &mut stage)?
             }
             _ = tick.tick(), if clipboard.on() => clipboard.tick(&mut stage)?,
+            Some(messages) = audio.packets.recv() => {
+                let frame = stage
+                    .encode_dvc_messages(messages)
+                    .map_err(|e| Failure::Protocol(describe(&e)))?;
+                vec![ActiveStageOutput::ResponseFrame(frame)]
+            }
         };
 
         for output in outputs {
