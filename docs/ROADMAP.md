@@ -40,6 +40,11 @@ is to go upstream:
   bytes less than the `wPackSize` the server sent; GNOME Remote Desktop
   checks the size and sends no sound after it. Mote answers the training
   itself.
+- IronRDP's backend for shared folders reads xrdp's requests more strictly
+  than Windows and FreeRDP do. Mote answers the directory listing classes
+  it leaves out, turns xrdp's forward slashes into backslashes, lets every
+  handle delete, and removes an entry when the handle that marked it
+  closes rather than the last one, as xrdp leaves a handle open.
 
 FreeRDP 3, the engine Remmina uses, was the alternative. It supports more
 devices (USB, serial and parallel ports), at the cost of a C API surface, a
@@ -57,7 +62,7 @@ on something a section needs, that section adds it upstream.
 | 5 | Clipboard | Testing |
 | 6 | Graphics pipeline | Testing |
 | 7 | Audio | Testing |
-| 8 | Device redirection | |
+| 8 | Device redirection | Testing |
 | 9 | Network | |
 | 10 | Session controls | |
 | 11 | Settings and polish | |
@@ -289,6 +294,26 @@ Shared folders (MS-RDPEFS), smart cards and printers. USB, serial and
 parallel port redirection are not in IronRDP; this section decides whether
 they are worth adding.
 
+Built: one shared folder per connection, chosen in the editor and read from
+Remmina profiles (`sharefolder`), through IronRDP's backend for Unix, which
+resolves every path beneath the folder and follows no symbolic links. One
+folder is what that backend serves, and what Remmina offers. A folder that
+is gone when connecting isn't offered.
+
+Of the three servers only xrdp opens the device channel; GNOME Remote
+Desktop and KRdp never do. With xrdp the folder is in `~/thinclient_drives`,
+and was tried there by listing, reading, writing, renaming, copying and
+deleting files and folders, and by trying to climb out of it with `..`.
+xrdp's requests needed the workarounds listed under Protocol engine.
+
+Decided against, for these servers:
+
+- Printers: xrdp turns a redirected printer down, and the others don't open
+  the channel. IronRDP's spooler, which hands jobs to `lp`, is left out.
+- Smart cards: IronRDP serves them only on Windows. A PC/SC backend for
+  Linux would help xrdp alone; it waits until someone needs it.
+- USB, serial and parallel ports: none of the three servers takes them.
+
 ### 9. Network
 
 - SSH tunnels, with keys from the SSH agent: the usual way into a Linux box
@@ -337,9 +362,9 @@ What Remmina's RDP plugin offers, and the section that brings it to Mote.
 | Quality presets and visual effect flags, which Linux servers ignore | 6 |
 | Network type hint, which only xrdp acts on | 6 |
 | Sound: here, remote or off (the last two alike on Linux servers); microphone | 7 |
-| Shared folders | 8 |
-| Printers, smart cards | 8 |
-| Serial and parallel ports, USB | 8 (to decide) |
+| Shared folders (one per connection; xrdp only) | 8 |
+| Printers, smart cards: no Linux server takes them | 8 (not done) |
+| Serial and parallel ports, USB: no Linux server takes them | 8 (not done) |
 | SSH tunnel | 9 |
 | RD Gateway | 9 |
 | Wake-on-LAN | 9 |

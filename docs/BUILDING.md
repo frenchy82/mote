@@ -137,6 +137,11 @@ private PipeWire with `pipewire-pulse` and a null sink, whose monitor
 default, so a microphone for the test is a null sink's monitor remapped
 with `module-remap-source`.
 
+### Shared folders
+
+`MOTE_TEST_FOLDER=<dir>` makes the live test lend that folder. xrdp shows
+it in `~/thinclient_drives`, readable only by the session's user.
+
 ### Measuring performance
 
 `MOTE_LOG=mote::stats=info`, for the app or the live test, logs what a
