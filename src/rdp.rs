@@ -34,6 +34,7 @@ pub(crate) struct Target {
     pub(crate) height: u16,
     /// The screen's scale, in percent: 200 on a 2× screen.
     pub(crate) scale: u32,
+    pub(crate) quality: crate::connection::Quality,
 }
 
 pub(crate) enum Event {
@@ -294,6 +295,12 @@ mod tests {
             width: width.parse().expect("width"),
             height: height.parse().expect("height"),
             scale: 100,
+            // MOTE_TEST_QUALITY: best, avc420 or remotefx.
+            quality: match var("MOTE_TEST_QUALITY", "best").as_str() {
+                "avc420" => crate::connection::Quality::Avc420,
+                "remotefx" => crate::connection::Quality::RemoteFx,
+                _ => crate::connection::Quality::Best,
+            },
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
         if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {

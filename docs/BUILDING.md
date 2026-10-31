@@ -132,3 +132,7 @@ MOTE_TEST_SERVER=localhost:3399 MOTE_TEST_SIZE=1920x1080 MOTE_TEST_SECONDS=12 \
 
 `MOTE_TEST_SIZE` is the desktop to ask for, `MOTE_TEST_SECONDS` how long to
 stay. `pattern=ball` changes a small part of the screen instead of all of it.
+`MOTE_TEST_QUALITY` is the connection's codec choice: `best`, `avc420` or
+`remotefx`. The log names the codec the server picked; the private GNOME
+Remote Desktop has no GPU to encode H.264 on and sends progressive RemoteFX,
+so H.264 is measured against xrdp or KRdp.

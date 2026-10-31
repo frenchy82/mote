@@ -8,7 +8,7 @@ pub(crate) mod cisco;
 mod ffmpeg;
 mod openh264;
 
-use ironrdp_egfx::decode::H264Decoder;
+use ironrdp_egfx::decode::{DecodedFrame, DecoderResult, H264Decoder, Yuv420Frame};
 
 /// Where H.264 comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -54,4 +54,51 @@ pub(super) fn decoder() -> Option<(Source, Box<dyn H264Decoder>)> {
 /// decoder, so call it off the main thread.
 pub(crate) fn source() -> Option<Source> {
     decoder().map(|(source, _)| source)
+}
+
+/// The decoder the graphics pipeline gets: timed for `mote::stats`, and,
+/// for AVC420 only, saying it can't give planes, which is what keeps
+/// IronRDP from offering AVC444.
+pub(super) struct Decoder {
+    inner: Box<dyn H264Decoder>,
+    planes: bool,
+    stats: crate::stats::Stats,
+}
+
+impl Decoder {
+    pub(super) fn new(inner: Box<dyn H264Decoder>, avc444: bool) -> Self {
+        Self {
+            inner,
+            planes: avc444,
+            stats: crate::stats::Stats::new("h264"),
+        }
+    }
+}
+
+impl H264Decoder for Decoder {
+    fn decode(&mut self, data: &[u8]) -> DecoderResult<DecodedFrame> {
+        let start = std::time::Instant::now();
+        let frame = self.inner.decode(data);
+        self.stats.time("decode", start);
+        frame
+    }
+
+    fn decode_yuv420(&mut self, data: &[u8]) -> DecoderResult<Yuv420Frame> {
+        let start = std::time::Instant::now();
+        let frame = self.inner.decode_yuv420(data);
+        self.stats.time("decode", start);
+        frame
+    }
+
+    fn supports_yuv420(&self) -> bool {
+        self.planes && self.inner.supports_yuv420()
+    }
+
+    fn wait_until_ready(&mut self) -> bool {
+        self.inner.wait_until_ready()
+    }
+
+    fn reset(&mut self) {
+        self.inner.reset();
+    }
 }

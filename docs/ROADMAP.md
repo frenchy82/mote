@@ -150,20 +150,40 @@ GDK's clipboard, with a per-connection switch.
 Built so far: H.264, offered as AVC444 and AVC420, through FFmpeg, the
 system's OpenH264, or Cisco's OpenH264 downloaded on request from Settings,
 all loaded at run time; FFmpeg is what the Flatpak's GNOME runtime provides,
-and was tried inside it. GNOME Remote Desktop chooses AVC444 and xrdp AVC420,
-both sharper than the RemoteFX they used before, and KRdp, which sends only
-H.264, now connects. Decoding already runs on the session's own thread.
+and was tried inside it. Decoding runs on the session's own thread.
+
+What each server sends, as measured: KRdp sends only AVC420, and turns down
+a client without H.264. xrdp sends AVC420 when it has an encoder (Fedora's
+Xfce install comes with the stand-in `noopenh264`, and then xrdp sends
+lossless Planar for still pictures and RemoteFX for motion). GNOME Remote
+Desktop sends AVC444 or AVC420 only where it can encode on the GPU; Carbon
+and the headless test server can't, and get progressive RemoteFX whatever
+the client offers.
 
 The measurement harness is in place (BUILDING.md, under Measuring
-performance), and its first numbers set what came next. On this machine an
-H.264 frame takes about 2.5 ms to decode at 1920×1080 and 7 ms at 3840×2160,
-FFmpeg and OpenH264 alike, so hardware decoding waits until a slower machine
-shows a need. Copying the whole desktop out for each frame took 0.8 ms at
-1920×1080 and 3.5 ms at 3840×2160; frames now come from a few buffers used in
-turn, each brought up to date with only what changed, and a small change
-costs 0.01 ms. Every frame goes to GTK as it comes, replacing one not yet
-painted, so what the monitor shows at each refresh is the newest picture;
-GTK uploads only the changed parts. Quality presets are still to come.
+performance). Its first numbers, at 1920×1080 on the development machine:
+
+| Step | Time per frame |
+| --- | --- |
+| H.264, FFmpeg's own decoder (the Flatpak's) | 2.6 ms |
+| H.264, OpenH264 (and Fedora's FFmpeg, which uses it) | 4 ms |
+| IronRDP turning the picture into RGB and composing it | 1.5 to 3 ms |
+| Progressive RemoteFX, all of it | 4 ms |
+| Copying the whole desktop out for the interface | 0.8 ms |
+
+Hardware decoding would save only the decoder's share, and the picture
+would have to come back from the GPU for IronRDP to compose it; it waits
+until a slower machine shows a need. The copy is gone for most frames:
+frames come from a few buffers used in turn, each brought up to date with
+only what changed, and a small change costs 0.01 ms. Every frame goes to
+GTK as it comes, replacing one not yet painted, so each refresh of the
+monitor shows the newest picture.
+
+Quality presets became a choice of codec per connection: automatic (AVC444
+where the server has it), AVC420, or RemoteFX. Color depth applies only to
+the old bitmap updates, which none of these servers send once the pipeline
+is offered, and they ignore the visual effect flags (xrdp reads one, to
+leave out its own login screen's background), so neither is offered.
 
 ### 7. Audio
 
@@ -219,8 +239,8 @@ What Remmina's RDP plugin offers, and the section that brings it to Mote.
 | Resolution: client, custom, dynamic | 4 |
 | Scaling and fullscreen | 4 |
 | Clipboard, with the option to turn it off | 5 |
-| Color depth and codec choice (GFX AVC444, AVC420, RemoteFX) | 6 |
-| Quality presets and visual effect flags | 6 |
+| Codec choice (GFX AVC444, AVC420, RemoteFX); color depth is moot | 6 |
+| Quality presets and visual effect flags, which Linux servers ignore | 6 |
 | Network type hint | 6 |
 | Sound: local, remote or off; microphone | 7 |
 | Shared folders | 8 |

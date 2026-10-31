@@ -7,7 +7,7 @@ use std::rc::Rc;
 use adw::prelude::*;
 use relm4::prelude::*;
 
-use crate::connection::{Connection, Scaling, split_address};
+use crate::connection::{Connection, Quality, Scaling, split_address};
 use crate::i18n::i18n;
 use crate::secrets;
 
@@ -35,6 +35,7 @@ struct Rows {
     domain: adw::EntryRow,
     password: adw::PasswordEntryRow,
     scaling: adw::ComboRow,
+    quality: adw::ComboRow,
 }
 
 #[derive(Debug)]
@@ -118,6 +119,7 @@ impl Component for Editor {
             domain: entry(&i18n("Domain"), &c.domain),
             password: adw::PasswordEntryRow::new(),
             scaling: adw::ComboRow::new(),
+            quality: adw::ComboRow::new(),
         };
         let labels: Vec<String> = Scaling::ALL
             .into_iter()
@@ -132,6 +134,21 @@ impl Component for Editor {
                 .position(|s| *s == c.scaling)
                 .unwrap_or_default() as u32,
         );
+        let labels: Vec<String> = Quality::ALL.into_iter().map(quality_label).collect();
+        let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+        rows.quality.set_title(&i18n("Codec"));
+        rows.quality.set_model(Some(&gtk::StringList::new(&labels)));
+        rows.quality.connect_selected_notify(|row| {
+            let quality = Quality::ALL.get(row.selected() as usize).copied();
+            row.set_subtitle(&quality.map(quality_cost).unwrap_or_default());
+        });
+        rows.quality.set_selected(
+            Quality::ALL
+                .iter()
+                .position(|q| *q == c.quality)
+                .unwrap_or_default() as u32,
+        );
+        rows.quality.notify("selected");
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
         rows.password.set_title(&i18n("Password"));
@@ -175,6 +192,7 @@ impl Component for Editor {
         let display = adw::PreferencesGroup::new();
         display.set_title(&i18n("Display"));
         display.add(&rows.scaling);
+        display.add(&rows.quality);
         page.add(&display);
 
         if !init.is_new {
@@ -228,6 +246,10 @@ impl Component for Editor {
                         .get(r.scaling.selected() as usize)
                         .copied()
                         .unwrap_or_default(),
+                    quality: Quality::ALL
+                        .get(r.quality.selected() as usize)
+                        .copied()
+                        .unwrap_or_default(),
                     ..self.base.clone()
                 }
                 .normalized();
@@ -262,4 +284,21 @@ fn entry(title: &str, text: &str) -> adw::EntryRow {
     row.set_text(text);
     row.set_activates_default(true);
     row
+}
+
+fn quality_label(quality: Quality) -> String {
+    match quality {
+        Quality::Best => i18n("Automatic"),
+        Quality::Avc420 => i18n("H.264 (AVC420)"),
+        Quality::RemoteFx => i18n("RemoteFX"),
+    }
+}
+
+/// What choosing it costs, for the row's subtitle.
+fn quality_cost(quality: Quality) -> String {
+    match quality {
+        Quality::Best => String::new(),
+        Quality::Avc420 => i18n("Half the color detail: colored text is softer"),
+        Quality::RemoteFx => i18n("About twice the bandwidth; KRdp turns it down"),
+    }
 }

@@ -23,6 +23,7 @@ use tokio::sync::{mpsc, oneshot};
 use x509_cert::der::Encode as _;
 
 use super::{Event, Failure, MAX_HOPS, Target, Trust, Unreachable, describe, rdstls};
+use crate::connection::Quality;
 
 pub(super) trait Stream: AsyncRead + AsyncWrite + Unpin + Send + Sync {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send + Sync> Stream for T {}
@@ -142,7 +143,7 @@ async fn attempt(
     let mut framed = TokioFramed::new(stream);
 
     let mut connector =
-        ClientConnector::new(config(target), client_addr).with_static_channel(channels());
+        ClientConnector::new(config(target), client_addr).with_static_channel(channels(target.quality));
     if let Some(pdu) = redirect {
         connector = with_redirection(connector, pdu);
     }
@@ -310,13 +311,32 @@ async fn credssp(
 /// session itself, and Display Control. Each
 /// is made afresh whenever the server opens it: xrdp opens both again after
 /// a resize.
-fn channels() -> ironrdp_dvc::DrdynvcClient {
-    struct Pictures;
-    impl ironrdp_egfx::client::GraphicsPipelineHandler for Pictures {}
+fn channels(quality: Quality) -> ironrdp_dvc::DrdynvcClient {
+    /// What the server chose, logged for measurements.
+    #[derive(Default)]
+    struct Pictures(Option<ironrdp_egfx::pdu::Codec1Type>);
+    impl ironrdp_egfx::client::GraphicsPipelineHandler for Pictures {
+        fn on_capabilities_confirmed(&mut self, caps: &ironrdp_egfx::pdu::CapabilitySet) {
+            tracing::info!(target: "mote::stats", "graphics pipeline {caps:?}");
+        }
+
+        fn on_bitmap_updated(&mut self, update: &ironrdp_egfx::client::BitmapUpdate) {
+            if self.0 != Some(update.codec_id) {
+                self.0 = Some(update.codec_id);
+                tracing::info!(target: "mote::stats", "codec {:?}", update.codec_id);
+            }
+        }
+    }
     ironrdp_dvc::DrdynvcClient::new()
-        .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, || {
-            let h264 = super::h264::decoder().map(|(_, decoder)| decoder);
-            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(Pictures), h264)
+        .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, move || {
+            let h264 = match quality {
+                Quality::RemoteFx => None,
+                _ => super::h264::decoder().map(|(_, d)| {
+                    let avc444 = quality == Quality::Best;
+                    Box::new(super::h264::Decoder::new(d, avc444)) as Box<_>
+                }),
+            };
+            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::<Pictures>::default(), h264)
         })
         .with_dynamic_channel_factory(ironrdp_displaycontrol::CHANNEL_NAME, || {
             ironrdp_displaycontrol::client::DisplayControlClient::new(|_| Ok(Vec::new()))

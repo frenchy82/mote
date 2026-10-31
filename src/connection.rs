@@ -22,6 +22,7 @@ pub(crate) struct Connection {
     /// Unix seconds of the last session, 0 for never.
     pub(crate) last_used: i64,
     pub(crate) scaling: Scaling,
+    pub(crate) quality: Quality,
 }
 
 /// How the remote desktop meets the window.
@@ -56,6 +57,26 @@ impl Scaling {
     }
 }
 
+/// Which pictures the server may send. On these servers this is the
+/// choice that matters: color depth applies only to the bitmaps of old,
+/// which they don't send, and they ignore the visual effect flags.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum Quality {
+    /// H.264 in full color (AVC444) when the server has it, else as
+    /// AVC420, else RemoteFX.
+    #[default]
+    Best,
+    /// H.264 at half the color resolution (AVC420), never AVC444.
+    Avc420,
+    /// No H.264: RemoteFX and the pipeline's other codecs.
+    RemoteFx,
+}
+
+impl Quality {
+    pub(crate) const ALL: [Self; 3] = [Self::Best, Self::Avc420, Self::RemoteFx];
+}
+
 impl Default for Connection {
     fn default() -> Self {
         Self {
@@ -68,6 +89,7 @@ impl Default for Connection {
             domain: String::new(),
             last_used: 0,
             scaling: Scaling::default(),
+            quality: Quality::default(),
         }
     }
 }
