@@ -8,6 +8,7 @@ mod connect;
 pub(crate) mod keymap;
 mod rdstls;
 mod session;
+mod tap;
 
 use std::sync::Arc;
 

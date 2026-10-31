@@ -167,13 +167,14 @@ async fn attempt(
     // The certificate is checked here, by fingerprint, before anything is
     // sent: servers on a LAN have self-signed certificates no authority
     // could vouch for.
-    let (mut tls, certificate) = ironrdp_tls::upgrade_with_certificate_validation(
+    let (tls, certificate) = ironrdp_tls::upgrade_with_certificate_validation(
         stream,
         &target.host,
         ironrdp_tls::CertificateValidation::DangerouslyAcceptInvalidCertificate,
     )
     .await
     .map_err(|e| Failure::opening(&e))?;
+    let mut tls = super::tap::Tap::new(tls);
     let der = certificate
         .to_der()
         .map_err(|e| Failure::Protocol(e.to_string()))?;
