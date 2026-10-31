@@ -9,7 +9,8 @@
 //!   opens the search with that text in it, and `connect:<name>` connects
 //!   to the connection of that name; `detach` and `fullscreen` then do that
 //!   to its session, and `scaling:<resize|fit|actual>` sets its scaling.
-//!   `delay:<seconds>` makes the steps after it wait that long.
+//!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
+//!   scrolls an open dialog to its end.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -74,6 +75,10 @@ impl AppModel {
                 }
                 (name @ ("detach" | "fullscreen" | "scaling"), argument) => {
                     send(AppMsg::ShowcaseSession(format!("{name}:{argument}")));
+                }
+                // Scroll the open dialog to its end, after the steps before.
+                ("bottom", _) => {
+                    gtk::glib::timeout_add_local_once(Duration::from_secs(wait + 1), scroll_dialog_to_end);
                 }
                 ("search", text) => {
                     send(AppMsg::FocusSearch);
@@ -147,4 +152,25 @@ fn capture(widget: &gtk::Widget, path: &str) -> Result<(), String> {
         .render_texture(&node, Some(&bounds))
         .save_to_png(path)
         .map_err(|e| e.to_string())
+}
+
+/// The open dialog's scrolled content, scrolled to its end.
+fn scroll_dialog_to_end() {
+    let dialog = gtk::Window::list_toplevels()
+        .into_iter()
+        .filter_map(|w| w.downcast::<adw::ApplicationWindow>().ok())
+        .find_map(|w| w.visible_dialog());
+    let mut pending: Vec<gtk::Widget> = dialog.into_iter().map(|d| d.upcast()).collect();
+    while let Some(widget) = pending.pop() {
+        if let Some(scrolled) = widget.downcast_ref::<gtk::ScrolledWindow>() {
+            let adjustment = scrolled.vadjustment();
+            adjustment.set_value(adjustment.upper());
+            return;
+        }
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            child = c.next_sibling();
+            pending.push(c);
+        }
+    }
 }
