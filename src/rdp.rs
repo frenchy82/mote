@@ -6,7 +6,7 @@
 mod compat;
 mod connect;
 mod failure;
-mod h264;
+pub(crate) mod h264;
 pub(crate) mod keymap;
 mod rdstls;
 mod session;
@@ -288,6 +288,11 @@ mod tests {
             height: 768,
             scale: 100,
         };
+        // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
+        if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {
+            h264::cisco::download().expect("downloads Cisco's OpenH264");
+            eprintln!("downloaded to {}", h264::cisco::path().display());
+        }
         let (handle, mut events) = start(target);
         // MOTE_TEST_SECONDS: stay connected that long, for a desktop that
         // takes a while to draw itself.

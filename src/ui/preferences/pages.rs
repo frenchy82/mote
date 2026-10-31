@@ -19,6 +19,7 @@ pub(super) fn build(
         ("defaults", defaults(settings, sender)),
         ("appearance", appearance(settings, sender)),
         ("sidebar", sidebar(settings, sender)),
+        ("video", super::video::page()),
     ]
 }
 

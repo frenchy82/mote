@@ -315,8 +315,7 @@ fn channels() -> ironrdp_dvc::DrdynvcClient {
     impl ironrdp_egfx::client::GraphicsPipelineHandler for Pictures {}
     ironrdp_dvc::DrdynvcClient::new()
         .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, || {
-            let h264 = super::h264::OpenH264::load()
-                .map(|d| Box::new(d) as Box<dyn ironrdp_egfx::decode::H264Decoder>);
+            let h264 = super::h264::decoder().map(|(_, decoder)| decoder);
             ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(Pictures), h264)
         })
         .with_dynamic_channel_factory(ironrdp_displaycontrol::CHANNEL_NAME, || {

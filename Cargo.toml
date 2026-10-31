@@ -41,6 +41,11 @@ ironrdp-egfx = "0.5"
 # H.264 through the system's OpenH264, loaded at run time: no C++ to build,
 # and Cisco's patent license stays with Cisco's library.
 openh264 = { version = "0.9", default-features = false, features = ["libloading"] }
+# FFmpeg's decoder, loaded at run time the same way: what the Flatpak has.
+libloading = "0.8"
+# Fetching Cisco's OpenH264 on request, and unpacking it.
+ureq = "3"
+bzip2 = "0.6"
 # Each session runs on its own thread, on a single-threaded runtime.
 tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
 # Its errors, to tell an old TLS version from other handshake failures.

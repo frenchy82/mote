@@ -22,14 +22,21 @@ sudo apt install build-essential libgtk-4-dev libadwaita-1-dev gettext
 
 ### H.264
 
-Mote decodes H.264 with Cisco's OpenH264 library, which it loads at run time
-rather than building in, so that Cisco's patent license covers it. Without
-it, servers send RemoteFX instead, which blurs small text, and KRdp, which
-sends only H.264, refuses the session. Mote needs OpenH264 2.6
-(`libopenh264.so.8`); `MOTE_OPENH264` names another library to load.
+Mote decodes H.264 with a library it loads at run time rather than building
+in, so that the patent licenses stay with whoever provides the library. It
+takes the first it finds:
 
-On Fedora, from Fedora's Cisco repository (`noopenh264`, a stand-in that
-decodes nothing, is installed in its place by default):
+1. FFmpeg's libavcodec, version 5 to 8. The Flatpak's GNOME runtime has it
+   in its codecs-extra extension.
+2. Cisco's OpenH264 2.6 from the system (`libopenh264.so.8`).
+3. Cisco's OpenH264 downloaded from Cisco, from Settings, under Video. The
+   download is checked against Cisco's published hash before it is kept.
+
+Without any of them, servers send RemoteFX instead, which blurs small text,
+and KRdp, which sends only H.264, refuses the session.
+
+On Fedora, the system's OpenH264 comes from Fedora's Cisco repository;
+`noopenh264`, a stand-in that decodes nothing, is installed by default:
 
 ```sh
 sudo dnf swap noopenh264 openh264
@@ -40,6 +47,10 @@ On Debian and Ubuntu:
 ```sh
 sudo apt install libopenh264-8
 ```
+
+`MOTE_H264` set to `ffmpeg`, `openh264` or `cisco` tries that source alone,
+`MOTE_FFMPEG_DIR` names a directory to load FFmpeg from, and `MOTE_OPENH264`
+another OpenH264 library.
 
 ## Building and running
 

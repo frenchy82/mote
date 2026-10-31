@@ -4,6 +4,7 @@
 //! first. Built once; closing hides it, so it opens again at once.
 
 mod pages;
+mod video;
 
 use adw::prelude::*;
 use relm4::prelude::*;
@@ -41,6 +42,11 @@ const SIDE_PAGES: &[(&str, &[SidePage])] = &[
                 id: "sidebar",
                 title: "Sidebar",
                 icon: "sidebar-show-symbolic",
+            },
+            SidePage {
+                id: "video",
+                title: "Video",
+                icon: "video-display-symbolic",
             },
         ],
     ),

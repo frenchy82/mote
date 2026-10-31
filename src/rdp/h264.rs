@@ -1,97 +1,57 @@
-//! H.264 for the Graphics Pipeline, through Cisco's OpenH264 library as the
-//! system provides it (Fedora's `openh264` package, Flathub's OpenH264
-//! extension), loaded when a session starts. Cisco's builds carry its patent
-//! license, which is why the library is loaded rather than built in.
-//!
-//! IronRDP's own OpenH264 decoder accepts only the builds Cisco publishes
-//! itself, by hash; the distributions build theirs from the same sources,
-//! so this one loads whatever the system has.
+//! H.264 for the Graphics Pipeline, from whichever decoder the system has,
+//! loaded when a session starts: FFmpeg's (the Flatpak's GNOME runtime has
+//! it), the system's OpenH264 (Fedora's), or Cisco's OpenH264 downloaded on
+//! request. Without one, servers send RemoteFX instead, or, like KRdp,
+//! refuse the session.
 
-use ironrdp_egfx::decode::{DecodedFrame, DecoderError, DecoderResult, H264Decoder, Yuv420Frame};
-use openh264::OpenH264API;
-use openh264::formats::YUVSource;
+pub(crate) mod cisco;
+mod ffmpeg;
+mod openh264;
 
-/// The library names to try: OpenH264 2.6's ABI, which the bindings are for.
-const LIBRARIES: &[&str] = &["libopenh264.so.8"];
+use ironrdp_egfx::decode::H264Decoder;
 
-pub(super) struct OpenH264 {
-    decoder: openh264::decoder::Decoder,
-    annex_b: Vec<u8>,
+/// Where H.264 comes from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Source {
+    Ffmpeg,
+    SystemOpenH264,
+    CiscoOpenH264,
 }
 
-impl OpenH264 {
-    /// A decoder, or `None` when the system has no OpenH264: the server then
-    /// sends RemoteFX instead. `MOTE_OPENH264` names a library to use.
-    pub(super) fn load() -> Option<Self> {
-        let names: Vec<String> = std::env::var("MOTE_OPENH264")
-            .into_iter()
-            .chain(LIBRARIES.iter().map(|s| (*s).to_owned()))
-            .collect();
-        for name in &names {
-            // SAFETY: the library is the system's OpenH264, loaded for its
-            // C API only; the bindings check its version on creation.
-            let api = match unsafe { OpenH264API::from_blob_path_unchecked(name) } {
-                Ok(api) => api,
-                Err(e) => {
-                    tracing::debug!("OpenH264 at {name}: {e}");
-                    continue;
-                }
-            };
-            match openh264::decoder::Decoder::with_api_config(api, Default::default()) {
-                Ok(decoder) => {
-                    tracing::debug!("H.264 through {name}");
-                    return Some(Self {
-                        decoder,
-                        annex_b: Vec::new(),
-                    });
-                }
-                Err(e) => tracing::warn!("OpenH264 at {name}: {e}"),
-            }
+/// A decoder from the first source that has one. `MOTE_H264` set to
+/// `ffmpeg`, `openh264` or `cisco` tries that source alone, and
+/// `MOTE_FFMPEG_DIR` names a directory to load FFmpeg from.
+pub(super) fn decoder() -> Option<(Source, Box<dyn H264Decoder>)> {
+    let only = std::env::var("MOTE_H264").ok();
+    let wanted = |name: &str| only.as_deref().is_none_or(|o| o == name);
+    let boxed = |d: Box<dyn H264Decoder>, s: Source| Some((s, d));
+    if wanted("ffmpeg") {
+        let dir = std::env::var_os("MOTE_FFMPEG_DIR").map(std::path::PathBuf::from);
+        let found = dir
+            .as_deref()
+            .and_then(|d| ffmpeg::Ffmpeg::load(Some(d)))
+            .or_else(|| ffmpeg::Ffmpeg::load(None));
+        if let Some(d) = found {
+            return boxed(Box::new(d), Source::Ffmpeg);
         }
-        tracing::info!("no OpenH264: servers will send RemoteFX instead of H.264");
-        None
     }
+    if wanted("openh264")
+        && let Some(d) = openh264::OpenH264::system()
+    {
+        return boxed(Box::new(d), Source::SystemOpenH264);
+    }
+    if wanted("cisco")
+        && cisco::downloaded()
+        && let Some(d) = openh264::OpenH264::checked(&cisco::path())
+    {
+        return boxed(Box::new(d), Source::CiscoOpenH264);
+    }
+    tracing::info!("no H.264 decoder: servers will send RemoteFX instead");
+    None
 }
 
-impl H264Decoder for OpenH264 {
-    fn decode(&mut self, data: &[u8]) -> DecoderResult<DecodedFrame> {
-        Ok(self.decode_yuv420(data)?.to_rgba())
-    }
-
-    fn decode_yuv420(&mut self, data: &[u8]) -> DecoderResult<Yuv420Frame> {
-        // The Graphics Pipeline's AVC420 streams may come as length-prefixed
-        // NAL units; OpenH264 takes Annex B.
-        let stream = if ironrdp_egfx::pdu::is_avc_format(data) {
-            ironrdp_egfx::pdu::avc_to_annex_b_into(data, &mut self.annex_b);
-            &self.annex_b
-        } else {
-            data
-        };
-        let picture = self
-            .decoder
-            .decode(stream)
-            .map_err(|e| DecoderError::new("OpenH264 decode failed", e))?
-            .ok_or_else(|| DecoderError::msg("OpenH264 returned no picture"))?;
-        let (width, height) = picture.dimensions();
-        let (y_stride, u_stride, v_stride) = picture.strides();
-        let (Ok(width), Ok(height)) = (u16::try_from(width), u16::try_from(height)) else {
-            return Err(DecoderError::msg("picture larger than 65535 pixels"));
-        };
-        if u_stride != v_stride {
-            return Err(DecoderError::msg("chroma planes with different strides"));
-        }
-        Yuv420Frame::new(
-            width,
-            height,
-            picture.y().to_vec(),
-            y_stride,
-            picture.u().to_vec(),
-            picture.v().to_vec(),
-            u_stride,
-        )
-    }
-
-    fn supports_yuv420(&self) -> bool {
-        true
-    }
+/// Where H.264 would come from now, for Settings to show. Loads and drops a
+/// decoder, so call it off the main thread.
+pub(crate) fn source() -> Option<Source> {
+    decoder().map(|(source, _)| source)
 }

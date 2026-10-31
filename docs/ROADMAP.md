@@ -147,11 +147,13 @@ GDK's clipboard, with a per-connection switch.
   effects, with a custom option.
 - A measurement harness, so performance changes are compared by numbers.
 
-Built so far: H.264 through the system's OpenH264, offered as AVC444 and
-AVC420. GNOME Remote Desktop chooses AVC444 and xrdp AVC420, both sharper
-than the RemoteFX they used before, and KRdp, which sends only H.264, now
-connects. Decoding already runs on the session's own thread; the rest of the
-section is still to come.
+Built so far: H.264, offered as AVC444 and AVC420, through FFmpeg, the
+system's OpenH264, or Cisco's OpenH264 downloaded on request from Settings,
+all loaded at run time; FFmpeg is what the Flatpak's GNOME runtime provides,
+and was tried inside it. GNOME Remote Desktop chooses AVC444 and xrdp AVC420,
+both sharper than the RemoteFX they used before, and KRdp, which sends only
+H.264, now connects. Decoding already runs on the session's own thread; the
+rest of the section is still to come.
 
 ### 7. Audio
 
