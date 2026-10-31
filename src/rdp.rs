@@ -3,8 +3,10 @@
 //! to it with [`Command`]s and hears back through [`Event`]s; nothing here
 //! touches a widget.
 
+mod compat;
 mod connect;
 pub(crate) mod keymap;
+mod rdstls;
 mod session;
 
 use std::sync::Arc;

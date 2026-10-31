@@ -74,7 +74,10 @@ pub(super) async fn run(
     loop {
         let outputs = tokio::select! {
             frame = reader.read_pdu() => {
-                let (action, payload) = frame.map_err(|e| Failure::Lost(describe(&e)))?;
+                let (action, mut payload) = frame.map_err(|e| Failure::Lost(describe(&e)))?;
+                if action == ironrdp_pdu::Action::X224 && super::compat::normalize_redirection(&mut payload) {
+                    tracing::debug!("took a FreeRDP-style redirection header");
+                }
                 stage
                     .process(&mut desktop.image, action, &payload, reader.last_read_at())
                     .map_err(|e| Failure::Protocol(describe(&e)))?

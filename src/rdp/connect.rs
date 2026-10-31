@@ -10,6 +10,7 @@ use ironrdp_connector::{
     ConnectionResult, ConnectorErrorKind, ConnectorResult, Credentials, DesktopSize, ServerName,
 };
 use ironrdp_pdu::gcc;
+use ironrdp_pdu::nego::SecurityProtocol;
 use ironrdp_pdu::rdp::capability_sets::{
     MajorPlatformType, RailSupportLevel, client_codecs_capabilities,
 };
@@ -21,7 +22,7 @@ use tokio::net::TcpStream;
 use tokio::sync::{mpsc, oneshot};
 use x509_cert::der::Encode as _;
 
-use super::{Event, Failure, MAX_HOPS, Target, Trust, Unreachable, describe};
+use super::{Event, Failure, MAX_HOPS, Target, Trust, Unreachable, describe, rdstls};
 
 pub(super) trait Stream: AsyncRead + AsyncWrite + Unpin + Send + Sync {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send + Sync> Stream for T {}
@@ -91,13 +92,9 @@ pub(super) fn follow(target: &mut Target, pdu: &ServerRedirectionPdu) -> Result<
     if let Some(domain) = &pdu.domain {
         target.domain = domain.trim_end_matches('\0').to_owned();
     }
-    if let Some(password) = &pdu.password {
-        if flags.contains(ServerRedirectionFlags::PASSWORD_IS_PK_ENCRYPTED) {
-            return Err(Failure::Protocol(
-                "the server redirected to a target that needs RDSTLS".into(),
-            ));
-        }
-        // GNOME's handover sends a new password for the target, in UTF-16.
+    // An encrypted password is for RDSTLS to pass on as it is; a plain one,
+    // in UTF-16, signs in to the target.
+    if let Some(password) = pdu.password.as_deref().filter(|_| !rdstls::needed(pdu)) {
         target.password = utf16(password);
     }
     Ok(())
@@ -150,14 +147,27 @@ async fn attempt(
         connector = with_redirection(connector, pdu);
     }
 
-    let should_upgrade = ironrdp_tokio::connect_begin(&mut framed, &mut connector)
-        .await
-        .map_err(|e| Failure::opening(&e))?;
+    // A redirection with an encrypted password takes RDSTLS, which the
+    // connector can't ask for: ask here, and set it where it would be had
+    // it asked itself.
+    let rdstls = redirect.filter(|pdu| rdstls::needed(pdu));
+    let should_upgrade = match rdstls {
+        Some(pdu) => {
+            rdstls::request(&mut framed, pdu).await?;
+            connector.state = ClientConnectorState::EnhancedSecurityUpgrade {
+                selected_protocol: SecurityProtocol::RDSTLS,
+            };
+            ironrdp_tokio::skip_connect_begin(&mut connector)
+        }
+        None => ironrdp_tokio::connect_begin(&mut framed, &mut connector)
+            .await
+            .map_err(|e| Failure::opening(&e))?,
+    };
     let (stream, leftover) = framed.into_inner();
     // The certificate is checked here, by fingerprint, before anything is
     // sent: servers on a LAN have self-signed certificates no authority
     // could vouch for.
-    let (tls, certificate) = ironrdp_tls::upgrade_with_certificate_validation(
+    let (mut tls, certificate) = ironrdp_tls::upgrade_with_certificate_validation(
         stream,
         &target.host,
         ironrdp_tls::CertificateValidation::DangerouslyAcceptInvalidCertificate,
@@ -171,6 +181,14 @@ async fn attempt(
         .and_then(|pdu| pdu.target_certificate.as_ref())
         .and_then(|c| c.certificate_der())
         .is_some_and(|expected| expected == der.as_slice());
+    if let Some(pdu) = redirect {
+        tracing::info!(
+            "following a redirection: flags {:?}, RDSTLS {}, certificate as announced {}",
+            pdu.flags,
+            rdstls.is_some(),
+            vouched
+        );
+    }
     let mut asked = false;
     if !vouched {
         asked = ask_trust(target, &der, events).await?;
@@ -181,6 +199,11 @@ async fn attempt(
         _ => Attempt::Failed(failure),
     };
 
+    if let Some(pdu) = rdstls {
+        rdstls::authenticate(&mut tls, &target.username, &target.domain, pdu)
+            .await
+            .map_err(fail)?;
+    }
     let upgraded = ironrdp_tokio::mark_as_upgraded(should_upgrade, &mut connector);
     let tls: Box<dyn Stream> = Box::new(tls);
     let mut framed = TokioFramed::new_with_leftover(tls, leftover);
@@ -296,10 +319,8 @@ fn with_redirection(connector: ClientConnector, pdu: &ServerRedirectionPdu) -> C
         redirection_version: gcc::RedirectionVersion::V6,
         redirected_session_id: pdu.session_id,
     });
-    if let Some(info) = &pdu.load_balance_info {
-        // The token goes back as it came; the X.224 request ends it again.
-        let token = String::from_utf8_lossy(info);
-        connector = connector.with_load_balance_info(token.trim_end_matches("\r\n").to_owned());
+    if let Some(token) = rdstls::routing_token(pdu) {
+        connector = connector.with_load_balance_info(token);
     }
     if let Some(password) = &pdu.password {
         connector = connector.with_redirection_password_cookie(password.clone());
