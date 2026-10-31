@@ -20,6 +20,27 @@ On Debian and Ubuntu:
 sudo apt install build-essential libgtk-4-dev libadwaita-1-dev gettext
 ```
 
+### H.264
+
+Mote decodes H.264 with Cisco's OpenH264 library, which it loads at run time
+rather than building in, so that Cisco's patent license covers it. Without
+it, servers send RemoteFX instead, which blurs small text, and KRdp, which
+sends only H.264, refuses the session. Mote needs OpenH264 2.6
+(`libopenh264.so.8`); `MOTE_OPENH264` names another library to load.
+
+On Fedora, from Fedora's Cisco repository (`noopenh264`, a stand-in that
+decodes nothing, is installed in its place by default):
+
+```sh
+sudo dnf swap noopenh264 openh264
+```
+
+On Debian and Ubuntu:
+
+```sh
+sudo apt install libopenh264-8
+```
+
 ## Building and running
 
 ```sh

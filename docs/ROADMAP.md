@@ -51,7 +51,7 @@ on something a section needs, that section adds it upstream.
 | 3 | First session | Done |
 | 4 | HiDPI and resizing | Testing |
 | 5 | Clipboard | |
-| 6 | Graphics pipeline | |
+| 6 | Graphics pipeline | In progress |
 | 7 | Audio | |
 | 8 | Device redirection | |
 | 9 | Network | |
@@ -146,6 +146,12 @@ GDK's clipboard, with a per-connection switch.
 - Quality presets that set color depth, codecs and the server's visual
   effects, with a custom option.
 - A measurement harness, so performance changes are compared by numbers.
+
+Built so far: H.264 through the system's OpenH264, offered as AVC444 and
+AVC420. GNOME Remote Desktop chooses AVC444 and xrdp AVC420, both sharper
+than the RemoteFX they used before, and KRdp, which sends only H.264, now
+connects. Decoding already runs on the session's own thread; the rest of the
+section is still to come.
 
 ### 7. Audio
 

@@ -6,6 +6,7 @@
 mod compat;
 mod connect;
 mod failure;
+mod h264;
 pub(crate) mod keymap;
 mod rdstls;
 mod session;

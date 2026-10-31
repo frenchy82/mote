@@ -305,8 +305,9 @@ async fn credssp(
     Ok(())
 }
 
-/// The dynamic channels: the Graphics Pipeline, whose output lands in the
-/// session's image by way of the session itself, and Display Control. Each
+/// The dynamic channels: the Graphics Pipeline, with H.264 where the system
+/// has OpenH264, whose output lands in the session's image by way of the
+/// session itself, and Display Control. Each
 /// is made afresh whenever the server opens it: xrdp opens both again after
 /// a resize.
 fn channels() -> ironrdp_dvc::DrdynvcClient {
@@ -314,7 +315,9 @@ fn channels() -> ironrdp_dvc::DrdynvcClient {
     impl ironrdp_egfx::client::GraphicsPipelineHandler for Pictures {}
     ironrdp_dvc::DrdynvcClient::new()
         .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, || {
-            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(Pictures), None)
+            let h264 = super::h264::OpenH264::load()
+                .map(|d| Box::new(d) as Box<dyn ironrdp_egfx::decode::H264Decoder>);
+            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(Pictures), h264)
         })
         .with_dynamic_channel_factory(ironrdp_displaycontrol::CHANNEL_NAME, || {
             ironrdp_displaycontrol::client::DisplayControlClient::new(|_| Ok(Vec::new()))

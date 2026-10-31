@@ -97,7 +97,7 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
         Ending::ServerClosed(Some(Disconnect::Graphics)) => page(
             could_not(),
             named(
-                "{host} can only send its picture as H.264 video, which is not supported yet. KRdp works this way.",
+                "{host} can only send its picture as H.264 video, which needs Cisco’s OpenH264 library on this computer. On Fedora, install the openh264 package.",
             ),
         ),
         Ending::ServerClosed(Some(Disconnect::FreshCredentials)) => {

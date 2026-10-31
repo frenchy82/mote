@@ -38,6 +38,9 @@ ironrdp-dvc = "0.10"
 ironrdp-displaycontrol = "0.10"
 # The Graphics Pipeline, which GNOME Remote Desktop requires.
 ironrdp-egfx = "0.5"
+# H.264 through the system's OpenH264, loaded at run time: no C++ to build,
+# and Cisco's patent license stays with Cisco's library.
+openh264 = { version = "0.9", default-features = false, features = ["libloading"] }
 # Each session runs on its own thread, on a single-threaded runtime.
 tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
 # Its errors, to tell an old TLS version from other handshake failures.
@@ -52,6 +55,11 @@ glib-build-tools = "0.22"
 # The session decodes video frames; an unoptimised build is too slow to judge
 # by eye, and opt-level 1 keeps the edit-build loop short.
 opt-level = 1
+
+# The decoders, though, run at full speed even in a debug build: a session
+# at 4K is too slow to use otherwise.
+[profile.dev.package."*"]
+opt-level = 3
 
 [profile.release]
 lto = "thin"
