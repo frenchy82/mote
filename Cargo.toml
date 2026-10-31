@@ -1,0 +1,29 @@
+[package]
+name = "mote"
+version = "0.1.0"
+edition = "2024"
+description = "A GNOME-native remote desktop client for Linux machines running RDP"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/hyprlab/mote"
+rust-version = "1.88"
+
+[dependencies]
+# The GNOME 50 runtime ships GTK 4.20 and libadwaita 1.9; these floors stay at
+# or below that so a Flatpak build and a host build use the same API. v1_7
+# brings AdwToggleGroup and AdwWrapBox, which the connection editor will want.
+gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
+relm4 = { version = "0.11", features = ["macros", "libadwaita"] }
+gettext-rs = { version = "0.8", features = ["gettext-system"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.dev]
+# The session decodes video frames; an unoptimised build is too slow to judge
+# by eye, and opt-level 1 keeps the edit-build loop short.
+opt-level = 1
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

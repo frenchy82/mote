@@ -1,0 +1,9 @@
+/target
+**/*.rs.bk
+*.log
+
+# Developer scratch / asset drop-off
+/temp
+
+# Local Claude Code settings
+.claude/
