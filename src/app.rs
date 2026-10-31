@@ -222,6 +222,8 @@ impl Component for AppModel {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         load_css();
+        // Only X11 reads a window's own icon; Wayland goes by the app ID.
+        gtk::Window::set_default_icon_name(crate::APP_ID);
         let settings = config::load_settings();
         apply_color_scheme(settings.color_scheme);
         let window = settings.window.clone();

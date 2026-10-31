@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="data/repo/logo.png" width="120" alt="Mote logo">
+</p>
+
 # Mote
 
 A remote desktop client for GNOME, written in Rust with GTK 4 and libadwaita,

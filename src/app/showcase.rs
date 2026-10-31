@@ -5,7 +5,7 @@
 //! - `MOTE_SHOWCASE_OPEN`: comma-separated steps before the capture:
 //!   `first` selects the first connection, `editor` opens it in the editor
 //!   (or a new one), `settings` or `settings:<page>` opens Settings and
-//!   captures that window instead.
+//!   captures that window instead, `about` opens About.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -37,6 +37,7 @@ impl AppModel {
                     sender.input(AppMsg::OpenSettings);
                     sender.input(AppMsg::ShowcaseSettingsPage(page.to_owned()));
                 }
+                ("about", _) => sender.input(AppMsg::About),
                 (other, _) => tracing::warn!("showcase: unknown step {other}"),
             }
         }
