@@ -126,6 +126,20 @@ with the libadwaita 1.7 Mote needs, so it installs there and on Ubuntu
 Opus, FFmpeg, OpenH264) are recommended by both, as neither format can see
 them linked.
 
+Both packages also install Mote's repository on mote.hyprlab.co, so an
+install from a download keeps updating with the rest of the system:
+`packaging/fedora/mote.repo` and `packaging/debian/mote.sources`, and a beta
+repository that is off until turned on. They are the files the site serves
+at `/rpm/mote.repo` and `/deb/mote.sources`, byte for byte, the beta ones
+but for the line that turns them off, so a repository added by hand and the
+package's don't conflict. When the site's signing key changes, they are
+written again from what it serves:
+
+```sh
+curl -fsS https://mote.hyprlab.co/rpm/mote.repo | diff - packaging/fedora/mote.repo
+curl -fsS https://mote.hyprlab.co/deb/mote.sources | diff - packaging/debian/mote.sources
+```
+
 ## AppImage
 
 `tools/build-appimage.sh` builds `packaging/out/Mote-<arch>.AppImage` and

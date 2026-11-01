@@ -73,6 +73,10 @@ build_rpm() {
     work="$(mktemp -d)"
     stage="$work/mote-$PKG_VERSION-bin"
     stage_payload "$stage"
+    # The dnf repository on mote.hyprlab.co, so an RPM installed from a
+    # download keeps updating with the rest of the system.
+    cp "$ROOT/packaging/fedora/mote.repo"      "$stage/mote.repo"
+    cp "$ROOT/packaging/fedora/mote-beta.repo" "$stage/mote-beta.repo"
     mkdir -p "$work/rpmbuild/SOURCES"
     tar -C "$work" -cf "$work/rpmbuild/SOURCES/mote-$PKG_VERSION-bin.tar" "mote-$PKG_VERSION-bin"
 
@@ -141,7 +145,15 @@ build_deb() {
         [ -e "$mo" ] || continue
         install -Dm644 "$mo" "$pkg/usr/share/${mo#"$stage"/}"
     done
+    # The apt repository on mote.hyprlab.co, the same files the site serves
+    # at /deb/mote.sources and /deb/mote-beta.sources (key included), so a
+    # package installed from a download keeps updating with the rest of the
+    # system. The beta's is off, as in the RPM, and every package carries
+    # it. Both are conffiles: a user's edits are kept on upgrade.
+    install -Dm644 "$ROOT/packaging/debian/mote.sources" "$pkg/etc/apt/sources.list.d/mote.sources"
+    install -Dm644 "$ROOT/packaging/debian/mote-beta.sources" "$pkg/etc/apt/sources.list.d/mote-beta.sources"
     mkdir -p "$pkg/DEBIAN" "$pkg/usr/share/doc/mote"
+    printf '/etc/apt/sources.list.d/mote.sources\n/etc/apt/sources.list.d/mote-beta.sources\n' > "$pkg/DEBIAN/conffiles"
     {
         printf 'Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/\n'
         printf 'Upstream-Name: Mote\nSource: https://github.com/hyprlab/mote\n\n'

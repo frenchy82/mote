@@ -32,6 +32,14 @@ a folder, and reaches computers through SSH tunnels and RD Gateways.
 
 %install
 install -Dm755 mote %{buildroot}%{_bindir}/mote
+# The dnf repository on mote.hyprlab.co, the same file the site serves at
+# /rpm/mote.repo: an RPM installed from a download then updates with the
+# rest of the system. noreplace keeps a user's own edits (enabled=0).
+install -Dm644 mote.repo %{buildroot}%{_sysconfdir}/yum.repos.d/mote.repo
+# The beta repository, off: a tester turns it on once (dnf config-manager
+# setopt mote-beta.enabled=1). Every package, stable or beta, carries it,
+# so the first stable to overtake a beta doesn't remove it.
+install -Dm644 mote-beta.repo %{buildroot}%{_sysconfdir}/yum.repos.d/mote-beta.repo
 install -Dm644 %{appid}.desktop %{buildroot}%{_datadir}/applications/%{appid}.desktop
 install -Dm644 %{appid}.metainfo.xml %{buildroot}%{_datadir}/metainfo/%{appid}.metainfo.xml
 for size in 256x256 512x512; do
@@ -54,6 +62,8 @@ done
 %files -f %{name}.lang
 %license LICENSE
 %{_bindir}/mote
+%config(noreplace) %{_sysconfdir}/yum.repos.d/mote.repo
+%config(noreplace) %{_sysconfdir}/yum.repos.d/mote-beta.repo
 %{_datadir}/applications/%{appid}.desktop
 %{_datadir}/metainfo/%{appid}.metainfo.xml
 %{_datadir}/icons/hicolor/*/apps/%{appid}.png
