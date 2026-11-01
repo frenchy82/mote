@@ -5,7 +5,8 @@
 //! - `MOTE_SHOWCASE_OPEN`: comma-separated steps before the capture:
 //!   `first` selects the first connection, `editor` opens it in the editor
 //!   (or a new one), `settings` or `settings:<page>` opens Settings and
-//!   captures that window instead, `about` opens About, `search:<text>`
+//!   captures that window instead, `about` opens About, `shortcuts` the
+//!   keyboard shortcuts, `search:<text>`
 //!   opens the search with that text in it, and `connect:<name>` connects
 //!   to the connection of that name; `detach` and `fullscreen` then do that
 //!   to its session, and `scaling:<resize|fit|actual>` sets its scaling;
@@ -66,6 +67,7 @@ impl AppModel {
                     send(AppMsg::ShowcaseSettingsPage(page.to_owned()));
                 }
                 ("about", _) => send(AppMsg::About),
+                ("shortcuts", _) => send(AppMsg::Shortcuts),
                 ("connect", name) => {
                     if let Some(id) = self
                         .connections

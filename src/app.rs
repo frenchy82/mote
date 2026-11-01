@@ -86,6 +86,7 @@ pub(crate) enum AppMsg {
     OpenSettings,
     Pref(PrefChange),
     About,
+    Shortcuts,
     ShowcaseSettingsPage(String),
     ShowcaseSession(String),
     ShowcaseCapture(String),
@@ -136,11 +137,13 @@ impl Component for AppModel {
                             pack_start = &gtk::Button {
                                 set_icon_name: "list-add-symbolic",
                                 set_tooltip_text: Some(&i18n("New Connection")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("New Connection"))],
                                 set_action_name: Some("win.new-connection"),
                             },
                             pack_end = &gtk::MenuButton {
                                 set_icon_name: "open-menu-symbolic",
                                 set_tooltip_text: Some(&i18n("Main Menu")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("Main Menu"))],
                                 set_primary: true,
                                 add_css_class: "flat",
                                 set_menu_model: Some(&main_menu),
@@ -150,6 +153,7 @@ impl Component for AppModel {
                             pack_end = &gtk::ToggleButton {
                                 set_icon_name: "system-search-symbolic",
                                 set_tooltip_text: Some(&i18n("Search")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("Search"))],
                             },
                         },
 
@@ -202,6 +206,7 @@ impl Component for AppModel {
                             pack_start = &gtk::Button {
                                 set_icon_name: "sidebar-show-symbolic",
                                 set_tooltip_text: Some(&i18n("Toggle Sidebar")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("Toggle Sidebar"))],
                                 connect_clicked[split = split.clone()] => move |_| {
                                     split.set_show_sidebar(!split.shows_sidebar());
                                 },
@@ -209,6 +214,7 @@ impl Component for AppModel {
                             pack_end = &gtk::MenuButton {
                                 set_icon_name: "view-more-symbolic",
                                 set_tooltip_text: Some(&i18n("Connection Menu")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("Connection Menu"))],
                                 set_menu_model: Some(&connection_menu),
                                 #[watch]
                                 set_visible: model.selected.is_some(),
@@ -216,6 +222,7 @@ impl Component for AppModel {
                             pack_end = &gtk::Button {
                                 set_icon_name: "document-edit-symbolic",
                                 set_tooltip_text: Some(&i18n("Edit Connection")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("Edit Connection"))],
                                 set_action_name: Some("win.edit"),
                                 #[watch]
                                 set_visible: model.selected.is_some(),
@@ -414,6 +421,7 @@ impl Component for AppModel {
             AppMsg::OpenSettings => self.open_settings(&sender, root),
             AppMsg::Pref(change) => self.apply_pref(change),
             AppMsg::About => actions::present_about(root),
+            AppMsg::Shortcuts => actions::present_shortcuts(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
             AppMsg::ShowcaseSession(step) => self.showcase_session(&step),
             AppMsg::ShowcaseCapture(path) => self.showcase_capture(&path, root),

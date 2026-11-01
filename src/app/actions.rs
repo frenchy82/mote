@@ -20,6 +20,7 @@ const ACTIONS: &[(&str, &[&str])] = &[
     ("delete", &[]),
     ("search", &["<Control>f"]),
     ("settings", &["<Control>comma"]),
+    ("shortcuts", &["<Control>question"]),
     ("about", &[]),
 ];
 
@@ -35,6 +36,7 @@ fn message(action: &str) -> AppMsg {
         "delete" => AppMsg::DeleteSelected,
         "search" => AppMsg::FocusSearch,
         "settings" => AppMsg::OpenSettings,
+        "shortcuts" => AppMsg::Shortcuts,
         _ => AppMsg::About,
     }
 }
@@ -101,6 +103,11 @@ pub(super) fn main_menu() -> gio::Menu {
     menu.append_section(None, &settings);
     menu.append_section(None, &import_menu());
     let help = gio::Menu::new();
+    help.append_item(&item(
+        &i18n("Keyboard Shortcuts"),
+        "win.shortcuts",
+        Some("<Control>question"),
+    ));
     help.append(Some(&i18n("About Mote")), Some("win.about"));
     menu.append_section(None, &help);
     let quit = gio::Menu::new();
@@ -135,6 +142,48 @@ pub(super) fn connection_menu() -> gio::Menu {
     delete.append(Some(&i18n("Delete…")), Some("win.delete"));
     menu.append_section(None, &delete);
     menu
+}
+
+/// Every shortcut, in GNOME's own dialog. Those of a session are the ones
+/// that work while the remote desktop has the keyboard.
+pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
+    let dialog = adw::ShortcutsDialog::new();
+    let sections: [(String, Vec<(String, &str)>); 3] = [
+        (
+            i18n("Connections"),
+            vec![
+                (i18n("New Connection"), "<Control>n"),
+                (i18n("Connect"), "<Control>Return"),
+                (i18n("Edit Connection"), "<Control>e"),
+                (i18n("Search"), "<Control>f"),
+                (i18n("Import .rdp Files…"), "<Control>o"),
+            ],
+        ),
+        (
+            i18n("Sessions"),
+            vec![
+                (i18n("Let Go of the Keyboard"), "Control_R"),
+                (i18n("Give the Shortcuts Back"), "<Super>Escape"),
+            ],
+        ),
+        (
+            i18n("General"),
+            vec![
+                (i18n("Settings"), "<Control>comma"),
+                (i18n("Keyboard Shortcuts"), "<Control>question"),
+                (i18n("Close Window"), "<Control>w"),
+                (i18n("Quit"), "<Control>q"),
+            ],
+        ),
+    ];
+    for (title, items) in sections {
+        let section = adw::ShortcutsSection::new(Some(&title));
+        for (label, accel) in items {
+            section.add(adw::ShortcutsItem::new(&label, accel));
+        }
+        dialog.add(section);
+    }
+    dialog.present(Some(parent));
 }
 
 pub(super) fn present_about(parent: &adw::ApplicationWindow) {

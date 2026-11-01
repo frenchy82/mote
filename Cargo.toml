@@ -10,9 +10,9 @@ rust-version = "1.94"
 [dependencies]
 # The GNOME 50 runtime ships GTK 4.20 and libadwaita 1.9; these floors stay at
 # or below that so a Flatpak build and a host build use the same API. v1_7
-# brings AdwToggleGroup and AdwWrapBox, which the connection editor will want.
+# brings AdwToggleGroup and AdwWrapBox, v1_8 the shortcuts dialog.
 gtk = { package = "gtk4", version = "0.11", features = ["v4_18"] }
-adw = { package = "libadwaita", version = "0.9", features = ["v1_7"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_8"] }
 relm4 = { version = "0.11", features = ["macros", "libadwaita"] }
 gettext-rs = { version = "0.8", features = ["gettext-system"] }
 tracing = "0.1"
