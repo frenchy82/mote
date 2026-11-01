@@ -520,6 +520,7 @@ impl Component for Session {
                     && let (Some(handle), Some((width, height, scale))) =
                         (&self.handle, self.desktop_size())
                 {
+                    self.display.set_asked(width, height);
                     handle.send(rdp::Command::Resize {
                         width: width.into(),
                         height: height.into(),
@@ -656,6 +657,7 @@ impl Session {
             });
             return;
         };
+        self.display.set_asked(width, height);
         let target = rdp::Target {
             host: self.connection.host.clone(),
             port: self.connection.port,
@@ -826,6 +828,7 @@ impl Session {
                 }
                 self.display.set_remote_cursor(cursor);
             }
+            Event::KeepsSize => self.display.set_keeps_size(),
             Event::OneMonitor => {
                 if self.spread.is_some() {
                     self.gather(sender);

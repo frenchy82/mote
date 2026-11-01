@@ -142,7 +142,9 @@ the codecs IronRDP decodes without H.264.
 
 Built: the desktop is asked for in device pixels with the screen's scale,
 and Display Control resizes it with the window, a moment after the window
-settles; the pointer is drawn at the same scale. The scaling mode is chosen
+settles; the pointer is drawn at the same scale. A server that keeps a size
+of its own, as KRdp keeps its screen's, or that has no Display Control, is
+scaled to fit the window instead. The scaling mode is chosen
 per connection, in the editor or the session's menu. Fullscreen arrived with
 section 3. Tried at 1×, 1.25× and 2× against a headless GNOME Remote
 Desktop, and resizing against GNOME Remote Login and xrdp, which reopens its

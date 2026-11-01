@@ -34,6 +34,11 @@ mod imp {
         /// Told when the widget's size or the screen's scale changes.
         pub(super) on_size: RefCell<Option<SizeSink>>,
         pub(super) mode: Cell<Scaling>,
+        /// The desktop size last asked of the server, in its pixels.
+        pub(super) asked: Cell<Option<(i32, i32)>>,
+        /// The server keeps a size of its own rather than the one asked
+        /// for, so Resize scales the picture to fit as Fit does.
+        pub(super) keeps_size: Cell<bool>,
         /// The server's pointer, kept to draw it again at a new scale.
         pub(super) pointer: RefCell<Option<Arc<DecodedPointer>>>,
         /// The surface whose scale is followed, and the handler doing it.
@@ -366,6 +371,22 @@ impl Display {
         self.refresh_cursor();
     }
 
+    /// The desktop size asked of the server: frames of another size say
+    /// it keeps one of its own.
+    pub(crate) fn set_asked(&self, width: u16, height: u16) {
+        self.imp()
+            .asked
+            .set(Some((i32::from(width), i32::from(height))));
+    }
+
+    /// The server can't change the desktop's size at all.
+    pub(crate) fn set_keeps_size(&self) {
+        if !self.imp().keeps_size.replace(true) {
+            self.queue_draw();
+            self.refresh_cursor();
+        }
+    }
+
     fn size_changed(&self) {
         self.refresh_cursor();
         let sink = self.imp().on_size.borrow().clone();
@@ -411,6 +432,17 @@ impl Display {
             .get_or_insert_with(|| crate::stats::Stats::new("screen"))
             .time("texture", start);
         if resized {
+            // KRdp shares a screen of its own size, whatever is asked. A
+            // few pixels off is a server rounding the size asked for.
+            if let Some((w, h)) = self.imp().asked.get() {
+                let keeps = (width - w).abs() > SIZE_SLACK || (height - h).abs() > SIZE_SLACK;
+                if keeps != self.imp().keeps_size.replace(keeps) {
+                    tracing::debug!(
+                        "the server {} the size asked for",
+                        if keeps { "keeps its own, not" } else { "takes" }
+                    );
+                }
+            }
             // A new desktop size: a new natural size at Actual Size, and a
             // new scale for the pointer.
             self.queue_resize();
@@ -506,6 +538,10 @@ impl Display {
     }
 }
 
+/// How far, in desktop pixels, a desktop may be from the size asked for and
+/// still count as that size.
+const SIZE_SLACK: i32 = 16;
+
 /// Where the desktop sits in the widget, and at what scale: widget pixels
 /// to a desktop pixel.
 struct Placement {
@@ -536,6 +572,8 @@ impl Placement {
         let actual = 1.0 / device;
         let scale = match mode {
             Scaling::Fit => fit,
+            // A server that keeps its own size is scaled as Fit scales.
+            Scaling::Resize if widget.imp().keeps_size.get() => fit,
             // Until the server catches up with a resize, shrink to fit a
             // desktop that is too large, but never enlarge one.
             Scaling::Resize => actual.min(fit),

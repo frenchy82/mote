@@ -240,7 +240,7 @@ pub(super) async fn run(
             layout = send_layout(&mut stage, &mut writer, events, asked, monitors).await?;
         }
         if let Some(size) = resize.take() {
-            resize = send_resize(&mut stage, &mut writer, asked, size).await?;
+            resize = send_resize(&mut stage, &mut writer, events, asked, size).await?;
         }
 
         if !desktop.damage.is_empty() && !desktop.in_flight {
@@ -344,6 +344,7 @@ async fn reactivate(
 async fn send_resize(
     stage: &mut ActiveStage,
     writer: &mut ironrdp_tokio::TokioFramed<tokio::io::WriteHalf<Box<dyn super::connect::Stream>>>,
+    events: &mpsc::Sender<Event>,
     asked: &mut (u32, u32, u32),
     (width, height, scale): (u32, u32, u32),
 ) -> Result<Option<(u32, u32, u32)>, Failure> {
@@ -356,6 +357,7 @@ async fn send_resize(
         Some(false) => return Ok(Some((width, height, scale))),
         None => {
             tracing::debug!("the server has no Display Control; scaling instead");
+            send(events, Event::KeepsSize).await?;
             return Ok(None);
         }
     }

@@ -103,6 +103,8 @@ pub(crate) enum Event {
     Clipboard(ClipboardEvent),
     /// The server can't spread its desktop over several monitors.
     OneMonitor,
+    /// The server keeps the desktop's size: it has no Display Control.
+    KeepsSize,
     /// The last event of a session.
     Ended(Ending),
 }
@@ -639,6 +641,7 @@ mod tests {
                 }
                 Event::Waking => eprintln!("waking"),
                 Event::OneMonitor => eprintln!("one monitor only"),
+                Event::KeepsSize => eprintln!("keeps its size"),
                 Event::Reconnecting => eprintln!("reconnecting"),
                 Event::Connected { width, height } => {
                     eprintln!("connected {width}x{height}");
