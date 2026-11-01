@@ -1,0 +1,273 @@
+name: Build packages
+run-name: Packages ${{ inputs.ref || github.ref_name }}
+
+# Every package Mote ships, for x86_64 and ARM64, each built natively: x86_64
+# on GitHub's usual runners, ARM64 on its arm64 ones (free for public
+# repositories). Emulating ARM64 through qemu takes hours; this takes
+# minutes. The same scripts build x86_64 on the maintainer's machine
+# (docs/BUILDING.md); here both architectures come from one place.
+#
+# Each package is installed on a clean system of its kind afterwards, to
+# check what it needs resolves. A tag also gathers everything into a draft
+# release, which the maintainer reads over and publishes: nothing goes out
+# from here by itself.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag, branch or SHA to build'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    name: AppImage ${{ matrix.arch }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64,  runs-on: ubuntu-latest }
+          - { arch: aarch64, runs-on: ubuntu-24.04-arm }
+    # Arch, as pkgforge builds theirs: current libraries, and the layout
+    # their collector expects (see tools/build-appimage.sh).
+    container: ghcr.io/pkgforge-dev/archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Build
+        # The script notices it is already inside Arch and builds in place.
+        run: tools/build-appimage.sh
+
+      - name: Check the version and the architecture
+        # quick-sharun writes appinfo beside the bundle with the fields its
+        # launcher carries, which is compressed and can't be grepped.
+        run: |
+          want="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          cat packaging/out/appinfo
+          grep -qx "X-AppImage-Version=$want" packaging/out/appinfo \
+            || { echo "built app is not $want" >&2; exit 1; }
+          grep -qx "X-AppImage-Arch=${{ matrix.arch }}" packaging/out/appinfo \
+            || { echo "built app is not ${{ matrix.arch }}" >&2; exit 1; }
+          file packaging/out/Mote-${{ matrix.arch }}.AppImage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mote-appimage-${{ matrix.arch }}
+          path: |
+            packaging/out/Mote-${{ matrix.arch }}.AppImage
+            packaging/out/Mote-${{ matrix.arch }}.AppImage.zsync
+          retention-days: 30
+          if-no-files-found: error
+
+  deb:
+    name: Debian package ${{ matrix.arch }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runs-on: ubuntu-latest }
+          - { arch: arm64, runs-on: ubuntu-24.04-arm }
+    container: docker.io/library/rust:1-trixie
+    env:
+      # build-packages.sh installs the build dependencies itself in its
+      # container, and writes to /out there.
+      MOTE_DEB_CONTAINER: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Build
+        # bash: the image's sh is dash, and the check below turns the
+        # version's dash into a tilde with bash's ${//}.
+        shell: bash
+        run: |
+          tools/build-packages.sh deb
+          deb=$(ls /out/mote_*_${{ matrix.arch }}.deb)
+          want="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          test "$(dpkg-deb -f "$deb" Version)" = "${want//-/\~}-1" \
+            || { echo "built package is not $want" >&2; exit 1; }
+          mkdir -p packaging/out && cp "$deb" packaging/out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mote-deb-${{ matrix.arch }}
+          path: packaging/out/mote_*_${{ matrix.arch }}.deb
+          retention-days: 30
+          if-no-files-found: error
+
+  deb-check:
+    name: Debian package ${{ matrix.arch }} installs
+    needs: deb
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runs-on: ubuntu-latest, machine: x86-64 }
+          - { arch: arm64, runs-on: ubuntu-24.04-arm, machine: ARM aarch64 }
+    container: docker.io/library/debian:13
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mote-deb-${{ matrix.arch }}
+      - name: Install on a clean Debian 13 and check its libraries
+        run: |
+          apt-get update -qq
+          DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ./mote_*_${{ matrix.arch }}.deb file
+          file /usr/bin/mote | grep -q '${{ matrix.machine }}'
+          if ldd /usr/bin/mote | grep 'not found'; then exit 1; fi
+          dpkg -s mote | grep -q '^Status: install ok installed'
+
+  rpm:
+    name: RPM ${{ matrix.arch }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64,  runs-on: ubuntu-latest }
+          - { arch: aarch64, runs-on: ubuntu-24.04-arm }
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - name: Install the build dependencies
+        run: |
+          dnf install -y --setopt=install_weak_deps=False git tar gzip gcc \
+            gtk4-devel libadwaita-devel gettext rpm-build
+          # rustup's stable, as the maintainer builds with, rather than
+          # Fedora's packaged Rust.
+          curl -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Build
+        shell: bash
+        run: |
+          tools/build-packages.sh rpm
+          rpm=$(ls packaging/out/mote-*.${{ matrix.arch }}.rpm)
+          want="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          test "$(rpm -qp --qf '%{VERSION}' "$rpm")" = "${want//-/\~}" \
+            || { echo "built RPM is not $want" >&2; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mote-rpm-${{ matrix.arch }}
+          path: packaging/out/mote-*.${{ matrix.arch }}.rpm
+          retention-days: 30
+          if-no-files-found: error
+
+  rpm-check:
+    name: RPM ${{ matrix.arch }} installs
+    needs: rpm
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64,  runs-on: ubuntu-latest, machine: x86-64 }
+          - { arch: aarch64, runs-on: ubuntu-24.04-arm, machine: ARM aarch64 }
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mote-rpm-${{ matrix.arch }}
+      - name: Install on a clean Fedora 44 and check its libraries
+        run: |
+          dnf install -y ./mote-*.${{ matrix.arch }}.rpm file
+          file /usr/bin/mote | grep -q '${{ matrix.machine }}'
+          if ldd /usr/bin/mote | grep 'not found'; then exit 1; fi
+          rpm -q mote
+
+  flatpak:
+    name: Flatpak ${{ matrix.arch }}
+    runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: x86_64,  runs-on: ubuntu-latest }
+          - { arch: aarch64, runs-on: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Install flatpak-builder, the GNOME runtime and Rust
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder python3-aiohttp python3-tomlkit
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          for attempt in 1 2 3; do
+            # Plain objects rather than deltas, which Flathub's CDN now and
+            # then lists and doesn't serve.
+            flatpak install --user -y --noninteractive --no-static-deltas flathub \
+              org.gnome.Platform//50 org.gnome.Sdk//50 \
+              org.freedesktop.Sdk.Extension.rust-stable//25.08 && break
+            echo "install attempt $attempt failed; retrying"; sleep 30
+          done
+
+      - name: Vendor the crate sources
+        # cargo-sources.json comes out of Cargo.lock, which is committed, and
+        # isn't kept itself.
+        run: |
+          curl -fsSL -o /tmp/flatpak-cargo-generator.py \
+            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/master/cargo/flatpak-cargo-generator.py
+          python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+          test -s cargo-sources.json
+
+      - name: Build and bundle
+        # A single-file bundle: installing it fetches the GNOME runtime, and
+        # codecs-extra with it, from Flathub.
+        run: |
+          flatpak-builder --user --force-clean --disable-rofiles-fuse \
+            --repo="$PWD/repo" build-dir co.hyprlab.Mote.yml
+          file build-dir/files/bin/mote
+          flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            "$PWD/repo" Mote-${{ matrix.arch }}.flatpak co.hyprlab.Mote
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mote-flatpak-${{ matrix.arch }}
+          path: Mote-${{ matrix.arch }}.flatpak
+          retention-days: 30
+          if-no-files-found: error
+
+  release:
+    name: Draft the release
+    # Only for a tag, and only once every package built and installed.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [appimage, deb-check, rpm-check, flatpak]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Draft a release with every package
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -l artifacts
+          gh release create "${{ github.ref_name }}" --draft --verify-tag \
+            --title "Mote ${{ github.ref_name }}" artifacts/*
