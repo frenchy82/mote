@@ -566,7 +566,8 @@ mod tests {
             domain: String::new(),
             width: width.parse().expect("width"),
             height: height.parse().expect("height"),
-            scale: 100,
+            // MOTE_TEST_SCALE: the scale to ask for, in percent.
+            scale: var("MOTE_TEST_SCALE", "100").parse().expect("scale"),
             // MOTE_TEST_QUALITY: best, avc420 or remotefx.
             quality: match var("MOTE_TEST_QUALITY", "best").as_str() {
                 "avc420" => crate::connection::Quality::Avc420,

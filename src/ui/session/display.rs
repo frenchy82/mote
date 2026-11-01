@@ -184,13 +184,23 @@ mod imp {
             snapshot.append_color(&gdk::RGBA::BLACK, &graphene::Rect::new(0.0, 0.0, w, h));
             if let Some(texture) = self.texture.borrow().as_ref() {
                 let place = Placement::new(&widget, texture);
+                // In the screen's own pixels: GSK scales a texture to its
+                // bounds in the node's coordinates before the window's scale
+                // applies, so in widget pixels a HiDPI screen would get the
+                // desktop at half its resolution, then doubled.
+                let device = device_scale(&*widget) as f32;
+                let pixels = place.scale as f32 * device;
+                snapshot.save();
+                snapshot.translate(&graphene::Point::new(place.x as f32, place.y as f32));
+                snapshot.scale(1.0 / device, 1.0 / device);
                 let bounds = graphene::Rect::new(
-                    place.x as f32,
-                    place.y as f32,
-                    texture.width() as f32 * place.scale as f32,
-                    texture.height() as f32 * place.scale as f32,
+                    0.0,
+                    0.0,
+                    texture.width() as f32 * pixels,
+                    texture.height() as f32 * pixels,
                 );
                 snapshot.append_scaled_texture(texture, place.filter, &bounds);
+                snapshot.restore();
             }
         }
     }
