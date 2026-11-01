@@ -459,6 +459,12 @@ Built:
   `po/README.md` for translators, as Hylki has. Languages come from the
   people who speak them.
 
+- Connections are shown as robots, DiceBear's Pixelbot (CC0), rather than
+  initials: the one a connection's id picks, another chosen in the editor,
+  more of them on request, or an image of the user's own, kept as a copy
+  no larger than it is shown. Robots are drawn rather than kept as images,
+  so they cost no memory per connection.
+
 Tried: xrdp took German (`0x407`) and US English, as `setxkbmap -query` in
 the session showed; Right Ctrl alone let go in a session, and Right Ctrl+A
 selected everything on the server; a copy of a real `settings.toml` loaded

@@ -185,6 +185,18 @@ in `data/repo/`. The symbolic icon in `data/icons/hicolor/symbolic/apps` is
 drawn by hand. The build embeds both SVGs in the binary, so About shows the
 icon without an install.
 
+## Connection robots
+
+A connection is shown as a robot from DiceBear's Pixelbot style (CC0 1.0),
+drawn by the app from a table of which cells its eyes and mouth light,
+`src/ui/avatar/pixelbot.rs`. `tools/gen-pixelbot.py` writes that table
+from the style's definition, `pixelbot.json`, which the `dicebear-styles`
+crate and the `@dicebear/pixelbot` npm package carry:
+
+```sh
+tools/gen-pixelbot.py ~/.cargo/registry/src/*/dicebear-styles-*/src/pixelbot.json
+```
+
 ## Tests
 
 ```sh
