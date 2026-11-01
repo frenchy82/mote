@@ -88,10 +88,6 @@ pub(super) fn menu(detached: bool) -> gio::Menu {
     input.append_submenu(Some(&i18n("Send Keys")), &send);
     input.append(Some(&i18n("Take Screenshot")), Some("session.screenshot"));
     menu.append_section(None, &input);
-
-    let end = gio::Menu::new();
-    end.append(Some(&i18n("Disconnect")), Some("session.disconnect"));
-    menu.append_section(None, &end);
     menu
 }
 

@@ -242,6 +242,14 @@ impl Component for Session {
                     #[watch]
                     set_visible: !model.detached,
                 },
+                // Kept to the left of the others, away from the window's
+                // close button.
+                pack_end = &gtk::Button {
+                    set_icon_name: "media-playback-stop-symbolic",
+                    set_tooltip_text: Some(&i18n("Disconnect")),
+                    update_property: &[gtk::accessible::Property::Label(&i18n("Disconnect"))],
+                    set_action_name: Some("session.disconnect"),
+                },
             },
 
             #[local_ref]
