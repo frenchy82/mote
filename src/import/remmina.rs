@@ -50,6 +50,7 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
     let mut in_section = false;
     let mut conn = Connection::default();
     let mut rdp = false;
+    let mut loopback = false;
     for line in text.lines() {
         let line = line.trim();
         if line.starts_with('[') {
@@ -90,10 +91,30 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
             // Remmina keeps FreeRDP's device option there, such as sys:pulse.
             "microphone" => conn.microphone = !value.is_empty(),
             "sharefolder" => conn.folder = value.to_owned(),
+            "ssh_tunnel_enabled" => conn.ssh_tunnel = value == "1",
+            "ssh_tunnel_server" => conn.ssh_host = value.to_owned(),
+            "ssh_tunnel_username" => conn.ssh_username = value.to_owned(),
+            "ssh_tunnel_loopback" => loopback = value == "1",
+            "gateway_server" => conn.gateway_host = value.to_owned(),
+            "gateway_username" => conn.gateway_username = value.to_owned(),
             _ => {}
         }
     }
-    (rdp && !conn.host.is_empty()).then(|| conn.normalized())
+    if !rdp || conn.host.is_empty() {
+        return None;
+    }
+    if conn.ssh_tunnel {
+        // Remmina takes an empty SSH server to be the computer itself, and
+        // "loopback" to mean the computer is the SSH server's own localhost.
+        if conn.ssh_host.is_empty() {
+            conn.ssh_host = conn.host.clone();
+        }
+        if loopback {
+            conn.host = "localhost".to_owned();
+        }
+    }
+    conn.gateway = !conn.gateway_host.is_empty();
+    Some(conn.normalized())
 }
 
 #[cfg(test)]
@@ -119,6 +140,17 @@ mod tests {
         assert!(!c.clipboard);
         assert!(!c.sound && c.microphone);
         assert_eq!(c.folder, "/home/jo/Shared");
+    }
+
+    #[test]
+    fn reads_the_tunnel_and_the_gateway() {
+        let text = "[remmina]\nprotocol=RDP\nserver=box:3390\nssh_tunnel_enabled=1\nssh_tunnel_server=\nssh_tunnel_username=jo\nssh_tunnel_loopback=1\n";
+        let c = parse(text).unwrap();
+        assert_eq!(c.ssh_server(), Some(("box".into(), 22)));
+        assert_eq!((c.host.as_str(), c.port), ("localhost", 3390));
+        assert_eq!(c.ssh_username, "jo");
+        let c = parse("[remmina]\nprotocol=RDP\nserver=box\ngateway_server=gw:8443\n").unwrap();
+        assert_eq!(c.gateway_server(), Some(("gw".into(), 8443)));
     }
 
     #[test]

@@ -12,6 +12,7 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
         ..Connection::default()
     };
     let mut port = None;
+    let mut gateway_usage = None;
     for line in text.lines() {
         let mut parts = line.splitn(3, ':');
         let (Some(key), Some(_kind), Some(value)) = (parts.next(), parts.next(), parts.next())
@@ -38,9 +39,15 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
             // turns it off, which these servers treat alike.
             "audiomode" => conn.sound = value == "0",
             "audiocapturemode" => conn.microphone = value != "0",
+            "gatewayhostname" => conn.gateway_host = value.to_owned(),
+            "gatewayusername" => conn.gateway_username = value.to_owned(),
+            "gatewayusagemethod" => gateway_usage = value.parse::<u32>().ok(),
             _ => {}
         }
     }
+    // 1 always goes through the gateway, 2 only beyond the local network;
+    // Mote has one way, always. 0 and 4 don't use it.
+    conn.gateway = !conn.gateway_host.is_empty() && matches!(gateway_usage, Some(1 | 2));
     if conn.host.is_empty() {
         return None;
     }
@@ -62,6 +69,14 @@ pub(crate) fn export(conn: &Connection) -> Vec<u8> {
     lines.push(format!("redirectclipboard:i:{}", u8::from(conn.clipboard)));
     lines.push(format!("audiomode:i:{}", u8::from(!conn.sound)));
     lines.push(format!("audiocapturemode:i:{}", u8::from(conn.microphone)));
+    if conn.gateway {
+        lines.push(format!("gatewayhostname:s:{}", conn.gateway_host));
+        lines.push("gatewayusagemethod:i:1".to_owned());
+        lines.push("gatewayprofileusagemethod:i:1".to_owned());
+        if !conn.gateway_username.is_empty() {
+            lines.push(format!("gatewayusername:s:{}", conn.gateway_username));
+        }
+    }
     let text = lines.join("\r\n") + "\r\n";
     let mut out = vec![0xFF, 0xFE];
     for unit in text.encode_utf16() {
@@ -123,6 +138,9 @@ mod tests {
             clipboard: false,
             sound: false,
             microphone: true,
+            gateway: true,
+            gateway_host: "gw.example.com".into(),
+            gateway_username: "CORP\\jo".into(),
             ..Connection::default()
         };
         let back = parse(&export(&c), "box").unwrap();
@@ -130,6 +148,17 @@ mod tests {
         assert_eq!(back.network, Network::Satellite);
         assert!(!back.clipboard);
         assert!(!back.sound && back.microphone);
+        assert_eq!(back.gateway_server(), Some(("gw.example.com".into(), 443)));
+        assert_eq!(back.gateway_username, "CORP\\jo");
+    }
+
+    #[test]
+    fn a_gateway_set_to_unused_stays_off() {
+        let c = parse(
+            b"full address:s:box\ngatewayhostname:s:gw\ngatewayusagemethod:i:4\n",
+            "x",
+        );
+        assert!(!c.unwrap().gateway);
     }
 
     #[test]
