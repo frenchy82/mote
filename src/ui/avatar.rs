@@ -1,6 +1,6 @@
 //! A connection's picture: a robot from DiceBear's Pixelbot (CC0), the one
 //! its id picks or one chosen in the editor, or an image the user chose,
-//! cut to a circle. Robots are drawn rather than kept as images: a grid of
+//! cut to a square with rounded corners. Robots are drawn rather than kept as images: a grid of
 //! rounded squares, sharp at any size and scale, and nothing held in memory
 //! per connection.
 
@@ -24,6 +24,9 @@ use crate::connection::Connection;
 /// The largest an image chosen for a connection is kept at, in pixels: twice
 /// the largest avatar, for a 2× screen.
 const PICTURE_SIZE: u32 = 192;
+
+/// How round a picture's corners are, as a share of its side.
+const ROUNDING: f32 = 0.2;
 
 /// Pixelbot's grid: 12 cells to a side, each a rounded square, on a canvas
 /// of 100.
@@ -153,11 +156,11 @@ mod imp {
             // Centered in whatever room it is given.
             let x = ((widget.width() as f32 - size) / 2.0).max(0.0);
             let y = ((widget.height() as f32 - size) / 2.0).max(0.0);
-            let circle =
-                gsk::RoundedRect::from_rect(graphene::Rect::new(x, y, size, size), size / 2.0);
-            snapshot.push_rounded_clip(&circle);
+            let shape =
+                gsk::RoundedRect::from_rect(graphene::Rect::new(x, y, size, size), size * ROUNDING);
+            snapshot.push_rounded_clip(&shape);
             if let Some(picture) = self.picture.borrow().as_ref() {
-                // Filling the circle, the middle kept.
+                // Filling the square, the middle kept.
                 let (w, h) = (picture.width() as f32, picture.height() as f32);
                 let fill = size / w.min(h);
                 let bounds = graphene::Rect::new(

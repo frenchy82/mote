@@ -76,7 +76,7 @@ pub(crate) fn picker(id: &str, choice: &Rc<RefCell<Choice>>) -> gtk::Widget {
                 face.show(if seed.is_empty() { &id } else { &seed }, "");
                 let pick = gtk::Button::builder()
                     .child(&face)
-                    .css_classes(["flat", "circular", "robot-choice"])
+                    .css_classes(["flat", "robot-choice"])
                     .build();
                 let name = i18n_f("Robot {number}", &[("number", &(number + 1))]);
                 pick.set_tooltip_text(Some(&name));
@@ -133,9 +133,6 @@ pub(crate) fn picker(id: &str, choice: &Rc<RefCell<Choice>>) -> gtk::Widget {
     let overlay = gtk::Overlay::new();
     overlay.set_child(Some(&avatar));
     overlay.add_overlay(&button);
-    // Its corner on the circle's edge, not the square's.
-    button.set_margin_end(2);
-    button.set_margin_bottom(2);
     overlay.set_halign(gtk::Align::Center);
     overlay.upcast()
 }

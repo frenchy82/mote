@@ -69,9 +69,11 @@ menubutton.avatar-edit > button:hover {
   background-color: color-mix(in srgb, var(--dialog-fg-color, currentColor) 10%, var(--dialog-bg-color, @dialog_bg_color));
 }
 
-/* The robots offered in the picker: the button no larger than its face. */
+/* The robots offered in the picker: the button no larger than its face,
+   and rounded as it is. */
 button.robot-choice {
   padding: 2px;
   min-width: 0;
   min-height: 0;
+  border-radius: 10px;
 }
