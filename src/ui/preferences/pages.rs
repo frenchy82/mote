@@ -9,7 +9,11 @@ use relm4::prelude::*;
 
 use super::{PrefChange, Preferences};
 use crate::config::{ColorScheme, Settings, SortOrder};
+use crate::connection::{Quality, Scaling};
 use crate::i18n::i18n;
+use crate::ui::editor::{quality_cost, quality_label};
+use crate::ui::session::keyboard::LAYOUTS;
+use crate::ui::session::scaling_label;
 
 pub(super) fn build(
     settings: &Settings,
@@ -18,6 +22,7 @@ pub(super) fn build(
     vec![
         ("defaults", defaults(settings, sender)),
         ("appearance", appearance(settings, sender)),
+        ("sessions", sessions(settings, sender)),
         ("sidebar", sidebar(settings, sender)),
         ("video", super::video::page()),
     ]
@@ -58,7 +63,126 @@ fn defaults(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
         .connect_changed(move |r| out.emit(PrefChange::DefaultDomain(r.text().trim().to_owned())));
     group.add(&domain);
 
-    page_with(&[&group])
+    let display = adw::PreferencesGroup::new();
+    display.set_title(&i18n("Display"));
+    let labels: Vec<String> = Scaling::ALL.into_iter().map(scaling_label).collect();
+    let scaling = combo(&i18n("Scaling"), &labels);
+    scaling.set_selected(position(&Scaling::ALL, &settings.default_scaling));
+    let out = sender.output_sender().clone();
+    scaling.connect_selected_notify(move |r| {
+        if let Some(scaling) = Scaling::ALL.get(r.selected() as usize) {
+            out.emit(PrefChange::DefaultScaling(*scaling));
+        }
+    });
+    display.add(&scaling);
+    let labels: Vec<String> = Quality::ALL.into_iter().map(quality_label).collect();
+    let codec = combo(&i18n("Codec"), &labels);
+    let out = sender.output_sender().clone();
+    codec.connect_selected_notify(move |r| {
+        if let Some(quality) = Quality::ALL.get(r.selected() as usize) {
+            r.set_subtitle(&quality_cost(*quality));
+            out.emit(PrefChange::DefaultQuality(*quality));
+        }
+    });
+    codec.set_selected(position(&Quality::ALL, &settings.default_quality));
+    codec.set_subtitle(&quality_cost(settings.default_quality));
+    display.add(&codec);
+
+    let sharing = adw::PreferencesGroup::new();
+    sharing.set_title(&i18n("Sharing"));
+    // The same rows, and the same limits, as in the connection editor.
+    let audio_limit = i18n("Not with KRdp; xrdp needs its PipeWire module");
+    for (title, subtitle, on, change) in [
+        (
+            i18n("Clipboard"),
+            i18n("Text only with KRdp; xrdp leaves out folders"),
+            settings.default_clipboard,
+            PrefChange::DefaultClipboard as fn(bool) -> PrefChange,
+        ),
+        (
+            i18n("Sound"),
+            audio_limit.clone(),
+            settings.default_sound,
+            PrefChange::DefaultSound,
+        ),
+        (
+            i18n("Microphone"),
+            audio_limit,
+            settings.default_microphone,
+            PrefChange::DefaultMicrophone,
+        ),
+    ] {
+        let row = adw::SwitchRow::new();
+        row.set_title(&title);
+        row.set_subtitle(&subtitle);
+        row.set_active(on);
+        let out = sender.output_sender().clone();
+        row.connect_active_notify(move |r| out.emit(change(r.is_active())));
+        sharing.add(&row);
+    }
+
+    page_with(&[&group, &display, &sharing])
+}
+
+fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::PreferencesPage {
+    let keyboard = adw::PreferencesGroup::new();
+    keyboard.set_title(&i18n("Keyboard"));
+    let mut labels = vec![i18n("Automatic")];
+    labels.extend(LAYOUTS.iter().map(|l| i18n(l.name)));
+    let layout = combo(&i18n("Keyboard Layout"), &labels);
+    layout.set_subtitle(&i18n("Only xrdp acts on it"));
+    layout.set_enable_search(true);
+    layout.set_expression(Some(gtk::PropertyExpression::new(
+        gtk::StringObject::static_type(),
+        None::<gtk::Expression>,
+        "string",
+    )));
+    let chosen = LAYOUTS
+        .iter()
+        .position(|l| l.id == settings.keyboard_layout)
+        .map_or(0, |i| i + 1);
+    layout.set_selected(chosen as u32);
+    let out = sender.output_sender().clone();
+    layout.connect_selected_notify(move |r| {
+        let id = match r.selected() as usize {
+            0 => 0,
+            i => LAYOUTS.get(i - 1).map_or(0, |l| l.id),
+        };
+        out.emit(PrefChange::KeyboardLayout(id));
+    });
+    keyboard.add(&layout);
+
+    let grab = adw::SwitchRow::new();
+    grab.set_title(&i18n("Grab Keyboard"));
+    grab.set_subtitle(&i18n("Super+Esc gives the shortcuts back"));
+    grab.set_active(settings.grab_keyboard);
+    let out = sender.output_sender().clone();
+    grab.connect_active_notify(move |r| out.emit(PrefChange::GrabKeyboard(r.is_active())));
+    keyboard.add(&grab);
+
+    let network = adw::PreferencesGroup::new();
+    network.set_title(&i18n("Network"));
+    let reconnect = adw::SwitchRow::new();
+    reconnect.set_title(&i18n("Reconnect Automatically"));
+    reconnect.set_subtitle(&i18n("For two minutes after the network drops"));
+    reconnect.set_active(settings.reconnect);
+    let out = sender.output_sender().clone();
+    reconnect.connect_active_notify(move |r| out.emit(PrefChange::Reconnect(r.is_active())));
+    network.add(&reconnect);
+
+    page_with(&[&keyboard, &network])
+}
+
+fn combo(title: &str, labels: &[String]) -> adw::ComboRow {
+    let row = adw::ComboRow::new();
+    row.set_title(title);
+    let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+    row.set_model(Some(&gtk::StringList::new(&labels)));
+    row
+}
+
+fn position<T: PartialEq>(all: &[T], value: &T) -> u32 {
+    all.iter().position(|v| v == value).unwrap_or(0) as u32
 }
 
 fn appearance(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::PreferencesPage {

@@ -10,6 +10,7 @@ use adw::prelude::*;
 use relm4::prelude::*;
 
 use crate::config::{ColorScheme, Settings, SortOrder};
+use crate::connection::{Quality, Scaling};
 use crate::i18n::{i18n, i18n_noop};
 
 /// A category in the sidebar: the stack page it shows.
@@ -37,6 +38,11 @@ const SIDE_PAGES: &[(&str, &[SidePage])] = &[
                 id: "appearance",
                 title: i18n_noop("Appearance"),
                 icon: "preferences-desktop-appearance-symbolic",
+            },
+            SidePage {
+                id: "sessions",
+                title: i18n_noop("Sessions"),
+                icon: "preferences-desktop-remote-desktop-symbolic",
             },
             SidePage {
                 id: "sidebar",
@@ -69,6 +75,15 @@ pub(crate) enum PrefChange {
     DefaultPort(u16),
     DefaultUsername(String),
     DefaultDomain(String),
+    DefaultScaling(Scaling),
+    DefaultQuality(Quality),
+    DefaultClipboard(bool),
+    DefaultSound(bool),
+    DefaultMicrophone(bool),
+    /// A Windows layout ID; 0 follows this computer's.
+    KeyboardLayout(u32),
+    GrabKeyboard(bool),
+    Reconnect(bool),
 }
 
 #[derive(Debug)]

@@ -106,6 +106,7 @@ pub(super) fn install_actions(
     root: &adw::ToolbarView,
     sender: &ComponentSender<Session>,
     scaling: Scaling,
+    grab: bool,
     view_only: bool,
 ) {
     let group = gio::SimpleActionGroup::new();
@@ -127,7 +128,7 @@ pub(super) fn install_actions(
     for (name, initial, message) in [
         (
             "grab",
-            true,
+            grab,
             SessionInput::SetGrab as fn(bool) -> SessionInput,
         ),
         ("view-only", view_only, SessionInput::SetViewOnly),

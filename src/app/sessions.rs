@@ -7,7 +7,7 @@ use relm4::prelude::*;
 use super::{AppCmd, AppModel, AppMsg};
 use crate::config;
 use crate::secrets;
-use crate::ui::session::{Session, SessionInput, SessionOutput};
+use crate::ui::session::{Session, SessionInit, SessionInput, SessionOutput};
 
 /// The content pane's page for a connection's session.
 pub(super) fn page_name(id: &str) -> String {
@@ -26,7 +26,12 @@ impl AppModel {
                 return;
             };
             let session = Session::builder()
-                .launch(connection)
+                .launch(SessionInit {
+                    connection,
+                    grab: self.settings.grab_keyboard,
+                    reconnect: self.settings.reconnect,
+                    keyboard_layout: self.settings.keyboard_layout,
+                })
                 .forward(sender.input_sender(), AppMsg::Session);
             self.panes.add_named(session.widget(), Some(&page_name(id)));
             self.sessions.insert(id.to_owned(), session);

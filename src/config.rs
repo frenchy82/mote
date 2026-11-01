@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use crate::connection::{Connection, DEFAULT_PORT};
+use crate::connection::{Connection, DEFAULT_PORT, Quality, Scaling};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -55,6 +55,18 @@ pub(crate) struct Settings {
     pub(crate) default_port: u16,
     pub(crate) default_username: String,
     pub(crate) default_domain: String,
+    pub(crate) default_scaling: Scaling,
+    pub(crate) default_quality: Quality,
+    pub(crate) default_clipboard: bool,
+    pub(crate) default_sound: bool,
+    pub(crate) default_microphone: bool,
+    /// The keyboard layout sessions tell the server about, as a Windows
+    /// layout ID; 0 follows this computer's.
+    pub(crate) keyboard_layout: u32,
+    /// Sessions hold the desktop's shortcuts back while they have focus.
+    pub(crate) grab_keyboard: bool,
+    /// A session whose network drops connects again.
+    pub(crate) reconnect: bool,
     pub(crate) window: WindowState,
 }
 
@@ -68,6 +80,14 @@ impl Default for Settings {
             default_port: DEFAULT_PORT,
             default_username: String::new(),
             default_domain: String::new(),
+            default_scaling: Scaling::default(),
+            default_quality: Quality::default(),
+            default_clipboard: true,
+            default_sound: true,
+            default_microphone: false,
+            keyboard_layout: 0,
+            grab_keyboard: true,
+            reconnect: true,
             window: WindowState::default(),
         }
     }
@@ -80,6 +100,11 @@ impl Settings {
             port: self.default_port,
             username: self.default_username.clone(),
             domain: self.default_domain.clone(),
+            scaling: self.default_scaling,
+            quality: self.default_quality,
+            clipboard: self.default_clipboard,
+            sound: self.default_sound,
+            microphone: self.default_microphone,
             ..Connection::default()
         }
     }

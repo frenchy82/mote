@@ -52,6 +52,10 @@ pub(crate) struct Target {
     pub(crate) via: Via,
     /// The MAC address to send a Wake-on-LAN packet to before connecting.
     pub(crate) wake: Option<[u8; 6]>,
+    /// Connect again when the network drops.
+    pub(crate) reconnect: bool,
+    /// The keyboard layout to tell the server about, as a Windows ID.
+    pub(crate) keyboard_layout: u32,
 }
 
 /// What stands between this computer and the server.
@@ -311,7 +315,7 @@ async fn drive(
             }
             // The network went away: come back to the same desktop, at the
             // size it had, once it returns.
-            Err(Failure::Lost(why)) => {
+            Err(Failure::Lost(why)) if target.reconnect => {
                 tracing::info!("the connection dropped ({why}); reconnecting");
                 (first.width, first.height, first.scale) = (
                     u16::try_from(size.0).unwrap_or(first.width),
@@ -594,6 +598,12 @@ mod tests {
             wake: std::env::var("MOTE_TEST_WAKE")
                 .ok()
                 .and_then(|mac| crate::connection::parse_mac(&mac)),
+            reconnect: true,
+            // MOTE_TEST_LAYOUT_ID=<hex>: the keyboard layout to send.
+            keyboard_layout: std::env::var("MOTE_TEST_LAYOUT_ID")
+                .ok()
+                .and_then(|id| u32::from_str_radix(id.trim_start_matches("0x"), 16).ok())
+                .unwrap_or(0x409),
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
         if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {

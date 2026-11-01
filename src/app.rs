@@ -601,6 +601,39 @@ impl AppModel {
                 s.default_domain = domain;
                 false
             }
+            PrefChange::DefaultScaling(scaling) => {
+                s.default_scaling = scaling;
+                false
+            }
+            PrefChange::DefaultQuality(quality) => {
+                s.default_quality = quality;
+                false
+            }
+            PrefChange::DefaultClipboard(on) => {
+                s.default_clipboard = on;
+                false
+            }
+            PrefChange::DefaultSound(on) => {
+                s.default_sound = on;
+                false
+            }
+            PrefChange::DefaultMicrophone(on) => {
+                s.default_microphone = on;
+                false
+            }
+            // Sessions take these when they start.
+            PrefChange::KeyboardLayout(id) => {
+                s.keyboard_layout = id;
+                false
+            }
+            PrefChange::GrabKeyboard(on) => {
+                s.grab_keyboard = on;
+                false
+            }
+            PrefChange::Reconnect(on) => {
+                s.reconnect = on;
+                false
+            }
         };
         // The window's size is saved by the window as it closes; keep what
         // is on disk rather than the size it opened at.

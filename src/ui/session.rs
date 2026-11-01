@@ -8,6 +8,7 @@ mod commands;
 mod controls;
 mod display;
 mod endings;
+pub(crate) mod keyboard;
 mod monitors;
 mod pages;
 
@@ -29,8 +30,20 @@ use crate::rdp::{self, Ending, Event, Identity, Trust};
 use crate::secrets::{self, Secret};
 use display::Display;
 
+/// What a session starts with: its connection, and the app's settings
+/// for sessions.
+pub(crate) struct SessionInit {
+    pub(crate) connection: Connection,
+    pub(crate) grab: bool,
+    pub(crate) reconnect: bool,
+    /// 0 follows this computer's layout.
+    pub(crate) keyboard_layout: u32,
+}
+
 pub(crate) struct Session {
     connection: Connection,
+    reconnect: bool,
+    keyboard_layout: u32,
     page: Page,
     /// The account to sign in with: the profile's, or what was typed.
     username: String,
@@ -166,7 +179,7 @@ impl std::fmt::Debug for SessionCmd {
 
 #[relm4::component(pub(crate))]
 impl Component for Session {
-    type Init = Connection;
+    type Init = SessionInit;
     type Input = SessionInput;
     type Output = SessionOutput;
     type CommandOutput = SessionCmd;
@@ -241,13 +254,16 @@ impl Component for Session {
     }
 
     fn init(
-        connection: Connection,
+        init: SessionInit,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
+        let connection = init.connection;
         let sign_in = pages::SignIn::new(&connection, &sender);
         let ended = pages::ended(&sender);
         let model = Session {
+            reconnect: init.reconnect,
+            keyboard_layout: init.keyboard_layout,
             username: connection.username.clone(),
             domain: connection.domain.clone(),
             password: String::new(),
@@ -274,9 +290,15 @@ impl Component for Session {
             menu: controls::menu(false),
             connection,
         };
-        controls::install_actions(&root, &sender, model.scaling, model.connection.view_only);
+        controls::install_actions(
+            &root,
+            &sender,
+            model.scaling,
+            init.grab,
+            model.connection.view_only,
+        );
         model.display.set_mode(model.scaling);
-        model.display.set_grab(true);
+        model.display.set_grab(init.grab);
         model.display.set_view_only(model.connection.view_only);
         let (toasts, told) = (model.toasts.clone(), Cell::new(false));
         model.display.set_on_grabbed(move || {
@@ -604,6 +626,8 @@ impl Session {
             folder: self.connection.shared_folder(),
             via: self.via(),
             wake: self.connection.wake_address(),
+            reconnect: self.reconnect,
+            keyboard_layout: keyboard::layout_id(self.keyboard_layout, &self.display),
         };
         let (handle, mut events) = rdp::start(target);
         self.begun = true;

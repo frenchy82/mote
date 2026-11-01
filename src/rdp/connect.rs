@@ -406,8 +406,9 @@ fn config(target: &Target, audio: &super::audio::Audio) -> Config {
         keyboard_type: gcc::KeyboardType::IBM_ENHANCED,
         keyboard_subtype: 0,
         keyboard_functional_keys_count: 12,
-        // The server keeps its own layout: keys go as scancodes.
-        keyboard_layout: 0,
+        // Keys go as scancodes whatever this says; xrdp sets the session's
+        // layout by it.
+        keyboard_layout: target.keyboard_layout,
         connection_type: match target.network {
             Network::Lan => gcc::ConnectionType::Lan,
             Network::Wan => gcc::ConnectionType::Wan,

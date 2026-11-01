@@ -502,7 +502,7 @@ fn entry(title: &str, text: &str) -> adw::EntryRow {
     row
 }
 
-fn quality_label(quality: Quality) -> String {
+pub(crate) fn quality_label(quality: Quality) -> String {
     match quality {
         Quality::Best => i18n("Automatic"),
         Quality::Avc420 => i18n("H.264 (AVC420)"),
@@ -511,7 +511,7 @@ fn quality_label(quality: Quality) -> String {
 }
 
 /// What choosing it costs, for the row's subtitle.
-fn quality_cost(quality: Quality) -> String {
+pub(crate) fn quality_cost(quality: Quality) -> String {
     match quality {
         Quality::Best => String::new(),
         Quality::Avc420 => i18n("Half the color detail: colored text is softer"),
