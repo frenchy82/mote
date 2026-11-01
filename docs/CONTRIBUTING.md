@@ -56,6 +56,14 @@ something already lives, and a new page belongs in
 [docs/README.md](README.md)'s index. Artwork for the README or the docs goes in
 `data/repo/`; `docs/` holds Markdown only.
 
+[RELEASE_NOTES.md](RELEASE_NOTES.md) is what the About window shows under
+Release Notes and what a GitHub release says: under "What's new in" a
+version, one-line items grouped as `### New features:`, `### Fixes:` and
+`### Translations:`, in that order, with no bold. The people the About
+window thanks are listed in `data/CONTRIBUTORS` (name and GitHub handle)
+and `data/TRANSLATORS` (the same, then the languages after a dash), which
+arrive with their first names.
+
 The prose is factual and plain: no marketing, no emoji, and no em dashes,
 which a colon, a comma or a full stop replaces.
 `python3 tools/check-docs.py` checks all of this, every relative link and

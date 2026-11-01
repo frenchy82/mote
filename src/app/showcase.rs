@@ -5,7 +5,9 @@
 //! - `MOTE_SHOWCASE_OPEN`: comma-separated steps before the capture:
 //!   `first` selects the first connection, `editor` opens it in the editor
 //!   (or a new one), `settings` or `settings:<page>` opens Settings and
-//!   captures that window instead, `about` opens About, `shortcuts` the
+//!   captures that window instead, `about` opens About and captures its
+//!   window (`MOTE_SHOWCASE_SCROLL=<0..1>` scrolls it, and
+//!   `MOTE_SHOWCASE_NOTES` opens Release Notes), `shortcuts` the
 //!   keyboard shortcuts, `search:<text>`
 //!   opens the search with that text in it, and `connect:<name>` connects
 //!   to the connection of that name; `detach` and `fullscreen` then do that
@@ -142,7 +144,11 @@ impl AppModel {
 
     pub(super) fn showcase_capture(&self, path: &str, root: &adw::ApplicationWindow) {
         let detached = self.detached.values().next().cloned();
+        let about = gtk::Window::list_toplevels()
+            .into_iter()
+            .find(|w| w.is_visible() && w.has_css_class("about-window"));
         let window: gtk::Widget = match (&self.prefs, detached) {
+            _ if about.is_some() => about.expect("checked").upcast(),
             (_, Some(window)) => window.upcast(),
             (Some(prefs), _) if prefs.widget().is_visible() => prefs.widget().clone().upcast(),
             _ => root.clone().upcast(),

@@ -2,6 +2,7 @@
 //! main menu above it, New Connection and the connections beneath, and the
 //! chosen connection beside it.
 
+mod about;
 mod actions;
 mod details;
 mod files;
@@ -494,7 +495,7 @@ impl Component for AppModel {
             AppMsg::NewGroup(id) => self.ask_new_group(id, root, &sender),
             AppMsg::RenameGroup(old) => self.ask_rename_group(old, root, &sender),
             AppMsg::Regroup { old, new } => self.regroup(&old, &new),
-            AppMsg::About => actions::present_about(root),
+            AppMsg::About => about::present(root),
             AppMsg::Shortcuts => actions::present_shortcuts(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
             AppMsg::ShowcaseSession(step) => self.showcase_session(&step),
@@ -735,9 +736,11 @@ impl AppModel {
                 false
             }
         };
-        // The window's size is saved by the window as it closes; keep what
-        // is on disk rather than the size it opened at.
-        s.window = config::load_settings().window;
+        // The windows' sizes are saved by the windows as they close; keep
+        // what is on disk rather than the sizes they opened at.
+        let disk = config::load_settings();
+        s.window = disk.window;
+        s.about_height = disk.about_height;
         config::save_settings(s);
         if relist {
             self.rebuild_list();

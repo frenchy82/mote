@@ -84,6 +84,21 @@ switch > image {
   padding: 12px 18px;
 }
 
+/* ---- About ---- */
+
+/* Hylki's: the version as a chip in the accent color. */
+.about-version-chip {
+  background-color: alpha(@accent_color, 0.15);
+  color: @accent_color;
+  border-radius: 999px;
+  padding: 1px 12px;
+  font-weight: 600;
+}
+
+.about-coffee {
+  font-size: 1.2em;
+}
+
 /* ---- Connection details ---- */
 
 .details-header {

@@ -8,7 +8,6 @@ use super::{AppModel, AppMsg};
 use crate::config::SortOrder;
 use crate::i18n::i18n;
 use crate::ui::preferences::PrefChange;
-use crate::{APP_ID, APP_NAME, VERSION};
 
 /// `win.<name>` actions and the message each sends, with their shortcuts.
 const ACTIONS: &[(&str, &[&str])] = &[
@@ -288,25 +287,4 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
     dialog.set_content_height(640);
     dialog.set_child(Some(&view));
     dialog.present(Some(parent));
-}
-
-pub(super) fn present_about(parent: &adw::ApplicationWindow) {
-    let about = adw::AboutDialog::builder()
-        .application_name(APP_NAME)
-        .application_icon(APP_ID)
-        .developer_name("Hyprlab")
-        .version(VERSION)
-        .license_type(gtk::License::Agpl30)
-        .website("https://github.com/hyprlab/mote")
-        .issue_url("https://github.com/hyprlab/mote/issues")
-        .build();
-    // The robots connections are shown as. CC0 asks for no credit; it is
-    // given anyway.
-    about.add_legal_section(
-        "Pixelbot",
-        Some("DiceBear"),
-        gtk::License::Custom,
-        Some("CC0 1.0, <a href=\"https://www.dicebear.com\">dicebear.com</a>"),
-    );
-    about.present(Some(parent));
 }

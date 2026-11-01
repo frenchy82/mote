@@ -90,6 +90,8 @@ pub(crate) struct Settings {
     /// The H.264 decoder to try first; none tries them in their own order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) decoder: Option<Source>,
+    /// The About window's height, as it was left.
+    pub(crate) about_height: i32,
     pub(crate) window: WindowState,
 }
 
@@ -112,6 +114,7 @@ impl Default for Settings {
             grab_keyboard: true,
             reconnect: true,
             decoder: None,
+            about_height: 740,
             window: WindowState::default(),
         }
     }
