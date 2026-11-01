@@ -10,6 +10,7 @@ use relm4::prelude::*;
 use crate::connection::{Connection, Network, Quality, Scaling, parse_mac, split_address};
 use crate::i18n::i18n;
 use crate::secrets::{self, Secret};
+use crate::ui::avatar;
 
 pub(crate) struct EditorInit {
     pub(crate) connection: Connection,
@@ -24,6 +25,9 @@ pub(crate) struct Editor {
     /// in: an untouched password is not written back.
     edited: Vec<Secret>,
     filling: Rc<Cell<bool>>,
+    /// The robot or image chosen for the connection.
+    choice: Rc<RefCell<avatar::Choice>>,
+    saved: bool,
 }
 
 struct Rows {
@@ -284,6 +288,14 @@ impl Component for Editor {
         }
 
         let page = adw::PreferencesPage::new();
+        let choice = Rc::new(RefCell::new(avatar::Choice {
+            robot: c.robot.clone(),
+            picture: c.picture.clone(),
+            imported: Vec::new(),
+        }));
+        let picture = adw::PreferencesGroup::new();
+        picture.add(&avatar::picker(&c.id, &choice));
+        page.add(&picture);
         let target = adw::PreferencesGroup::new();
         for row in [
             rows.name.upcast_ref::<gtk::Widget>(),
@@ -351,6 +363,8 @@ impl Component for Editor {
             rows,
             edited: Vec::new(),
             filling,
+            choice,
+            saved: false,
         };
         model.check();
         let widgets = view_output!();
@@ -414,9 +428,22 @@ impl Component for Editor {
                     gateway_host: r.gateway_host.text().into(),
                     gateway_username: r.gateway_username.text().into(),
                     mac_address: r.mac.text().into(),
+                    robot: self.choice.borrow().robot.clone(),
+                    picture: self.choice.borrow().picture.clone(),
                     ..self.base.clone()
                 }
                 .normalized();
+                // Only the image kept stays: the others tried meanwhile go,
+                // and so does the one it replaced.
+                let choice = self.choice.borrow();
+                for name in choice.imported.iter().filter(|n| **n != choice.picture) {
+                    avatar::delete_picture(name);
+                }
+                if self.base.picture != choice.picture {
+                    avatar::delete_picture(&self.base.picture);
+                }
+                drop(choice);
+                self.saved = true;
                 let passwords = self
                     .edited
                     .iter()
@@ -427,6 +454,15 @@ impl Component for Editor {
                     passwords,
                 });
                 root.close();
+            }
+        }
+    }
+
+    /// Closed without saving: the images tried meanwhile go.
+    fn shutdown(&mut self, _: &mut Self::Widgets, _: relm4::Sender<Self::Output>) {
+        if !self.saved {
+            for name in &self.choice.borrow().imported {
+                avatar::delete_picture(name);
             }
         }
     }

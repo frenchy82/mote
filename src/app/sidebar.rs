@@ -173,7 +173,9 @@ fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBo
     row.set_widget_name(&format!("{ROW_PREFIX}{}", conn.id));
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     line.add_css_class("nav-row");
-    line.append(&adw::Avatar::new(32, Some(conn.title()), true));
+    let avatar = crate::ui::avatar::Avatar::new(32);
+    avatar.show_connection(conn);
+    line.append(&avatar);
 
     let text = gtk::Box::new(gtk::Orientation::Vertical, 0);
     text.set_valign(gtk::Align::Center);

@@ -50,3 +50,28 @@
 .settings-side > row {
   min-height: 36px;
 }
+
+/* ---- Connection pictures ---- */
+
+/* The button on the editor's picture, a badge at its corner, in the style
+   of GNOME Settings' user picture: ringed in the dialog's color so it
+   reads as set on the picture rather than beside it. */
+button.avatar-edit,
+menubutton.avatar-edit > button {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 9999px;
+  background-color: var(--dialog-bg-color, @dialog_bg_color);
+  box-shadow: 0 0 0 3px var(--dialog-bg-color, @dialog_bg_color);
+}
+menubutton.avatar-edit > button:hover {
+  background-color: color-mix(in srgb, var(--dialog-fg-color, currentColor) 10%, var(--dialog-bg-color, @dialog_bg_color));
+}
+
+/* The robots offered in the picker: the button no larger than its face. */
+button.robot-choice {
+  padding: 2px;
+  min-width: 0;
+  min-height: 0;
+}

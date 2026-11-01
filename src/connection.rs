@@ -14,6 +14,12 @@ pub(crate) struct Connection {
     pub(crate) id: String,
     /// Empty means the host is the name.
     pub(crate) name: String,
+    /// The seed of the robot it is shown as; empty for the one its id
+    /// picks.
+    pub(crate) robot: String,
+    /// An image shown in place of the robot, by its name among the images
+    /// kept (see `ui::avatar`); empty for none.
+    pub(crate) picture: String,
     pub(crate) group: String,
     pub(crate) host: String,
     pub(crate) port: u16,
@@ -175,6 +181,8 @@ impl Default for Connection {
         Self {
             id: new_id(),
             name: String::new(),
+            robot: String::new(),
+            picture: String::new(),
             group: String::new(),
             host: String::new(),
             port: DEFAULT_PORT,

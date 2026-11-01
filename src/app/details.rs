@@ -10,7 +10,9 @@ pub(super) fn page(conn: &Connection) -> adw::PreferencesPage {
 
     let header = gtk::Box::new(gtk::Orientation::Vertical, 6);
     header.add_css_class("details-header");
-    header.append(&adw::Avatar::new(96, Some(conn.title()), true));
+    let avatar = crate::ui::avatar::Avatar::new(96);
+    avatar.show_connection(conn);
+    header.append(&avatar);
     let title = gtk::Label::new(Some(conn.title()));
     title.add_css_class("title-1");
     title.set_wrap(true);

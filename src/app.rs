@@ -396,6 +396,9 @@ impl Component for AppModel {
                 }
             }
             AppMsg::Delete(id) => {
+                if let Some(gone) = self.connections.iter().find(|c| c.id == id) {
+                    crate::ui::avatar::delete_picture(&gone.picture);
+                }
                 self.connections.retain(|c| c.id != id);
                 config::save_connections(&self.connections);
                 sender.oneshot_command(async move {
@@ -554,6 +557,8 @@ impl AppModel {
             id: crate::connection::new_id(),
             name: i18n_f("{name} (Copy)", &[("name", &original.title())]),
             last_used: 0,
+            // Its own copy of the image, so deleting one keeps the other's.
+            picture: crate::ui::avatar::copy_picture(&original.picture).unwrap_or_default(),
             ..original.clone()
         };
         let (from, to, title) = (original.id.clone(), copy.id.clone(), copy.name.clone());

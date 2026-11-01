@@ -205,7 +205,7 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
 }
 
 pub(super) fn present_about(parent: &adw::ApplicationWindow) {
-    adw::AboutDialog::builder()
+    let about = adw::AboutDialog::builder()
         .application_name(APP_NAME)
         .application_icon(APP_ID)
         .developer_name("Hyprlab")
@@ -213,6 +213,14 @@ pub(super) fn present_about(parent: &adw::ApplicationWindow) {
         .license_type(gtk::License::Agpl30)
         .website("https://github.com/hyprlab/mote")
         .issue_url("https://github.com/hyprlab/mote/issues")
-        .build()
-        .present(Some(parent));
+        .build();
+    // The robots connections are shown as. CC0 asks for no credit; it is
+    // given anyway.
+    about.add_legal_section(
+        "Pixelbot",
+        Some("DiceBear"),
+        gtk::License::Custom,
+        Some("CC0 1.0, <a href=\"https://www.dicebear.com\">dicebear.com</a>"),
+    );
+    about.present(Some(parent));
 }
