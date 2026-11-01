@@ -8,6 +8,7 @@ mod commands;
 mod controls;
 mod display;
 mod endings;
+mod monitors;
 mod pages;
 
 pub(crate) use clipboard::fetched_files;
@@ -58,6 +59,8 @@ pub(crate) struct Session {
     /// Counts size changes, so only the last of a quick run is sent.
     resizes: u32,
     display: Display,
+    /// The windows on the other monitors, while the session takes them all.
+    spread: Option<monitors::Spread>,
     connecting: adw::StatusPage,
     sign_in: pages::SignIn,
     ended: adw::StatusPage,
@@ -108,6 +111,10 @@ pub(crate) enum SessionInput {
     SetScaling(Scaling),
     SetGrab(bool),
     SetViewOnly(bool),
+    /// Go fullscreen on every monitor.
+    AllMonitors,
+    /// Back to the session window's own monitor alone.
+    OneMonitor,
     /// Send a combination from the Send Keys menu, by its name there.
     SendKeys(String),
     Screenshot,
@@ -258,6 +265,7 @@ impl Component for Session {
             scaling: connection.scaling,
             resizes: 0,
             display: Display::default(),
+            spread: None,
             connecting: adw::StatusPage::new(),
             sign_in,
             ended,
@@ -340,6 +348,9 @@ impl Component for Session {
             SessionInput::Prepared(..) => {}
             SessionInput::Disconnect => {
                 self.finished();
+                if let Some(spread) = self.spread.take() {
+                    spread.close();
+                }
                 self.clipboard = None;
                 if let Some(handle) = self.handle.take() {
                     handle.send(rdp::Command::Close);
@@ -381,9 +392,19 @@ impl Component for Session {
                 let _ = sender.output(SessionOutput::Scaling(self.connection.id.clone(), scaling));
                 sender.input(SessionInput::Resized);
             }
-            SessionInput::SetGrab(grab) => self.display.set_grab(grab),
+            SessionInput::SetGrab(grab) => {
+                self.display.set_grab(grab);
+                for display in self.spread.iter().flat_map(|s| s.displays()) {
+                    display.set_grab(grab);
+                }
+            }
+            SessionInput::AllMonitors => self.spread_out(&sender, root),
+            SessionInput::OneMonitor => self.gather(&sender),
             SessionInput::SetViewOnly(view_only) => {
                 self.display.set_view_only(view_only);
+                for display in self.spread.iter().flat_map(|s| s.displays()) {
+                    display.set_view_only(view_only);
+                }
                 let id = self.connection.id.clone();
                 let _ = sender.output(SessionOutput::ViewOnly(id, view_only));
             }
@@ -416,6 +437,7 @@ impl Component for Session {
             }
             SessionInput::SendSize(resizes) => {
                 if resizes == self.resizes
+                    && self.spread.is_none()
                     && self.scaling == Scaling::Resize
                     && self.page == Page::Desktop
                     && let (Some(handle), Some((width, height, scale))) =
@@ -430,6 +452,9 @@ impl Component for Session {
             }
             SessionInput::FullscreenChanged(fullscreen) => {
                 self.fullscreen.set(fullscreen);
+                if !fullscreen {
+                    self.gather(&sender);
+                }
                 root.set_reveal_top_bars(!fullscreen);
                 // Shown at the top edge, the header covers the desktop
                 // rather than pushing it down.
@@ -520,44 +545,6 @@ impl Session {
             && let Some(window) = window_of(root)
         {
             window.unfullscreen();
-        }
-    }
-
-    /// Run the command before connecting, if there is one, then connect.
-    fn begin(&mut self, sender: &ComponentSender<Self>) {
-        let command = self.connection.command_before.trim().to_owned();
-        if command.is_empty() {
-            return self.connect(sender);
-        }
-        self.clipboard = None;
-        if let Some(handle) = self.handle.take() {
-            handle.send(rdp::Command::Close);
-        }
-        self.finished();
-        self.page = Page::Connecting;
-        self.connecting
-            .set_title(&i18n("Running the Command Before Connecting…"));
-        // A connection begun meanwhile makes this one stale.
-        self.attempt += 1;
-        let (attempt, connection, input) = (
-            self.attempt,
-            self.connection.clone(),
-            sender.input_sender().clone(),
-        );
-        glib::spawn_future_local(async move {
-            let result = commands::before(command, connection).await;
-            input.emit(SessionInput::Prepared(attempt, result));
-        });
-    }
-
-    /// A connection that was begun is over: run the command after it.
-    fn finished(&mut self) {
-        if !std::mem::take(&mut self.begun) {
-            return;
-        }
-        let command = self.connection.command_after.trim();
-        if !command.is_empty() {
-            commands::after(command, &self.connection);
         }
     }
 
@@ -724,8 +711,11 @@ impl Session {
                 if self.page != Page::Desktop {
                     let _ = sender.output(SessionOutput::Connected(self.connection.id.clone()));
                     // The window may have changed size while the session
-                    // was away.
+                    // was away, and a layout of several monitors is gone.
                     sender.input(SessionInput::Resized);
+                    if let (Some(spread), Some(handle)) = (&self.spread, &self.handle) {
+                        handle.send(rdp::Command::Layout(spread.layout.clone()));
+                    }
                 }
                 self.page = Page::Desktop;
                 self.display.grab_focus();
@@ -740,13 +730,31 @@ impl Session {
             }
             Event::Frame(frame) => {
                 self.display.show_frame(frame);
+                if let (Some(spread), Some(texture)) = (&self.spread, self.display.texture()) {
+                    for display in spread.displays() {
+                        display.show_texture(texture.clone());
+                    }
+                }
                 // The next frame can come now, and replace this one if it
                 // isn't painted yet: what is painted is the newest there is.
                 if let Some(handle) = &self.handle {
                     handle.send(rdp::Command::FrameDone);
                 }
             }
-            Event::Cursor(cursor) => self.display.set_remote_cursor(cursor),
+            Event::Cursor(cursor) => {
+                for display in self.spread.iter().flat_map(|s| s.displays()) {
+                    display.set_remote_cursor(cursor.clone());
+                }
+                self.display.set_remote_cursor(cursor);
+            }
+            Event::OneMonitor => {
+                if self.spread.is_some() {
+                    self.gather(sender);
+                    self.toasts.add_toast(adw::Toast::new(&i18n(
+                        "The remote desktop can only use one monitor",
+                    )));
+                }
+            }
             Event::Clipboard(event) => {
                 if let Some(clipboard) = &self.clipboard {
                     clipboard.event(event);
@@ -754,6 +762,10 @@ impl Session {
             }
             Event::Ended(ending) => {
                 self.finished();
+                if let Some(spread) = self.spread.take() {
+                    spread.close();
+                    self.display.set_viewport(None);
+                }
                 self.display.report();
                 self.clipboard = None;
                 self.handle = None;

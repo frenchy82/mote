@@ -51,6 +51,10 @@ pub(super) fn menu(detached: bool) -> gio::Menu {
         }),
         Some("session.move"),
     );
+    place.append(
+        Some(&i18n("Fullscreen on All Monitors")),
+        Some("session.all-monitors"),
+    );
     menu.append_section(None, &place);
 
     let scaling = gio::Menu::new();
@@ -157,11 +161,24 @@ pub(super) fn install_actions(
         ),
         ("move", || SessionInput::ToggleDetached),
         ("screenshot", || SessionInput::Screenshot),
+        ("all-monitors", || SessionInput::AllMonitors),
     ] {
         let action = gio::SimpleAction::new(name, None);
         let input = sender.input_sender().clone();
         action.connect_activate(move |_, _| input.emit(message()));
         group.add_action(&action);
+        if name == "all-monitors"
+            && let Some(display) = gdk::Display::default()
+        {
+            // Only with more than one monitor to take.
+            let monitors = display.monitors();
+            action.set_enabled(monitors.n_items() > 1);
+            monitors.connect_items_changed(glib::clone!(
+                #[weak]
+                action,
+                move |list, _, _, _| action.set_enabled(list.n_items() > 1)
+            ));
+        }
     }
     root.insert_action_group("session", Some(&group));
 }

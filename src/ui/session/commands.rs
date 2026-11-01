@@ -2,9 +2,13 @@
 //! disconnecting: through `sh -c`, with the connection in the environment
 //! rather than pasted into the command, where a name could break it.
 
-use gtk::gio;
+use gtk::{gio, glib};
+use relm4::prelude::*;
 
+use super::{Page, Session, SessionInput};
 use crate::connection::Connection;
+use crate::i18n::i18n;
+use crate::rdp;
 
 fn spawn(
     command: &str,
@@ -54,5 +58,45 @@ pub(super) async fn before(command: String, connection: Connection) -> Result<()
 pub(super) fn after(command: &str, connection: &Connection) {
     if let Err(e) = spawn(command, connection, gio::SubprocessFlags::NONE) {
         tracing::warn!("the command after disconnecting: {e}");
+    }
+}
+
+impl Session {
+    /// Run the command before connecting, if there is one, then connect.
+    pub(super) fn begin(&mut self, sender: &ComponentSender<Self>) {
+        let command = self.connection.command_before.trim().to_owned();
+        if command.is_empty() {
+            return self.connect(sender);
+        }
+        self.clipboard = None;
+        if let Some(handle) = self.handle.take() {
+            handle.send(rdp::Command::Close);
+        }
+        self.finished();
+        self.page = Page::Connecting;
+        self.connecting
+            .set_title(&i18n("Running the Command Before Connecting…"));
+        // A connection begun meanwhile makes this one stale.
+        self.attempt += 1;
+        let (attempt, connection, input) = (
+            self.attempt,
+            self.connection.clone(),
+            sender.input_sender().clone(),
+        );
+        glib::spawn_future_local(async move {
+            let result = before(command, connection).await;
+            input.emit(SessionInput::Prepared(attempt, result));
+        });
+    }
+
+    /// A connection that was begun is over: run the command after it.
+    pub(super) fn finished(&mut self) {
+        if !std::mem::take(&mut self.begun) {
+            return;
+        }
+        let command = self.connection.command_after.trim();
+        if !command.is_empty() {
+            after(command, &self.connection);
+        }
     }
 }

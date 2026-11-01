@@ -88,13 +88,23 @@ pub(super) async fn run(
     let mut reason = None;
     // A resize asked for before Display Control is up, sent once it is.
     let mut resize = None;
+    // A monitor layout asked for before Display Control is up.
+    let mut layout: Option<Vec<super::Monitor>> = None;
     let mut stats = crate::stats::Stats::new("engine");
     let mut received = 0;
     // Lets go of clipboard locks and transfers the server stopped answering.
     let mut tick = tokio::time::interval(std::time::Duration::from_secs(5));
+    // What came for the channels while the server reactivated, taken up
+    // before anything new is read.
+    let mut held: std::collections::VecDeque<Vec<u8>> = std::collections::VecDeque::new();
     loop {
         let outputs = tokio::select! {
-            frame = reader.read_pdu() => {
+            frame = async {
+                match held.pop_front() {
+                    Some(frame) => Ok((ironrdp_pdu::Action::X224, ironrdp_tokio::bytes::BytesMut::from(&frame[..]))),
+                    None => reader.read_pdu().await,
+                }
+            } => {
                 let (action, mut payload) = match frame {
                     Ok(frame) => frame,
                     // A server that said why can close without more ado.
@@ -134,6 +144,12 @@ pub(super) async fn run(
                 }
                 Some(Command::Resize { width, height, scale }) => {
                     resize = Some((width, height, scale));
+                    layout = None;
+                    Vec::new()
+                }
+                Some(Command::Layout(monitors)) => {
+                    layout = Some(monitors);
+                    resize = None;
                     Vec::new()
                 }
                 Some(Command::Clipboard(command)) => clipboard.command(command, &mut stage)?,
@@ -193,6 +209,7 @@ pub(super) async fn run(
                         &mut reader,
                         &mut writer,
                         &mut desktop,
+                        &mut held,
                     )
                     .await?
                     {
@@ -219,6 +236,9 @@ pub(super) async fn run(
             }
         }
 
+        if let Some(monitors) = layout.take() {
+            layout = send_layout(&mut stage, &mut writer, events, asked, monitors).await?;
+        }
         if let Some(size) = resize.take() {
             resize = send_resize(&mut stage, &mut writer, asked, size).await?;
         }
@@ -253,6 +273,7 @@ async fn reactivate(
     reader: &mut ironrdp_tokio::TokioFramed<tokio::io::ReadHalf<Box<dyn super::connect::Stream>>>,
     writer: &mut ironrdp_tokio::TokioFramed<tokio::io::WriteHalf<Box<dyn super::connect::Stream>>>,
     desktop: &mut Desktop,
+    held: &mut std::collections::VecDeque<Vec<u8>>,
 ) -> Result<Option<Disconnect>, Failure> {
     let mut sequence = activation.create();
     let mut buf = ironrdp_core::WriteBuf::new();
@@ -270,6 +291,14 @@ async fn reactivate(
                     super::compat::error_info(&pdu).and_then(Disconnect::from_error_info)
                 {
                     return Ok(Some(reason));
+                }
+                // xrdp goes on sending on its static channels meanwhile,
+                // which IronRDP's sequence takes for its own and fails on.
+                if super::compat::channel_of(&pdu)
+                    .is_some_and(|channel| channel != sequence.io_channel_id())
+                {
+                    held.push_back(pdu.to_vec());
+                    continue;
                 }
                 sequence.step(&pdu, reader.last_read_at(), &mut buf)
             }
@@ -346,6 +375,74 @@ async fn send_resize(
         }
         Some(Err(e)) => tracing::warn!("resizing: {}", describe(&e)),
         None => return Ok(Some((width, height, scale))),
+    }
+    Ok(None)
+}
+
+/// Ask the server to spread the desktop over several monitors. Returns the
+/// layout back when the channel isn't up yet; a server without the channel,
+/// or with room for fewer monitors, is reported.
+async fn send_layout(
+    stage: &mut ActiveStage,
+    writer: &mut ironrdp_tokio::TokioFramed<tokio::io::WriteHalf<Box<dyn super::connect::Stream>>>,
+    events: &mpsc::Sender<Event>,
+    asked: &mut (u32, u32, u32),
+    monitors: Vec<super::Monitor>,
+) -> Result<Option<Vec<super::Monitor>>, Failure> {
+    use ironrdp_displaycontrol::pdu::{
+        DeviceScaleFactor, DisplayControlMonitorLayout, MonitorLayoutEntry,
+    };
+    match stage.display_control_ready() {
+        Some(true) => {}
+        Some(false) => return Ok(Some(monitors)),
+        None => {
+            send(events, Event::OneMonitor).await?;
+            return Ok(None);
+        }
+    }
+    let room = stage
+        .display_control_capabilities()
+        .map_or(1, |c| c.max_num_monitors());
+    if (room as usize) < monitors.len() {
+        tracing::info!("the server takes {room} monitors, not {}", monitors.len());
+        send(events, Event::OneMonitor).await?;
+        return Ok(None);
+    }
+    let entries: Result<Vec<_>, _> = monitors
+        .iter()
+        .enumerate()
+        .map(|(i, m)| {
+            let (width, height) = MonitorLayoutEntry::adjust_display_size(m.width, m.height);
+            let entry = if i == 0 {
+                MonitorLayoutEntry::new_primary(width, height)
+            } else {
+                MonitorLayoutEntry::new_secondary(width, height)
+            }?;
+            let scale = MonitorLayoutEntry::adjust_desktop_scale_factor(m.scale);
+            let (physical_width, physical_height) = super::physical_size(width, height, m.scale);
+            entry
+                .with_position(m.x, m.y)?
+                .with_desktop_scale_factor(scale)?
+                .with_device_scale_factor(DeviceScaleFactor::from_desktop_scale_factor(scale))
+                .with_physical_dimensions(physical_width, physical_height)
+        })
+        .collect();
+    let encoded = entries
+        .and_then(|entries| DisplayControlMonitorLayout::new(&entries))
+        .map_err(|e| Failure::Protocol(e.to_string()))
+        .map(|layout| stage.encode_monitor_layout(&layout));
+    match encoded? {
+        Some(Ok(frame)) => {
+            tracing::debug!("asking for {monitors:?}");
+            // Whatever size comes next is new.
+            *asked = (0, 0, 0);
+            writer
+                .write_all(&frame)
+                .await
+                .map_err(|e| Failure::Lost(describe(&e)))?;
+        }
+        Some(Err(e)) => tracing::warn!("spreading over monitors: {}", describe(&e)),
+        None => return Ok(Some(monitors)),
     }
     Ok(None)
 }

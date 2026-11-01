@@ -10,7 +10,9 @@
 //!   to the connection of that name; `detach` and `fullscreen` then do that
 //!   to its session, and `scaling:<resize|fit|actual>` sets its scaling;
 //!   `keys:<name>` sends a combination from its Send Keys menu,
-//!   `screenshot` takes a screenshot, and `view-only:<1|0>` sets that.
+//!   `screenshot` takes a screenshot, `view-only:<1|0>` sets that, and
+//!   `all-monitors` spreads it over every monitor, whose windows are
+//!   captured too, as `<file>-2.png` and on.
 //!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
 //!   scrolls an open dialog to its end.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
@@ -77,7 +79,7 @@ impl AppModel {
                 }
                 (
                     name @ ("detach" | "fullscreen" | "scaling" | "keys" | "screenshot"
-                    | "view-only"),
+                    | "view-only" | "all-monitors"),
                     argument,
                 ) => {
                     send(AppMsg::ShowcaseSession(format!("{name}:{argument}")));
@@ -118,6 +120,7 @@ impl AppModel {
             Some(("keys", name)) => SessionInput::SendKeys(name.to_owned()),
             Some(("screenshot", _)) => SessionInput::Screenshot,
             Some(("view-only", on)) => SessionInput::SetViewOnly(on != "0"),
+            Some(("all-monitors", _)) => SessionInput::AllMonitors,
             _ => SessionInput::ToggleFullscreen,
         });
     }
@@ -140,6 +143,17 @@ impl AppModel {
         match capture(&window, path) {
             Ok(()) => tracing::info!("showcase: wrote {path}"),
             Err(e) => tracing::error!("showcase: {e}"),
+        }
+        // A session's windows on the other monitors.
+        let spread = gtk::Window::list_toplevels()
+            .into_iter()
+            .filter(|w| w.is_visible() && w.has_css_class("mote-spread"));
+        for (i, other) in spread.enumerate() {
+            let path = path.replace(".png", &format!("-{}.png", i + 2));
+            match capture(other.upcast_ref(), &path) {
+                Ok(()) => tracing::info!("showcase: wrote {path}"),
+                Err(e) => tracing::error!("showcase: {e}"),
+            }
         }
         relm4::main_adw_application().quit();
     }

@@ -47,6 +47,9 @@ mod imp {
         pub(super) stats: RefCell<Option<crate::stats::Stats>>,
         /// Keyboard and pointer stay here; the desktop is only shown.
         pub(super) view_only: Cell<bool>,
+        /// Where this monitor's part of a desktop spread over several
+        /// starts, in desktop pixels; the whole desktop when `None`.
+        pub(super) viewport: Cell<Option<(i32, i32)>>,
         /// Hold the desktop's own shortcuts back while focused.
         pub(super) grab: Cell<bool>,
         /// Told when the desktop's shortcuts are held back.
@@ -81,7 +84,7 @@ mod imp {
             let widget = self.obj();
             let texture = self.texture.borrow();
             match (self.mode.get(), texture.as_ref()) {
-                (Scaling::Actual, Some(texture)) => {
+                (Scaling::Actual, Some(texture)) if self.viewport.get().is_none() => {
                     let pixels = match orientation {
                         gtk::Orientation::Horizontal => texture.width(),
                         _ => texture.height(),
@@ -165,7 +168,7 @@ mod imp {
             let (w, h) = (widget.width() as f32, widget.height() as f32);
             snapshot.append_color(&gdk::RGBA::BLACK, &graphene::Rect::new(0.0, 0.0, w, h));
             if let Some(texture) = self.texture.borrow().as_ref() {
-                let place = Placement::new(&*widget, texture, self.mode.get());
+                let place = Placement::new(&widget, texture);
                 let bounds = graphene::Rect::new(
                     place.x as f32,
                     place.y as f32,
@@ -236,6 +239,10 @@ impl Display {
         }
     }
 
+    pub(crate) fn view_only(&self) -> bool {
+        self.imp().view_only.get()
+    }
+
     /// Show the desktop without sending it keys or the pointer.
     pub(crate) fn set_view_only(&self, view_only: bool) {
         self.imp().view_only.set(view_only);
@@ -263,6 +270,29 @@ impl Display {
     /// The desktop as last shown.
     pub(crate) fn texture(&self) -> Option<gdk::Texture> {
         self.imp().texture.borrow().clone()
+    }
+
+    /// Show only the part of the desktop from `start` on, one pixel to one:
+    /// this monitor's part of a desktop spread over several.
+    pub(crate) fn set_viewport(&self, start: Option<(i32, i32)>) {
+        self.imp().viewport.set(start);
+        self.queue_resize();
+        self.queue_draw();
+        self.refresh_cursor();
+    }
+
+    /// Show the desktop another display decoded: the same picture, here on
+    /// another monitor.
+    pub(crate) fn show_texture(&self, texture: gdk::Texture) {
+        let resized = self
+            .imp()
+            .texture
+            .replace(Some(texture.clone()))
+            .is_none_or(|old| old.width() != texture.width() || old.height() != texture.height());
+        if resized {
+            self.refresh_cursor();
+        }
+        self.queue_draw();
     }
 
     /// The window painted: time how long the newest frame took to get here.
@@ -382,9 +412,7 @@ impl Display {
             .texture
             .borrow()
             .as_ref()
-            .map_or(1.0 / device_scale(self), |t| {
-                Placement::new(self, t, self.imp().mode.get()).scale
-            });
+            .map_or(1.0 / device_scale(self), |t| Placement::new(self, t).scale);
         let texture = gdk::MemoryTexture::new(
             w,
             h,
@@ -427,7 +455,7 @@ impl Display {
     /// The desktop position under a point of the widget.
     fn remote_point(&self, x: f64, y: f64) -> Option<MousePosition> {
         let texture = self.imp().texture.borrow().clone()?;
-        let place = Placement::new(self, &texture, self.imp().mode.get());
+        let place = Placement::new(self, &texture);
         let max_x = f64::from(texture.width() - 1);
         let max_y = f64::from(texture.height() - 1);
         Some(MousePosition {
@@ -447,8 +475,19 @@ struct Placement {
 }
 
 impl Placement {
-    fn new(widget: &impl IsA<gtk::Widget>, texture: &gdk::Texture, mode: Scaling) -> Self {
+    fn new(widget: &Display, texture: &gdk::Texture) -> Self {
         let device = device_scale(widget);
+        // One monitor's part of a desktop spread over several: one pixel to
+        // one, from where its part starts.
+        if let Some((x, y)) = widget.imp().viewport.get() {
+            return Self {
+                x: -f64::from(x) / device,
+                y: -f64::from(y) / device,
+                scale: 1.0 / device,
+                filter: gsk::ScalingFilter::Nearest,
+            };
+        }
+        let mode = widget.imp().mode.get();
         let (w, h) = (f64::from(widget.width()), f64::from(widget.height()));
         let (tw, th) = (f64::from(texture.width()), f64::from(texture.height()));
         let fit = (w / tw).min(h / th);

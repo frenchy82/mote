@@ -97,6 +97,8 @@ pub(crate) enum Event {
     Frame(Frame),
     Cursor(Cursor),
     Clipboard(ClipboardEvent),
+    /// The server can't spread its desktop over several monitors.
+    OneMonitor,
     /// The last event of a session.
     Ended(Ending),
 }
@@ -139,6 +141,7 @@ pub(crate) enum Trust {
     Rejected,
 }
 
+#[derive(Clone)]
 pub(crate) enum Cursor {
     Default,
     Hidden,
@@ -155,10 +158,25 @@ pub(crate) enum Command {
         height: u32,
         scale: u32,
     },
+    /// Spread the remote desktop over these monitors, the first of them
+    /// the primary one.
+    Layout(Vec<Monitor>),
     /// The last frame is on screen; the next can come.
     FrameDone,
     Clipboard(ClipboardCommand),
     Close,
+}
+
+/// A monitor of a layout: where it is on the remote desktop, relative to
+/// the primary monitor's top left corner, and its size, in its own pixels.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Monitor {
+    pub(crate) x: i32,
+    pub(crate) y: i32,
+    pub(crate) width: u32,
+    pub(crate) height: u32,
+    /// Its scale, in percent.
+    pub(crate) scale: u32,
 }
 
 /// A running session. It ends on [`Command::Close`], or once every copy of
@@ -609,6 +627,7 @@ mod tests {
                     let _ = reply.send(Trust::Accepted);
                 }
                 Event::Waking => eprintln!("waking"),
+                Event::OneMonitor => eprintln!("one monitor only"),
                 Event::Reconnecting => eprintln!("reconnecting"),
                 Event::Connected { width, height } => {
                     eprintln!("connected {width}x{height}");
@@ -636,6 +655,28 @@ mod tests {
                                 height,
                                 scale,
                             });
+                        }
+                        // MOTE_TEST_LAYOUT=<w>x<h>,<w>x<h>…: monitors side
+                        // by side, the first the primary.
+                        if let Ok(layout) = std::env::var("MOTE_TEST_LAYOUT") {
+                            let mut x = 0;
+                            let monitors = layout
+                                .split(',')
+                                .map(|size| {
+                                    let (w, h) = size.split_once('x').expect("<w>x<h>");
+                                    let (width, height) = (w.parse().unwrap(), h.parse().unwrap());
+                                    let monitor = Monitor {
+                                        x,
+                                        y: 0,
+                                        width,
+                                        height,
+                                        scale: 100,
+                                    };
+                                    x += width as i32;
+                                    monitor
+                                })
+                                .collect();
+                            handle.send(Command::Layout(monitors));
                         }
                     }
                     if frame.width != last_size.0 || frame.height != last_size.1 {

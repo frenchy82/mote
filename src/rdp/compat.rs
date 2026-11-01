@@ -31,6 +31,13 @@ pub(super) fn normalize_redirection(frame: &mut [u8]) -> bool {
     true
 }
 
+/// The channel an X.224 frame is for, if it is one.
+pub(super) fn channel_of(frame: &[u8]) -> Option<u16> {
+    mcs::decode_send_data_indication(frame)
+        .ok()
+        .map(|indication| indication.channel_id)
+}
+
 /// The reason in a Set Error Info PDU, which IronRDP turns into English
 /// before it reaches here.
 pub(super) fn error_info(frame: &[u8]) -> Option<ErrorInfo> {
