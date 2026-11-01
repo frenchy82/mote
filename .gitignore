@@ -7,3 +7,4 @@
 
 # Local Claude Code settings
 .claude/
+/po/.build

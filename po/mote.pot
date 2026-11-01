@@ -1,0 +1,540 @@
+# Translation template for Mote.
+# This file is distributed under the same license as the Mote package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mote\n"
+"Report-Msgid-Bugs-To: https://github.com/hyprlab/mote/issues\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Settings"
+msgstr ""
+
+msgid "About Mote"
+msgstr ""
+
+msgid "Quit"
+msgstr ""
+
+msgid "Import .rdp Files…"
+msgstr ""
+
+msgid "Import from Remmina"
+msgstr ""
+
+msgid "Duplicate"
+msgstr ""
+
+msgid "Export as .rdp File…"
+msgstr ""
+
+msgid "Delete…"
+msgstr ""
+
+msgid "Connect"
+msgstr ""
+
+msgid "Connection"
+msgstr ""
+
+msgid "Address"
+msgstr ""
+
+msgid "Asked when connecting"
+msgstr ""
+
+msgid "User Name"
+msgstr ""
+
+msgid "Group"
+msgstr ""
+
+msgid "Last Connected"
+msgstr ""
+
+msgid "Remote Desktop Files"
+msgstr ""
+
+msgid "Import .rdp Files"
+msgstr ""
+
+msgid "Export as .rdp File"
+msgstr ""
+
+msgid "Delete {name}?"
+msgstr ""
+
+msgid "Its saved password is deleted too."
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "{file} is not a connection file"
+msgstr ""
+
+msgid "No Remmina RDP connections found"
+msgstr ""
+
+msgid "Those connections are already here"
+msgstr ""
+
+msgid "Imported {n} connection"
+msgid_plural "Imported {n} connections"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "{file} could not be saved"
+msgstr ""
+
+msgid "Press Enter to add {address}"
+msgstr ""
+
+msgid "No Results"
+msgstr ""
+
+msgid "Connected"
+msgstr ""
+
+msgid "New Connection"
+msgstr ""
+
+msgid "Main Menu"
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Search or Enter an Address"
+msgstr ""
+
+msgid "Toggle Sidebar"
+msgstr ""
+
+msgid "Connection Menu"
+msgstr ""
+
+msgid "Edit Connection"
+msgstr ""
+
+msgid "No Connections"
+msgstr ""
+
+msgid "Add a connection, or import one from an .rdp file or from Remmina."
+msgstr ""
+
+msgid "No Connection Selected"
+msgstr ""
+
+msgid "The keyring could not be reached: {error}"
+msgstr ""
+
+msgid "{name} (Copy)"
+msgstr ""
+
+msgid "{b} then {a}"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Domain"
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Wake-on-LAN MAC Address"
+msgstr ""
+
+msgid "Before Connecting"
+msgstr ""
+
+msgid "After Disconnecting"
+msgstr ""
+
+msgid "Scaling"
+msgstr ""
+
+msgid "Codec"
+msgstr ""
+
+msgid "Connection Type"
+msgstr ""
+
+msgid "Only xrdp acts on it"
+msgstr ""
+
+msgid "View Only"
+msgstr ""
+
+msgid "Clipboard"
+msgstr ""
+
+msgid "Text only with KRdp; xrdp leaves out folders"
+msgstr ""
+
+#. Both depend on the server the same way.
+msgid "Not with KRdp; xrdp needs its PipeWire module"
+msgstr ""
+
+msgid "Sound"
+msgstr ""
+
+msgid "Microphone"
+msgstr ""
+
+msgid "Port"
+msgstr ""
+
+msgid "SSH Tunnel"
+msgstr ""
+
+msgid "Tries the SSH agent’s keys before the password"
+msgstr ""
+
+msgid "RD Gateway"
+msgstr ""
+
+msgid "Without an account here, signs in with the one above"
+msgstr ""
+
+msgid "Account"
+msgstr ""
+
+msgid "Leave the password empty to be asked for it when connecting."
+msgstr ""
+
+msgid "Display"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Sharing"
+msgstr ""
+
+msgid "Commands"
+msgstr ""
+
+msgid ""
+"Run by sh, with the connection in $MOTE_HOST, $MOTE_PORT, $MOTE_USER and "
+"$MOTE_NAME. A failed command before connecting stops the connection."
+msgstr ""
+
+msgid "Automatic"
+msgstr ""
+
+msgid "H.264 (AVC420)"
+msgstr ""
+
+msgid "RemoteFX"
+msgstr ""
+
+msgid "Half the color detail: colored text is softer"
+msgstr ""
+
+msgid "About twice the bandwidth; KRdp turns it down"
+msgstr ""
+
+msgid "Local Network"
+msgstr ""
+
+msgid "Wide Area Network"
+msgstr ""
+
+msgid "Fast Broadband"
+msgstr ""
+
+msgid "Satellite"
+msgstr ""
+
+msgid "Slow Broadband"
+msgstr ""
+
+msgid "Modem"
+msgstr ""
+
+msgid "Shared Folder"
+msgstr ""
+
+msgid "Choose Folder"
+msgstr ""
+
+msgid "Stop Sharing"
+msgstr ""
+
+msgid "Only xrdp opens a shared folder"
+msgstr ""
+
+msgid "New Connections"
+msgstr ""
+
+msgid "What a connection starts with when it is added."
+msgstr ""
+
+msgid "Style"
+msgstr ""
+
+msgid "System"
+msgstr ""
+
+msgid "Light"
+msgstr ""
+
+msgid "Dark"
+msgstr ""
+
+msgid "Connections"
+msgstr ""
+
+msgid "Sort By"
+msgstr ""
+
+msgid "Recently Used"
+msgstr ""
+
+msgid "Show Groups"
+msgstr ""
+
+msgid "Connections in a group are listed under its name."
+msgstr ""
+
+msgid "Show Addresses"
+msgstr ""
+
+msgid "Changes apply to the next connection."
+msgstr ""
+
+msgid "Decoder"
+msgstr ""
+
+msgid "Cisco’s OpenH264"
+msgstr ""
+
+msgid "Checking…"
+msgstr ""
+
+msgid "Downloaded from Cisco, under Cisco’s patent license"
+msgstr ""
+
+msgid "Downloaded from Cisco on request, under Cisco’s patent license"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Download"
+msgstr ""
+
+msgid "FFmpeg"
+msgstr ""
+
+msgid "OpenH264, from this system"
+msgstr ""
+
+msgid "OpenH264, from Cisco"
+msgstr ""
+
+msgid "None: servers send RemoteFX instead, which blurs small text"
+msgstr ""
+
+msgid "Downloading…"
+msgstr ""
+
+msgid "The download failed: {error}"
+msgstr ""
+
+msgid "Appearance"
+msgstr ""
+
+msgid "Sidebar"
+msgstr ""
+
+msgid "Video"
+msgstr ""
+
+msgid "Running the Command Before Connecting…"
+msgstr ""
+
+msgid "Return to Main Window"
+msgstr ""
+
+msgid "Open in New Window"
+msgstr ""
+
+msgid "Fullscreen on All Monitors"
+msgstr ""
+
+msgid "Grab Keyboard"
+msgstr ""
+
+msgid "Ctrl+Alt+Delete"
+msgstr ""
+
+msgid "Super"
+msgstr ""
+
+msgid "Alt+Tab"
+msgstr ""
+
+msgid "Print Screen"
+msgstr ""
+
+msgid "Ctrl+Alt+F{number}"
+msgstr ""
+
+msgid "Send Keys"
+msgstr ""
+
+msgid "Take Screenshot"
+msgstr ""
+
+msgid "Disconnect"
+msgstr ""
+
+msgid "Screenshots"
+msgstr ""
+
+msgid "Could Not Connect"
+msgstr ""
+
+msgid ""
+"The user name or password was not accepted. GNOME Remote Desktop takes the "
+"ones set in its Remote Desktop settings, not the login password."
+msgstr ""
+
+msgid "Not Connected"
+msgstr ""
+
+msgid "The computer’s identity was not trusted."
+msgstr ""
+
+msgid "Disconnected"
+msgstr ""
+
+msgid "The connection to the computer was lost."
+msgstr ""
+
+msgid "The computer asked for the password again."
+msgstr ""
+
+msgid "The remote session was signed out."
+msgstr ""
+
+msgid "The session was idle for too long."
+msgstr ""
+
+msgid "The login screen timed out before anyone signed in."
+msgstr ""
+
+msgid "The computer ended the session."
+msgstr ""
+
+msgid "Sign In"
+msgstr ""
+
+msgid "Remember Password"
+msgstr ""
+
+msgid "Resize to Window"
+msgstr ""
+
+msgid "Scale to Fit"
+msgstr ""
+
+msgid "Actual Size"
+msgstr ""
+
+msgid "Reconnect"
+msgstr ""
+
+msgid "The Computer’s Identity Has Changed"
+msgstr ""
+
+msgid ""
+"Check that this fingerprint matches the one in the computer’s Remote Desktop "
+"settings."
+msgstr ""
+
+msgid "The SSH Server’s Identity Has Changed"
+msgstr ""
+
+msgid ""
+"This SSH server is new to this computer. Check that this fingerprint matches "
+"its host key."
+msgstr ""
+
+msgid "The Gateway’s Identity Has Changed"
+msgstr ""
+
+msgid ""
+"No authority this computer knows vouches for this gateway’s certificate. "
+"Check that this fingerprint matches it."
+msgstr ""
+
+msgid "Connect Anyway"
+msgstr ""
+
+msgid "Trust and Connect"
+msgstr ""
+
+msgid "Session Menu"
+msgstr ""
+
+msgid "Leave Fullscreen"
+msgstr ""
+
+msgid "Fullscreen"
+msgstr ""
+
+msgid "Shortcuts go to the remote desktop. Super+Esc gives them back."
+msgstr ""
+
+msgid "The command before connecting failed: {error}"
+msgstr ""
+
+msgid "Screenshot taken"
+msgstr ""
+
+msgid "Show"
+msgstr ""
+
+msgid "The screenshot could not be saved"
+msgstr ""
+
+msgid "Connecting to {name}…"
+msgstr ""
+
+msgid "Waking {name}…"
+msgstr ""
+
+msgid "Reconnecting to {name}…"
+msgstr ""
+
+msgid "The remote desktop can only use one monitor"
+msgstr ""
+
+msgid "Mote"
+msgstr ""
+
+msgid "Remote Desktop Client"
+msgstr ""
+
+msgid "Connect to Linux machines over RDP"
+msgstr ""
+
+msgid "RDP;Remote Desktop;xrdp;"
+msgstr ""

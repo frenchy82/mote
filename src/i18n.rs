@@ -6,17 +6,47 @@
 //! named, `i18n_f("Connecting to {host}", &[("host", &host)])`, so a
 //! translation can reorder them.
 
+use std::path::{Path, PathBuf};
+
 use gettextrs::LocaleCategory;
 
 const DOMAIN: &str = "mote";
 
-/// Where compiled catalogues live: `MOTE_LOCALEDIR` for a source-tree run,
-/// otherwise the prefix the binary was built for.
-fn locale_dir() -> String {
-    std::env::var("MOTE_LOCALEDIR")
-        .ok()
-        .or_else(|| option_env!("MOTE_LOCALEDIR").map(str::to_owned))
-        .unwrap_or_else(|| "/usr/share/locale".to_owned())
+/// Where compiled catalogues live: `MOTE_LOCALEDIR` when set, then the
+/// source tree's `po/.build` (from `tools/build-locale.sh`), then the
+/// prefix the binary runs from, then the system's. The first that holds a
+/// catalogue wins.
+fn locale_dir() -> PathBuf {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(dir) = std::env::var_os("MOTE_LOCALEDIR") {
+        candidates.push(PathBuf::from(dir));
+    }
+    candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("po/.build"));
+    let prefix = std::env::current_exe().ok().and_then(|exe| {
+        exe.parent()
+            .and_then(Path::parent)
+            .map(|p| p.join("share/locale"))
+    });
+    candidates.extend(prefix.clone());
+    candidates.push(PathBuf::from("/usr/share/locale"));
+    candidates
+        .into_iter()
+        .find(|dir| has_catalogue(dir))
+        .or(prefix)
+        .unwrap_or_else(|| PathBuf::from("/usr/share/locale"))
+}
+
+/// Whether `dir/<lang>/LC_MESSAGES/mote.mo` exists for any language.
+fn has_catalogue(dir: &Path) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|entries| {
+        entries.flatten().any(|entry| {
+            entry
+                .path()
+                .join("LC_MESSAGES")
+                .join(format!("{DOMAIN}.mo"))
+                .is_file()
+        })
+    })
 }
 
 /// Bind the text domain. Called once, first thing in `main`, before GTK
@@ -35,6 +65,12 @@ pub(crate) fn init() {
     let _ = gettextrs::bindtextdomain(DOMAIN, locale_dir());
     let _ = gettextrs::bind_textdomain_codeset(DOMAIN, "UTF-8");
     let _ = gettextrs::textdomain(DOMAIN);
+}
+
+/// Marks `msgid` for the translation template where it can't be translated
+/// yet, in a `const`; [`i18n`] translates it where it is shown.
+pub(crate) const fn i18n_noop(msgid: &'static str) -> &'static str {
+    msgid
 }
 
 /// The translation of `msgid`.

@@ -10,7 +10,7 @@ use adw::prelude::*;
 use relm4::prelude::*;
 
 use crate::config::{ColorScheme, Settings, SortOrder};
-use crate::i18n::i18n;
+use crate::i18n::{i18n, i18n_noop};
 
 /// A category in the sidebar: the stack page it shows.
 struct SidePage {
@@ -23,29 +23,29 @@ struct SidePage {
 /// rows are built.
 const SIDE_PAGES: &[(&str, &[SidePage])] = &[
     (
-        "Connections",
+        i18n_noop("Connections"),
         &[SidePage {
             id: "defaults",
-            title: "New Connections",
+            title: i18n_noop("New Connections"),
             icon: "network-server-symbolic",
         }],
     ),
     (
-        "Settings",
+        i18n_noop("Settings"),
         &[
             SidePage {
                 id: "appearance",
-                title: "Appearance",
+                title: i18n_noop("Appearance"),
                 icon: "preferences-desktop-appearance-symbolic",
             },
             SidePage {
                 id: "sidebar",
-                title: "Sidebar",
+                title: i18n_noop("Sidebar"),
                 icon: "sidebar-show-symbolic",
             },
             SidePage {
                 id: "video",
-                title: "Video",
+                title: i18n_noop("Video"),
                 icon: "video-display-symbolic",
             },
         ],

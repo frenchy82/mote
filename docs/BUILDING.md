@@ -83,6 +83,14 @@ sed "s|^Exec=mote$|Exec=$PWD/target/debug/mote|" data/co.hyprlab.Mote.desktop \
   > ~/.local/share/applications/co.hyprlab.Mote.desktop
 ```
 
+## Translations
+
+`tools/update-pot.sh` regenerates `po/mote.pot` after strings change, with
+[xtr](https://crates.io/crates/xtr) (`cargo install xtr`) and gettext's
+tools, and brings every `po/<lang>.po` up to date with it.
+`tools/build-locale.sh` compiles them so a source-tree run picks them up.
+See [po/README.md](../po/README.md).
+
 ## Pictures of the interface
 
 With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
