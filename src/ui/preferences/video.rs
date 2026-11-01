@@ -1,21 +1,29 @@
 //! The Video page: where H.264 comes from, and Cisco's OpenH264 to download
 //! when the system has no decoder of its own.
 
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+
 use adw::prelude::*;
 use gtk::{gio, glib};
+use relm4::prelude::*;
 
+use super::{PrefChange, Preferences};
+use crate::config::Settings;
 use crate::i18n::{i18n, i18n_f};
 use crate::rdp::h264::{self, Source, cisco};
 
-pub(super) fn page() -> adw::PreferencesPage {
+pub(super) fn page(
+    settings: &Settings,
+    sender: &ComponentSender<Preferences>,
+) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::new();
     let group = adw::PreferencesGroup::new();
     group.set_title("H.264");
     group.set_description(Some(&i18n("Changes apply to the next connection.")));
 
-    let decoder = adw::ActionRow::new();
+    let decoder = adw::ComboRow::new();
     decoder.set_title(&i18n("Decoder"));
-    decoder.add_css_class("property");
     group.add(&decoder);
 
     let download = adw::ActionRow::new();
@@ -27,14 +35,23 @@ pub(super) fn page() -> adw::PreferencesPage {
     group.add(&download);
 
     let rows = Rows {
-        decoder,
+        decoder: decoder.clone(),
         download,
         button: button.clone(),
+        offered: Rc::default(),
+        chosen: Rc::new(Cell::new(settings.decoder)),
+        quiet: Rc::new(Cell::new(false)),
+        out: sender.output_sender().clone(),
     };
     button.connect_clicked(glib::clone!(
         #[strong]
         rows,
         move |_| rows.act()
+    ));
+    decoder.connect_selected_notify(glib::clone!(
+        #[strong]
+        rows,
+        move |_| rows.picked()
     ));
     rows.refresh();
 
@@ -42,16 +59,31 @@ pub(super) fn page() -> adw::PreferencesPage {
     page
 }
 
+fn label(source: Source) -> String {
+    match source {
+        Source::Ffmpeg => i18n("FFmpeg"),
+        Source::SystemOpenH264 => i18n("OpenH264, from this system"),
+        Source::CiscoOpenH264 => i18n("OpenH264, from Cisco"),
+    }
+}
+
 #[derive(Clone)]
 struct Rows {
-    decoder: adw::ActionRow,
+    decoder: adw::ComboRow,
     download: adw::ActionRow,
     button: gtk::Button,
+    /// The sources the decoder row offers after Automatic.
+    offered: Rc<RefCell<Vec<Source>>>,
+    chosen: Rc<Cell<Option<Source>>>,
+    /// Set while the row's choices are replaced, which changes its selection.
+    quiet: Rc<Cell<bool>>,
+    out: relm4::Sender<PrefChange>,
 }
 
 impl Rows {
-    /// Find the decoder again, off the main thread: finding one loads it.
+    /// Find the decoders again, off the main thread: finding one loads it.
     fn refresh(&self) {
+        self.decoder.set_sensitive(false);
         self.decoder.set_subtitle(&i18n("Checking…"));
         let downloaded = cisco::downloaded();
         self.download.set_subtitle(&if downloaded {
@@ -68,18 +100,57 @@ impl Rows {
         self.button.remove_css_class("suggested-action");
         let rows = self.clone();
         glib::spawn_future_local(async move {
-            let source = gio::spawn_blocking(h264::source).await.ok().flatten();
+            let have = gio::spawn_blocking(h264::available)
+                .await
+                .unwrap_or_default();
             // The download is the way forward only without a decoder.
-            if source.is_none() && !downloaded {
+            if have.is_empty() && !downloaded {
                 rows.button.add_css_class("suggested-action");
             }
-            rows.decoder.set_subtitle(&match source {
-                Some(Source::Ffmpeg) => i18n("FFmpeg"),
-                Some(Source::SystemOpenH264) => i18n("OpenH264, from this system"),
-                Some(Source::CiscoOpenH264) => i18n("OpenH264, from Cisco"),
-                None => i18n("None: servers send RemoteFX instead, which blurs small text"),
-            });
+            let mut labels = vec![i18n("Automatic")];
+            labels.extend(have.iter().map(|s| label(*s)));
+            let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+            let chosen = rows.chosen.get();
+            let selected = have
+                .iter()
+                .position(|s| Some(*s) == chosen)
+                .map_or(0, |i| i + 1);
+            rows.quiet.set(true);
+            rows.decoder.set_model(Some(&gtk::StringList::new(&labels)));
+            rows.decoder.set_selected(selected as u32);
+            rows.quiet.set(false);
+            *rows.offered.borrow_mut() = have;
+            rows.decoder.set_sensitive(rows.offered.borrow().len() > 1);
+            rows.describe();
         });
+    }
+
+    /// Under Automatic, say which decoder that is.
+    fn describe(&self) {
+        let offered = self.offered.borrow();
+        let subtitle = match (self.decoder.selected(), offered.first()) {
+            (_, None) => i18n("None: servers send RemoteFX instead, which blurs small text"),
+            (0, Some(first)) => label(*first),
+            _ => String::new(),
+        };
+        self.decoder.set_subtitle(&subtitle);
+    }
+
+    fn picked(&self) {
+        if self.quiet.get() {
+            return;
+        }
+        let source = match self.decoder.selected() as usize {
+            0 => None,
+            i => self.offered.borrow().get(i - 1).copied(),
+        };
+        self.choose(source);
+        self.describe();
+    }
+
+    fn choose(&self, source: Option<Source>) {
+        self.chosen.set(source);
+        self.out.emit(PrefChange::Decoder(source));
     }
 
     fn act(&self) {
@@ -88,6 +159,9 @@ impl Rows {
         if cisco::downloaded() {
             if let Err(e) = cisco::remove() {
                 tracing::warn!("removing OpenH264: {e}");
+            }
+            if self.chosen.get() == Some(Source::CiscoOpenH264) {
+                self.choose(None);
             }
             return rows.refresh();
         }

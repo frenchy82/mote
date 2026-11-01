@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::connection::{Connection, DEFAULT_PORT, Quality, Scaling};
+use crate::rdp::h264::Source;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -67,6 +68,9 @@ pub(crate) struct Settings {
     pub(crate) grab_keyboard: bool,
     /// A session whose network drops connects again.
     pub(crate) reconnect: bool,
+    /// The H.264 decoder to try first; none tries them in their own order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) decoder: Option<Source>,
     pub(crate) window: WindowState,
 }
 
@@ -88,6 +92,7 @@ impl Default for Settings {
             keyboard_layout: 0,
             grab_keyboard: true,
             reconnect: true,
+            decoder: None,
             window: WindowState::default(),
         }
     }
@@ -259,5 +264,15 @@ mod tests {
         assert_eq!(s.sort, SortOrder::RecentlyUsed);
         assert_eq!(s.default_port, DEFAULT_PORT);
         assert!(s.show_groups);
+    }
+
+    #[test]
+    fn decoder_round_trips() {
+        let mut s = Settings::default();
+        assert!(!toml::to_string(&s).unwrap().contains("decoder"));
+        s.decoder = Some(Source::CiscoOpenH264);
+        let text = toml::to_string(&s).unwrap();
+        assert!(text.contains("decoder = \"cisco-openh264\""));
+        assert_eq!(toml::from_str::<Settings>(&text).unwrap(), s);
     }
 }

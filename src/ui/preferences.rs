@@ -84,6 +84,7 @@ pub(crate) enum PrefChange {
     KeyboardLayout(u32),
     GrabKeyboard(bool),
     Reconnect(bool),
+    Decoder(Option<crate::rdp::h264::Source>),
 }
 
 #[derive(Debug)]

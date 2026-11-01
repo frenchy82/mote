@@ -23,8 +23,9 @@ sudo apt install build-essential libgtk-4-dev libadwaita-1-dev gettext
 ### H.264
 
 Mote decodes H.264 with a library it loads at run time rather than building
-in, so that the patent licenses stay with whoever provides the library. It
-takes the first it finds:
+in, so that the patent licenses stay with whoever provides the library.
+Settings, under Video, chooses one; otherwise, or when the chosen one is
+missing, it takes the first it finds:
 
 1. FFmpeg's libavcodec, version 5 to 8. The Flatpak's GNOME runtime has it
    in its codecs-extra extension.

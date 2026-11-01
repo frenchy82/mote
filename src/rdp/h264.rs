@@ -8,52 +8,90 @@ pub(crate) mod cisco;
 mod ffmpeg;
 mod openh264;
 
+use std::sync::Mutex;
+
 use ironrdp_egfx::decode::{DecodedFrame, DecoderResult, H264Decoder, Yuv420Frame};
 
 /// Where H.264 comes from.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) enum Source {
+    #[serde(rename = "ffmpeg")]
     Ffmpeg,
+    #[serde(rename = "system-openh264")]
     SystemOpenH264,
+    #[serde(rename = "cisco-openh264")]
     CiscoOpenH264,
 }
 
-/// A decoder from the first source that has one. `MOTE_H264` set to
-/// `ffmpeg`, `openh264` or `cisco` tries that source alone, and
-/// `MOTE_FFMPEG_DIR` names a directory to load FFmpeg from.
-pub(super) fn decoder() -> Option<(Source, Box<dyn H264Decoder>)> {
-    let only = std::env::var("MOTE_H264").ok();
-    let wanted = |name: &str| only.as_deref().is_none_or(|o| o == name);
-    let boxed = |d: Box<dyn H264Decoder>, s: Source| Some((s, d));
-    if wanted("ffmpeg") {
-        let dir = std::env::var_os("MOTE_FFMPEG_DIR").map(std::path::PathBuf::from);
-        let found = dir
-            .as_deref()
-            .and_then(|d| ffmpeg::Ffmpeg::load(Some(d)))
-            .or_else(|| ffmpeg::Ffmpeg::load(None));
-        if let Some(d) = found {
-            return boxed(Box::new(d), Source::Ffmpeg);
+impl Source {
+    /// The order sources are tried in when none is chosen.
+    pub(crate) const ALL: [Self; 3] = [Self::Ffmpeg, Self::SystemOpenH264, Self::CiscoOpenH264];
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Ffmpeg => "ffmpeg",
+            Self::SystemOpenH264 => "openh264",
+            Self::CiscoOpenH264 => "cisco",
         }
     }
-    if wanted("openh264")
-        && let Some(d) = openh264::OpenH264::system()
-    {
-        return boxed(Box::new(d), Source::SystemOpenH264);
+
+    fn load(self) -> Option<Box<dyn H264Decoder>> {
+        match self {
+            Self::Ffmpeg => {
+                let dir = std::env::var_os("MOTE_FFMPEG_DIR").map(std::path::PathBuf::from);
+                dir.as_deref()
+                    .and_then(|d| ffmpeg::Ffmpeg::load(Some(d)))
+                    .or_else(|| ffmpeg::Ffmpeg::load(None))
+                    .map(|d| Box::new(d) as Box<dyn H264Decoder>)
+            }
+            Self::SystemOpenH264 => openh264::OpenH264::system().map(|d| Box::new(d) as _),
+            Self::CiscoOpenH264 => cisco::downloaded()
+                .then(|| openh264::OpenH264::checked(&cisco::path()))
+                .flatten()
+                .map(|d| Box::new(d) as _),
+        }
     }
-    if wanted("cisco")
-        && cisco::downloaded()
-        && let Some(d) = openh264::OpenH264::checked(&cisco::path())
-    {
-        return boxed(Box::new(d), Source::CiscoOpenH264);
-    }
-    tracing::info!("no H.264 decoder: servers will send RemoteFX instead");
-    None
 }
 
-/// Where H.264 would come from now, for Settings to show. Loads and drops a
-/// decoder, so call it off the main thread.
-pub(crate) fn source() -> Option<Source> {
-    decoder().map(|(source, _)| source)
+/// The source Settings chose, tried before the others; set by the main
+/// window, read by sessions as their graphics channel opens.
+static CHOSEN: Mutex<Option<Source>> = Mutex::new(None);
+
+pub(crate) fn choose(source: Option<Source>) {
+    *CHOSEN.lock().unwrap_or_else(|e| e.into_inner()) = source;
+}
+
+/// The sources to try, the chosen one first. `MOTE_H264` set to `ffmpeg`,
+/// `openh264` or `cisco` tries that source alone, and `MOTE_FFMPEG_DIR`
+/// names a directory to load FFmpeg from.
+fn order() -> Vec<Source> {
+    let only = std::env::var("MOTE_H264").ok();
+    let chosen = *CHOSEN.lock().unwrap_or_else(|e| e.into_inner());
+    chosen
+        .into_iter()
+        .chain(Source::ALL.into_iter().filter(|s| Some(*s) != chosen))
+        .filter(|s| only.as_deref().is_none_or(|o| o == s.name()))
+        .collect()
+}
+
+/// A decoder from the first source that has one.
+pub(super) fn decoder() -> Option<(Source, Box<dyn H264Decoder>)> {
+    let found = order().into_iter().find_map(|s| s.load().map(|d| (s, d)));
+    match &found {
+        Some((source, _)) => tracing::info!(target: "mote::stats", "H.264 from {source:?}"),
+        None => tracing::info!("no H.264 decoder: servers will send RemoteFX instead"),
+    }
+    found
+}
+
+/// The sources this system has, in the order they are tried when none is
+/// chosen, for Settings to offer. Loads and drops a decoder from each, so
+/// call it off the main thread.
+pub(crate) fn available() -> Vec<Source> {
+    Source::ALL
+        .into_iter()
+        .filter(|s| s.load().is_some())
+        .collect()
 }
 
 /// The decoder the graphics pipeline gets: timed for `mote::stats`, and,

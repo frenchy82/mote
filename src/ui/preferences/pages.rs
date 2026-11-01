@@ -24,7 +24,7 @@ pub(super) fn build(
         ("appearance", appearance(settings, sender)),
         ("sessions", sessions(settings, sender)),
         ("sidebar", sidebar(settings, sender)),
-        ("video", super::video::page()),
+        ("video", super::video::page(settings, sender)),
     ]
 }
 

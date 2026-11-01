@@ -281,6 +281,7 @@ impl Component for AppModel {
         gtk::Window::set_default_icon_name(crate::APP_ID);
         let settings = config::load_settings();
         apply_color_scheme(settings.color_scheme);
+        crate::rdp::h264::choose(settings.decoder);
         let window = settings.window.clone();
 
         let list = &gtk::ListBox::new();
@@ -654,6 +655,11 @@ impl AppModel {
             }
             PrefChange::Reconnect(on) => {
                 s.reconnect = on;
+                false
+            }
+            PrefChange::Decoder(source) => {
+                s.decoder = source;
+                crate::rdp::h264::choose(source);
                 false
             }
         };
