@@ -73,6 +73,16 @@ for example `MOTE_LOG=mote=debug`.
 A release build (`cargo build --release`) is slower to make and is only
 needed for packaging or for judging performance.
 
+GNOME Shell keeps an app's answers, such as letting a session hold the
+desktop's shortcuts back, only for an app it knows by its desktop file;
+for any other window it asks again every time. To run from the tree,
+install one that starts the build:
+
+```sh
+sed "s|^Exec=mote$|Exec=$PWD/target/debug/mote|" data/co.hyprlab.Mote.desktop \
+  > ~/.local/share/applications/co.hyprlab.Mote.desktop
+```
+
 ## Pictures of the interface
 
 With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
