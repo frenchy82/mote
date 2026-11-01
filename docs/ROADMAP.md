@@ -45,6 +45,9 @@ is to go upstream:
   it leaves out, turns xrdp's forward slashes into backslashes, lets every
   handle delete, and removes an entry when the handle that marked it
   closes rather than the last one, as xrdp leaves a handle open.
+- IronRDP's RD Gateway client turns on the network client of its NTLM
+  library, which brings aws-lc into rustls beside ring. With two providers
+  rustls can't choose one, so Mote names ring as the process's own.
 
 FreeRDP 3, the engine Remmina uses, was the alternative. It supports more
 devices (USB, serial and parallel ports), at the cost of a C API surface, a
@@ -63,7 +66,7 @@ on something a section needs, that section adds it upstream.
 | 6 | Graphics pipeline | Testing |
 | 7 | Audio | Testing |
 | 8 | Device redirection | Testing |
-| 9 | Network | |
+| 9 | Network | Testing |
 | 10 | Session controls | |
 | 11 | Settings and polish | |
 | 12 | Packaging | |
@@ -322,6 +325,52 @@ Decided against, for these servers:
 - Wake-on-LAN before connecting.
 - Automatic reconnection after a dropped network.
 
+Built: a connection goes straight to the computer, through an SSH server or
+through an RD Gateway, and can wake the computer first. The tunnel and the
+gateway are set in the editor, one or the other, with their passwords in
+the keyring beside the connection's.
+
+- The SSH tunnel forwards the RDP port the way `ssh -L` does, through
+  russh. It signs in with the SSH agent's keys, then the keys in `~/.ssh`
+  without a passphrase, then the tunnel's password. The server's key is
+  checked against `~/.ssh/known_hosts`; one that isn't there is asked about
+  with the fingerprint `ssh-keygen -l` shows, and one that differs from it
+  ends the connection, as `ssh` does. Host aliases in `~/.ssh/config` are
+  not read. The user name, left empty, is the local one.
+- The RD Gateway is IronRDP's client for it, over a WebSocket or the older
+  pair of HTTP requests. It signs in with an account of its own or the
+  connection's. A certificate no authority on the system vouches for is
+  asked about, as a server's is.
+- Wake-on-LAN broadcasts the magic packet to ports 9 and 7, then tries the
+  computer every few seconds for two minutes, sending the packet again
+  every 15 seconds, while the window says it is waking the computer.
+- A session whose connection drops, rather than one the server ends, is
+  made again for up to two minutes, to the server first asked for and at
+  the size it last had. TCP keepalive and a send timeout notice a network
+  gone quiet in about 20 seconds, where TCP alone takes a quarter of an
+  hour.
+
+`.rdp` files carry the gateway (`gatewayhostname`, `gatewayusagemethod`,
+`gatewayusername`) both ways; Remmina profiles bring the tunnel
+(`ssh_tunnel_*`) and the gateway (`gateway_server`, `gateway_username`).
+
+Tried:
+
+- The SSH tunnel through the xrdp machine to its own xrdp: with the agent,
+  with a key file and no agent, with a wrong password, with a host key not
+  yet known, and to a port nothing listens on.
+- The RD Gateway as rdpgw, an open-source gateway, in a container in front
+  of xrdp: in with Basic authentication, a wrong password, and a computer
+  the gateway doesn't allow. rdpgw reads NTLM under "Negotiate" as bare
+  NTLM, where IronRDP sends it wrapped in SPNEGO as Windows expects, so
+  NTLM through rdpgw fails. A Windows RD Gateway hasn't been tried.
+- Wake-on-LAN's packet, as another machine on the network received it. A
+  computer actually asleep hasn't been woken yet.
+- Reconnection to xrdp after its end of the connection was reset, and after
+  its packets were dropped for 40 seconds: noticed in 19 seconds, back in
+  the same session once they went through. In the app, a private GNOME
+  Remote Desktop stopped and started again.
+
 ### 10. Session controls
 
 - Keyboard grab that keeps GNOME's own shortcuts out of the way while the
@@ -340,7 +389,9 @@ accessibility review, and translations.
 
 A Flatpak on the GNOME runtime, AppStream metainfo, the app icon, a desktop
 file, and an RPM. The Flatpak needs the codecs-extra extension for H.264
-and `--socket=pulseaudio` for sound and the microphone.
+and `--socket=pulseaudio` for sound and the microphone; the SSH tunnel
+needs `--socket=ssh-auth` for the agent and `--filesystem=~/.ssh:ro` for
+`known_hosts` and the key files.
 
 ## Remmina parity
 

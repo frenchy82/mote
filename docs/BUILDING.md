@@ -142,6 +142,17 @@ with `module-remap-source`.
 `MOTE_TEST_FOLDER=<dir>` makes the live test lend that folder. xrdp shows
 it in `~/thinclient_drives`, readable only by the session's user.
 
+### The way there
+
+`MOTE_TEST_SSH=<user>@<host>[:port]` makes the live test go through that
+SSH server, where `MOTE_TEST_SERVER` is the computer as the SSH server sees
+it, such as `localhost:3389`. It signs in with the agent in
+`SSH_AUTH_SOCK`, then the keys in `~/.ssh`, then `MOTE_TEST_SSH_PASSWORD`.
+`MOTE_TEST_GATEWAY=<host>:<port>` goes through that RD Gateway instead, as
+`MOTE_TEST_GATEWAY_USER` with `MOTE_TEST_GATEWAY_PASSWORD`.
+`MOTE_TEST_WAKE=<mac>` sends a Wake-on-LAN packet first. While a session
+stays (`MOTE_TEST_SECONDS`), breaking its connection shows it reconnect.
+
 ### Measuring performance
 
 `MOTE_LOG=mote::stats=info`, for the app or the live test, logs what a
