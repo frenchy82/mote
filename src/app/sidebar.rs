@@ -18,12 +18,14 @@ use crate::ui::preferences::PrefChange;
 mod row_menu;
 
 const ROW_PREFIX: &str = "conn:";
+const GROUP_PREFIX: &str = "group:";
 
 /// Selecting a row shows its connection, a double click connects to it,
 /// and Delete asks to delete it.
 pub(super) fn connect_list(
     list: &gtk::ListBox,
     line: &gtk::Box,
+    groups: &super::groups::SharedGroups,
     quiet: &Rc<Cell<bool>>,
     sender: &ComponentSender<AppModel>,
 ) {
@@ -45,7 +47,7 @@ pub(super) fn connect_list(
         }
     });
     list.add_controller(clicks);
-    row_menu::connect(list);
+    row_menu::connect(list, groups);
     let keys = gtk::EventControllerKey::new();
     let input = sender.input_sender().clone();
     keys.connect_key_pressed(glib::clone!(
@@ -245,6 +247,13 @@ fn landing(list: &gtk::ListBox, y: f64) -> Option<(gtk::ListBoxRow, bool)> {
     last.map(|row| (row, true))
 }
 
+/// The group a heading row names.
+fn heading_group(row: &gtk::ListBoxRow) -> Option<String> {
+    row.widget_name()
+        .strip_prefix(GROUP_PREFIX)
+        .map(str::to_owned)
+}
+
 fn row_id(row: &gtk::ListBoxRow) -> Option<String> {
     row.widget_name()
         .strip_prefix(ROW_PREFIX)
@@ -358,6 +367,7 @@ impl AppModel {
     pub(super) fn rebuild_list(&self) {
         self.quiet.set(true);
         self.list.remove_all();
+        self.index_groups();
 
         let shown: Vec<&Connection> = self
             .ordered()
@@ -401,6 +411,7 @@ fn heading(text: &str) -> gtk::ListBoxRow {
     row.set_activatable(false);
     row.set_can_focus(false);
     row.add_css_class("sidebar-heading");
+    row.set_widget_name(&format!("{GROUP_PREFIX}{text}"));
     let label = gtk::Label::new(Some(text));
     label.set_xalign(0.0);
     label.set_ellipsize(gtk::pango::EllipsizeMode::End);

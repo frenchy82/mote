@@ -112,7 +112,12 @@ impl AppModel {
         self.finish_import(found);
     }
 
-    fn finish_import(&mut self, found: Vec<Connection>) {
+    fn finish_import(&mut self, mut found: Vec<Connection>) {
+        // Into the groups already here when only the case differs.
+        let groups = crate::ui::group::list(&self.connections);
+        for conn in &mut found {
+            conn.group = crate::ui::group::canonical(&conn.group, &groups);
+        }
         let last = found.last().map(|c| c.id.clone());
         let added = import::merge(&mut self.connections, found);
         if added == 0 {

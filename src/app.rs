@@ -5,6 +5,7 @@
 mod actions;
 mod details;
 mod files;
+mod groups;
 mod sessions;
 mod showcase;
 mod sidebar;
@@ -53,6 +54,8 @@ pub(crate) struct AppModel {
     live: HashSet<String>,
     /// The windows of the sessions moved out of this one.
     detached: HashMap<String, adw::ApplicationWindow>,
+    /// The groups, for the sidebar's menus.
+    groups: groups::SharedGroups,
 }
 
 #[derive(Debug)]
@@ -84,6 +87,19 @@ pub(crate) enum AppMsg {
         id: String,
         target: String,
         after: bool,
+    },
+    /// Put a connection in a group; an empty one for none.
+    SetGroup {
+        id: String,
+        group: String,
+    },
+    /// Ask for a new group's name, for this connection.
+    NewGroup(String),
+    RenameGroup(String),
+    /// Move a group's connections to another, or to none.
+    Regroup {
+        old: String,
+        new: String,
     },
     Delete(String),
     Saved {
@@ -314,7 +330,8 @@ impl Component for AppModel {
         hint.add_css_class("sidebar-hint");
         let quiet = Rc::new(Cell::new(false));
         let drop_line = &sidebar::drop_line();
-        sidebar::connect_list(list, drop_line, &quiet, &sender);
+        let groups = groups::SharedGroups::default();
+        sidebar::connect_list(list, drop_line, &groups, &quiet, &sender);
 
         let model = AppModel {
             settings,
@@ -335,6 +352,7 @@ impl Component for AppModel {
             sessions: HashMap::new(),
             live: HashSet::new(),
             detached: HashMap::new(),
+            groups,
         };
         let split = &model.split.clone();
         let panes = &model.panes.clone();
@@ -472,6 +490,10 @@ impl Component for AppModel {
             AppMsg::OpenSettings => self.open_settings(&sender, root),
             AppMsg::Pref(change) => self.apply_pref(change),
             AppMsg::Move { id, target, after } => self.move_connection(&id, &target, after, root),
+            AppMsg::SetGroup { id, group } => self.set_group(&id, &group),
+            AppMsg::NewGroup(id) => self.ask_new_group(id, root, &sender),
+            AppMsg::RenameGroup(old) => self.ask_rename_group(old, root, &sender),
+            AppMsg::Regroup { old, new } => self.regroup(&old, &new),
             AppMsg::About => actions::present_about(root),
             AppMsg::Shortcuts => actions::present_shortcuts(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
@@ -560,7 +582,11 @@ impl AppModel {
             return;
         }
         let editor = Editor::builder()
-            .launch(EditorInit { connection, is_new })
+            .launch(EditorInit {
+                connection,
+                is_new,
+                groups: crate::ui::group::list(&self.connections),
+            })
             .forward(sender.input_sender(), |out| match out {
                 EditorOutput::Saved {
                     connection,

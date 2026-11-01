@@ -78,6 +78,12 @@ pub(super) fn install(
         ("duplicate-connection", AppMsg::Duplicate),
         ("export-connection", AppMsg::Export),
         ("delete-connection", AppMsg::ConfirmDelete),
+        ("new-group", AppMsg::NewGroup),
+        ("rename-group", AppMsg::RenameGroup),
+        ("ungroup", |old| AppMsg::Regroup {
+            old,
+            new: String::new(),
+        }),
     ] {
         let input = sender.input_sender().clone();
         let action = gio::ActionEntry::builder(name)
@@ -90,6 +96,19 @@ pub(super) fn install(
             .build();
         window.add_action_entries([action]);
     }
+    // A connection and the group to put it in.
+    let input = sender.input_sender().clone();
+    let action = gio::ActionEntry::builder("set-group")
+        .parameter_type(Some(
+            glib::VariantTy::new("(ss)").expect("a tuple of two strings"),
+        ))
+        .activate(move |_: &adw::ApplicationWindow, _, value| {
+            if let Some((id, group)) = value.and_then(|v| v.get::<(String, String)>()) {
+                input.emit(AppMsg::SetGroup { id, group });
+            }
+        })
+        .build();
+    window.add_action_entries([action]);
     // The sort menu's choice, a radio group.
     let input = sender.input_sender().clone();
     let action = gio::ActionEntry::builder("sort")

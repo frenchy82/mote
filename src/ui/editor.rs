@@ -1,6 +1,7 @@
 //! The connection editor: a dialog for adding a connection or changing one.
 //! Later sections add their settings to it as pages of their own.
 
+use crate::ui::group::GroupRow;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -15,6 +16,8 @@ use crate::ui::avatar;
 pub(crate) struct EditorInit {
     pub(crate) connection: Connection,
     pub(crate) is_new: bool,
+    /// The groups in use, to choose from.
+    pub(crate) groups: Vec<String>,
 }
 
 pub(crate) struct Editor {
@@ -34,7 +37,7 @@ struct Rows {
     name: adw::EntryRow,
     host: adw::EntryRow,
     port: adw::SpinRow,
-    group: adw::EntryRow,
+    group: GroupRow,
     username: adw::EntryRow,
     domain: adw::EntryRow,
     password: adw::PasswordEntryRow,
@@ -138,7 +141,7 @@ impl Component for Editor {
             name: entry(&i18n("Name"), &c.name),
             host: entry(&i18n("Address"), &c.host),
             port: adw::SpinRow::with_range(1.0, 65535.0, 1.0),
-            group: entry(&i18n("Group"), &c.group),
+            group: GroupRow::new(&c.group, init.groups.clone()),
             username: entry(&i18n("User Name"), &c.username),
             domain: entry(&i18n("Domain"), &c.domain),
             password: password_entry(&i18n("Password")),
@@ -301,7 +304,7 @@ impl Component for Editor {
             rows.name.upcast_ref::<gtk::Widget>(),
             rows.host.upcast_ref(),
             rows.port.upcast_ref(),
-            rows.group.upcast_ref(),
+            rows.group.row.upcast_ref(),
         ] {
             target.add(row);
         }
@@ -399,7 +402,7 @@ impl Component for Editor {
                     name: r.name.text().into(),
                     host: r.host.text().into(),
                     port: r.port.value() as u16,
-                    group: r.group.text().into(),
+                    group: r.group.group(),
                     username: r.username.text().into(),
                     domain: r.domain.text().into(),
                     scaling: Scaling::ALL
