@@ -154,7 +154,7 @@ fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
 
     let grab = adw::SwitchRow::new();
     grab.set_title(&i18n("Grab Keyboard"));
-    grab.set_subtitle(&i18n("Super+Esc gives the shortcuts back"));
+    grab.set_subtitle(&i18n("Right Ctrl lets go of the keyboard"));
     grab.set_active(settings.grab_keyboard);
     let out = sender.output_sender().clone();
     grab.connect_active_notify(move |r| out.emit(PrefChange::GrabKeyboard(r.is_active())));

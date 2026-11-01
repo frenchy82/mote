@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use gtk::glib::subclass::prelude::*;
 use gtk::prelude::*;
-use gtk::subclass::widget::{WidgetImpl, WidgetImplExt};
+use gtk::subclass::widget::{WidgetClassExt, WidgetImpl, WidgetImplExt};
 use gtk::{gdk, glib, graphene, gsk};
 use ironrdp_graphics::pointer::DecodedPointer;
 use ironrdp_input::{Database, MouseButton, MousePosition, Operation, Scancode, WheelRotations};
@@ -19,6 +19,10 @@ use crate::rdp::{self, keymap};
 type InputSink = Rc<dyn Fn(Vec<FastPathInputEvent>)>;
 type SizeSink = Rc<dyn Fn()>;
 type GrabSink = Rc<dyn Fn()>;
+
+/// GTK's keycode for Right Ctrl: evdev's 97, plus 8.
+const RIGHT_CTRL: u32 = 97 + 8;
+const RIGHT_CTRL_SCANCODE: u16 = 0xE01D;
 
 mod imp {
     use super::*;
@@ -54,6 +58,11 @@ mod imp {
         pub(super) grab: Cell<bool>,
         /// Told when the desktop's shortcuts are held back.
         pub(super) on_grabbed: RefCell<Option<GrabSink>>,
+        /// Right Ctrl is down and not yet sent: alone, it lets go of the
+        /// keyboard; with another key, it is the server's after all.
+        pub(super) host_key: Cell<bool>,
+        /// Told when Right Ctrl, alone, lets go of the keyboard.
+        pub(super) on_let_go: RefCell<Option<GrabSink>>,
         /// The window's surface, and the handler watching its shortcuts.
         pub(super) inhibit: RefCell<Option<(gdk::Surface, glib::SignalHandlerId)>>,
     }
@@ -63,6 +72,12 @@ mod imp {
         const NAME: &'static str = "MoteDisplay";
         type Type = super::Display;
         type ParentType = gtk::Widget;
+
+        fn class_init(class: &mut Self::Class) {
+            // A picture with the keyboard and the pointer going to it; named
+            // for the connection by the session.
+            class.set_accessible_role(gtk::AccessibleRole::Group);
+        }
     }
 
     impl ObjectImpl for Display {
@@ -241,6 +256,22 @@ impl Display {
 
     pub(crate) fn view_only(&self) -> bool {
         self.imp().view_only.get()
+    }
+
+    /// Told when Right Ctrl, pressed and let go alone, gives the keyboard
+    /// back: the one key a session doesn't send, as in Remmina.
+    pub(crate) fn set_on_let_go(&self, sink: impl Fn() + 'static) {
+        self.imp().on_let_go.replace(Some(Rc::new(sink)));
+    }
+
+    /// A Right Ctrl held back goes to the server after all, as another key
+    /// or a click came with it.
+    fn send_host_key(&self) {
+        if self.imp().host_key.replace(false) && !self.imp().view_only.get() {
+            self.apply(Operation::KeyPressed(Scancode::from_u16(
+                RIGHT_CTRL_SCANCODE,
+            )));
+        }
     }
 
     /// Show the desktop without sending it keys or the pointer.
@@ -525,6 +556,19 @@ fn connect_input(display: &Display) {
         #[upgrade_or]
         glib::Propagation::Proceed,
         move |_, _, keycode, _| {
+            if keycode == RIGHT_CTRL {
+                // Held back until it is clear whether it comes alone.
+                if !display
+                    .imp()
+                    .state
+                    .borrow()
+                    .is_key_pressed(Scancode::from_u16(RIGHT_CTRL_SCANCODE))
+                {
+                    display.imp().host_key.set(true);
+                }
+                return glib::Propagation::Stop;
+            }
+            display.send_host_key();
             if display.imp().view_only.get() {
                 // Kept from this computer's shortcuts all the same.
                 return glib::Propagation::Stop;
@@ -543,6 +587,13 @@ fn connect_input(display: &Display) {
         #[weak]
         display,
         move |_, _, keycode, _| {
+            if keycode == RIGHT_CTRL && display.imp().host_key.replace(false) {
+                let sink = display.imp().on_let_go.borrow().clone();
+                if let Some(sink) = sink {
+                    sink();
+                }
+                return;
+            }
             if let Some(code) = scancode(keycode).filter(|_| !display.imp().view_only.get()) {
                 display.apply(Operation::KeyReleased(code));
             }
@@ -566,6 +617,7 @@ fn connect_input(display: &Display) {
         #[weak]
         display,
         move |_| {
+            display.imp().host_key.set(false);
             let events = display.imp().state.borrow_mut().release_all();
             display.send(events);
             display.hold_shortcuts(false);
@@ -625,6 +677,8 @@ fn connect_input(display: &Display) {
             };
             if pressed {
                 display.grab_focus();
+                // Right Ctrl and a click: Ctrl+click on the server.
+                display.send_host_key();
             }
             if display.imp().view_only.get() {
                 return glib::Propagation::Stop;

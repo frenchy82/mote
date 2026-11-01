@@ -124,6 +124,8 @@ pub(crate) enum SessionInput {
     SetScaling(Scaling),
     SetGrab(bool),
     SetViewOnly(bool),
+    /// Right Ctrl gave the keyboard back: to the session's menu button.
+    LetGo,
     /// Go fullscreen on every monitor.
     AllMonitors,
     /// Back to the session window's own monitor alone.
@@ -197,6 +199,7 @@ impl Component for Session {
                 pack_start = &gtk::Button {
                     set_icon_name: "sidebar-show-symbolic",
                     set_tooltip_text: Some(&i18n("Toggle Sidebar")),
+                    update_property: &[gtk::accessible::Property::Label(&i18n("Toggle Sidebar"))],
                     connect_clicked[sender] => move |_| {
                         let _ = sender.output(SessionOutput::ToggleSidebar);
                     },
@@ -206,6 +209,7 @@ impl Component for Session {
                 pack_end = &gtk::MenuButton {
                     set_icon_name: "view-more-symbolic",
                     set_tooltip_text: Some(&i18n("Session Menu")),
+                    update_property: &[gtk::accessible::Property::Label(&i18n("Session Menu"))],
                     #[watch]
                     set_menu_model: Some(&model.menu),
                 },
@@ -222,11 +226,18 @@ impl Component for Session {
                     } else {
                         i18n("Fullscreen")
                     }),
+                    #[watch]
+                    update_property: &[gtk::accessible::Property::Label(&if model.fullscreen.get() {
+                        i18n("Leave Fullscreen")
+                    } else {
+                        i18n("Fullscreen")
+                    })],
                     connect_clicked => SessionInput::ToggleFullscreen,
                 },
                 pack_end = &gtk::Button {
                     set_icon_name: "window-new-symbolic",
                     set_tooltip_text: Some(&i18n("Open in New Window")),
+                    update_property: &[gtk::accessible::Property::Label(&i18n("Open in New Window"))],
                     connect_clicked => SessionInput::ToggleDetached,
                     #[watch]
                     set_visible: !model.detached,
@@ -300,11 +311,21 @@ impl Component for Session {
         model.display.set_mode(model.scaling);
         model.display.set_grab(init.grab);
         model.display.set_view_only(model.connection.view_only);
+        let input = sender.input_sender().clone();
+        model
+            .display
+            .set_on_let_go(move || input.emit(SessionInput::LetGo));
+        model
+            .display
+            .update_property(&[gtk::accessible::Property::Label(&i18n_f(
+                "Desktop of {name}",
+                &[("name", &model.connection.title())],
+            ))]);
         let (toasts, told) = (model.toasts.clone(), Cell::new(false));
         model.display.set_on_grabbed(move || {
             if !told.replace(true) {
                 toasts.add_toast(adw::Toast::new(&i18n(
-                    "Shortcuts go to the remote desktop. Super+Esc gives them back.",
+                    "Keys and shortcuts go to the remote desktop. Right Ctrl lets go of them.",
                 )));
             }
         });
@@ -429,6 +450,17 @@ impl Component for Session {
                 }
             }
             SessionInput::AllMonitors => self.spread_out(&sender, root),
+            SessionInput::LetGo => {
+                tracing::debug!("Right Ctrl let go of the keyboard");
+                // Fullscreen, the header shows, so the keyboard has somewhere
+                // to be.
+                if self.fullscreen.get() {
+                    root.set_reveal_top_bars(true);
+                }
+                if let Some(button) = session_menu(root) {
+                    button.grab_focus();
+                }
+            }
             SessionInput::OneMonitor => self.gather(&sender),
             SessionInput::SetViewOnly(view_only) => {
                 self.display.set_view_only(view_only);
@@ -860,6 +892,26 @@ impl Session {
             }
         }
     }
+}
+
+/// The session's menu button, in its header.
+fn session_menu(root: &adw::ToolbarView) -> Option<gtk::MenuButton> {
+    let mut pending: Vec<gtk::Widget> = vec![root.clone().upcast()];
+    while let Some(widget) = pending.pop() {
+        if let Some(button) = widget.downcast_ref::<gtk::MenuButton>() {
+            return Some(button.clone());
+        }
+        // Not into the desktop's pages, where no menu button is.
+        if widget.is::<gtk::Stack>() {
+            continue;
+        }
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            child = c.next_sibling();
+            pending.push(c);
+        }
+    }
+    None
 }
 
 fn window_of(widget: &impl IsA<gtk::Widget>) -> Option<gtk::Window> {
