@@ -15,7 +15,8 @@
 //!   `all-monitors` spreads it over every monitor, whose windows are
 //!   captured too, as `<file>-2.png` and on.
 //!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
-//!   scrolls an open dialog to its end.
+//!   scrolls an open dialog to its end, and `picker` opens the editor's
+//!   picture picker, captured as `<file>-popover.png`.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -86,6 +87,10 @@ impl AppModel {
                 ) => {
                     send(AppMsg::ShowcaseSession(format!("{name}:{argument}")));
                 }
+                // Open the editor's picture picker, after the steps before.
+                ("picker", _) => {
+                    gtk::glib::timeout_add_local_once(Duration::from_secs(wait + 1), open_picker);
+                }
                 // Scroll the open dialog to its end, after the steps before.
                 ("bottom", _) => {
                     gtk::glib::timeout_add_local_once(
@@ -146,6 +151,17 @@ impl AppModel {
             Ok(()) => tracing::info!("showcase: wrote {path}"),
             Err(e) => tracing::error!("showcase: {e}"),
         }
+        // A popover open in it, which is a surface of its own.
+        if let Some(popover) = descendants(&window)
+            .into_iter()
+            .find(|w| w.is::<gtk::Popover>() && w.is_visible())
+        {
+            let path = path.replace(".png", "-popover.png");
+            match capture(&popover, &path) {
+                Ok(()) => tracing::info!("showcase: wrote {path}"),
+                Err(e) => tracing::error!("showcase: {e}"),
+            }
+        }
         // A session's windows on the other monitors.
         let spread = gtk::Window::list_toplevels()
             .into_iter()
@@ -180,6 +196,36 @@ fn capture(widget: &gtk::Widget, path: &str) -> Result<(), String> {
         .render_texture(&node, Some(&bounds))
         .save_to_png(path)
         .map_err(|e| e.to_string())
+}
+
+/// Every widget under `root`, popovers included.
+fn descendants(root: &gtk::Widget) -> Vec<gtk::Widget> {
+    let mut all = Vec::new();
+    let mut pending = vec![root.clone()];
+    while let Some(widget) = pending.pop() {
+        let mut child = widget.first_child();
+        while let Some(c) = child {
+            child = c.next_sibling();
+            pending.push(c);
+        }
+        all.push(widget);
+    }
+    all
+}
+
+/// Pop open the picture picker of the editor that is open.
+fn open_picker() {
+    let windows = gtk::Window::list_toplevels();
+    for window in windows {
+        for widget in descendants(&window) {
+            if let Some(button) = widget.downcast_ref::<gtk::MenuButton>()
+                && button.has_css_class("avatar-edit")
+            {
+                button.popup();
+                return;
+            }
+        }
+    }
 }
 
 /// The open dialog's scrolled content, scrolled to its end.
