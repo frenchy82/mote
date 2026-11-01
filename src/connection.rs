@@ -34,6 +34,11 @@ pub(crate) struct Connection {
     pub(crate) folder: String,
     /// Show the desktop without sending it keys or the pointer.
     pub(crate) view_only: bool,
+    /// Run through `sh -c` before connecting; the connection waits for it,
+    /// and doesn't go ahead when it fails. Empty for none.
+    pub(crate) command_before: String,
+    /// Run through `sh -c` once a session ends. Empty for none.
+    pub(crate) command_after: String,
     /// Reach the computer through an SSH server.
     pub(crate) ssh_tunnel: bool,
     /// The SSH server, as `host` or `host:port`.
@@ -184,6 +189,8 @@ impl Default for Connection {
             microphone: false,
             folder: String::new(),
             view_only: false,
+            command_before: String::new(),
+            command_after: String::new(),
             ssh_tunnel: false,
             ssh_host: String::new(),
             ssh_username: String::new(),

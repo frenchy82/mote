@@ -92,6 +92,8 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
             "microphone" => conn.microphone = !value.is_empty(),
             "sharefolder" => conn.folder = value.to_owned(),
             "viewonly" => conn.view_only = value == "1",
+            "precommand" => conn.command_before = from_placeholders(value),
+            "postcommand" => conn.command_after = from_placeholders(value),
             "ssh_tunnel_enabled" => conn.ssh_tunnel = value == "1",
             "ssh_tunnel_server" => conn.ssh_host = value.to_owned(),
             "ssh_tunnel_username" => conn.ssh_username = value.to_owned(),
@@ -116,6 +118,16 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
     }
     conn.gateway = !conn.gateway_host.is_empty();
     Some(conn.normalized())
+}
+
+/// Remmina pastes the connection into a command where it says `%h`, `%u`,
+/// `%p` and `%g`; Mote hands it over in the environment.
+fn from_placeholders(command: &str) -> String {
+    command
+        .replace("%h", "$MOTE_HOST")
+        .replace("%u", "$MOTE_USER")
+        .replace("%p", "$MOTE_NAME")
+        .replace("%g", "$MOTE_GROUP")
 }
 
 #[cfg(test)]
@@ -152,6 +164,14 @@ mod tests {
         assert_eq!(c.ssh_username, "jo");
         let c = parse("[remmina]\nprotocol=RDP\nserver=box\ngateway_server=gw:8443\n").unwrap();
         assert_eq!(c.gateway_server(), Some(("gw".into(), 8443)));
+    }
+
+    #[test]
+    fn reads_the_commands() {
+        let text = "[remmina]\nprotocol=RDP\nserver=box\nprecommand=wol-wait %h\npostcommand=notify-send '%p closed'\n";
+        let c = parse(text).unwrap();
+        assert_eq!(c.command_before, "wol-wait $MOTE_HOST");
+        assert_eq!(c.command_after, "notify-send '$MOTE_NAME closed'");
     }
 
     #[test]

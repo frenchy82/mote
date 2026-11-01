@@ -51,6 +51,8 @@ struct Rows {
     sound: adw::SwitchRow,
     microphone: adw::SwitchRow,
     folder: adw::ActionRow,
+    command_before: adw::EntryRow,
+    command_after: adw::EntryRow,
     /// The folder chosen in `folder`, empty for none.
     folder_path: Rc<RefCell<String>>,
 }
@@ -153,6 +155,8 @@ impl Component for Editor {
             sound: adw::SwitchRow::new(),
             microphone: adw::SwitchRow::new(),
             folder: adw::ActionRow::new(),
+            command_before: entry(&i18n("Before Connecting"), &c.command_before),
+            command_after: entry(&i18n("After Disconnecting"), &c.command_after),
             folder_path: Rc::new(RefCell::new(c.folder.clone())),
         };
         folder_row(&rows.folder, &rows.folder_path);
@@ -323,6 +327,14 @@ impl Component for Editor {
         sharing.add(&rows.microphone);
         sharing.add(&rows.folder);
         page.add(&sharing);
+        let commands = adw::PreferencesGroup::new();
+        commands.set_title(&i18n("Commands"));
+        commands.set_description(Some(&i18n(
+            "Run by sh, with the connection in $MOTE_HOST, $MOTE_PORT, $MOTE_USER and $MOTE_NAME. A failed command before connecting stops the connection.",
+        )));
+        commands.add(&rows.command_before);
+        commands.add(&rows.command_after);
+        page.add(&commands);
 
         if !init.is_new {
             for kind in Secret::ALL {
@@ -389,6 +401,8 @@ impl Component for Editor {
                         .copied()
                         .unwrap_or_default(),
                     view_only: r.view_only.is_active(),
+                    command_before: r.command_before.text().into(),
+                    command_after: r.command_after.text().into(),
                     clipboard: r.clipboard.is_active(),
                     sound: r.sound.is_active(),
                     microphone: r.microphone.is_active(),

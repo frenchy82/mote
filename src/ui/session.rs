@@ -4,6 +4,7 @@
 //! brings its own header either way.
 
 mod clipboard;
+mod commands;
 mod controls;
 mod display;
 mod endings;
@@ -43,6 +44,9 @@ pub(crate) struct Session {
     clipboard: Option<clipboard::Sharing>,
     /// Counts connections, so a late event of an earlier one is ignored.
     attempt: u32,
+    /// A connection was begun, and the command after disconnecting is due
+    /// once it ends.
+    begun: bool,
     /// In a window of its own rather than the main window.
     detached: bool,
     /// Whether the window holding it is fullscreen, shared with the
@@ -85,7 +89,12 @@ impl Page {
 pub(crate) enum SessionInput {
     /// Connect with what the sign-in page holds.
     SignIn,
+    /// Connect again, running the command before connecting first.
     Reconnect,
+    /// Connect, once there is a size to ask for.
+    Connect,
+    /// The command before connecting finished.
+    Prepared(u32, Result<(), String>),
     /// End the session and close it.
     Disconnect,
     ToggleFullscreen,
@@ -242,6 +251,7 @@ impl Component for Session {
             handle: None,
             clipboard: None,
             attempt: 0,
+            begun: false,
             detached: false,
             fullscreen: Rc::new(Cell::new(false)),
             watched: None,
@@ -310,10 +320,26 @@ impl Component for Session {
                 self.domain = account.domain;
                 self.password = account.password;
                 self.remember = account.remember;
-                self.connect(&sender);
+                self.begin(&sender);
             }
-            SessionInput::Reconnect => self.connect(&sender),
+            SessionInput::Reconnect => self.begin(&sender),
+            SessionInput::Connect => self.connect(&sender),
+            SessionInput::Prepared(attempt, result) if attempt == self.attempt => match result {
+                Ok(()) => self.connect(&sender),
+                Err(error) => {
+                    tracing::warn!("the command before connecting failed: {error}");
+                    self.ended.set_title(&i18n("Could Not Connect"));
+                    self.ended
+                        .set_description(Some(&glib::markup_escape_text(&i18n_f(
+                            "The command before connecting failed: {error}",
+                            &[("error", &error)],
+                        ))));
+                    self.page = Page::Ended;
+                }
+            },
+            SessionInput::Prepared(..) => {}
             SessionInput::Disconnect => {
+                self.finished();
                 self.clipboard = None;
                 if let Some(handle) = self.handle.take() {
                     handle.send(rdp::Command::Close);
@@ -417,6 +443,11 @@ impl Component for Session {
         }
     }
 
+    /// Closed with its window, or with the app: the session ends here too.
+    fn shutdown(&mut self, _: &mut Self::Widgets, _: relm4::Sender<Self::Output>) {
+        self.finished();
+    }
+
     fn update_cmd(
         &mut self,
         msg: Self::CommandOutput,
@@ -430,7 +461,7 @@ impl Component for Session {
                 match account {
                     Some(password) if !self.connection.username.trim().is_empty() => {
                         self.password = password;
-                        self.connect(&sender);
+                        self.begin(&sender);
                     }
                     _ => {
                         self.page = Page::SignIn;
@@ -492,10 +523,49 @@ impl Session {
         }
     }
 
+    /// Run the command before connecting, if there is one, then connect.
+    fn begin(&mut self, sender: &ComponentSender<Self>) {
+        let command = self.connection.command_before.trim().to_owned();
+        if command.is_empty() {
+            return self.connect(sender);
+        }
+        self.clipboard = None;
+        if let Some(handle) = self.handle.take() {
+            handle.send(rdp::Command::Close);
+        }
+        self.finished();
+        self.page = Page::Connecting;
+        self.connecting
+            .set_title(&i18n("Running the Command Before Connecting…"));
+        // A connection begun meanwhile makes this one stale.
+        self.attempt += 1;
+        let (attempt, connection, input) = (
+            self.attempt,
+            self.connection.clone(),
+            sender.input_sender().clone(),
+        );
+        glib::spawn_future_local(async move {
+            let result = commands::before(command, connection).await;
+            input.emit(SessionInput::Prepared(attempt, result));
+        });
+    }
+
+    /// A connection that was begun is over: run the command after it.
+    fn finished(&mut self) {
+        if !std::mem::take(&mut self.begun) {
+            return;
+        }
+        let command = self.connection.command_after.trim();
+        if !command.is_empty() {
+            commands::after(command, &self.connection);
+        }
+    }
+
     fn connect(&mut self, sender: &ComponentSender<Self>) {
         self.clipboard = None;
         if let Some(handle) = self.handle.take() {
             handle.send(rdp::Command::Close);
+            self.finished();
         }
         self.page = Page::Connecting;
         self.connecting.set_title(&i18n_f(
@@ -517,7 +587,7 @@ impl Session {
                 if !sized {
                     return glib::ControlFlow::Continue;
                 }
-                input.emit(SessionInput::Reconnect);
+                input.emit(SessionInput::Connect);
                 glib::ControlFlow::Break
             });
             return;
@@ -541,6 +611,7 @@ impl Session {
             wake: self.connection.wake_address(),
         };
         let (handle, mut events) = rdp::start(target);
+        self.begun = true;
         let input = handle.clone();
         self.display
             .set_input(move |events| input.send(rdp::Command::Input(events)));
@@ -682,6 +753,7 @@ impl Session {
                 }
             }
             Event::Ended(ending) => {
+                self.finished();
                 self.display.report();
                 self.clipboard = None;
                 self.handle = None;
