@@ -196,8 +196,8 @@ fn thanks(page: &gtk::Box) {
 
     // The robots connections are shown as. CC0 asks for no credit; it is
     // given anyway.
-    page.append(&section_heading(&i18n("Artwork")));
     let art = boxed_list();
+    art.set_margin_top(20);
     art.append(&link_row(
         &i18n("Pixelbot by DiceBear"),
         Some("CC0 1.0"),
