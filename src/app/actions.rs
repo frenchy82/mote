@@ -1,7 +1,7 @@
 //! The window's actions, the menus that name them, and their shortcuts.
 
 use adw::prelude::*;
-use gtk::gio;
+use gtk::{gio, glib};
 use relm4::prelude::*;
 
 use super::{AppModel, AppMsg};
@@ -63,6 +63,22 @@ pub(super) fn install(window: &adw::ApplicationWindow, sender: &ComponentSender<
         for accel in *accels {
             add(accel, &format!("win.{name}"));
         }
+    }
+    // A sidebar row's buttons, which name their connection.
+    for (name, message) in [
+        ("connect-to", AppMsg::Connect as fn(String) -> AppMsg),
+        ("edit-connection", AppMsg::Edit),
+    ] {
+        let input = sender.input_sender().clone();
+        let action = gio::ActionEntry::builder(name)
+            .parameter_type(Some(glib::VariantTy::STRING))
+            .activate(move |_: &adw::ApplicationWindow, _, value| {
+                if let Some(id) = value.and_then(|v| v.str()) {
+                    input.emit(message(id.to_owned()));
+                }
+            })
+            .build();
+        window.add_action_entries([action]);
     }
     add("<Control>q", "app.quit");
     add("<Control>w", "window.close");

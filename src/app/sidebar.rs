@@ -201,6 +201,34 @@ fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBo
         dot.set_tooltip_text(Some(&i18n("Connected")));
         line.append(&dot);
     }
+    // Edit and Connect for this row's connection, close together so the
+    // name keeps its room.
+    let actions = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    actions.set_valign(gtk::Align::Center);
+    for (icon, label, action) in [
+        (
+            "document-edit-symbolic",
+            i18n("Edit Connection"),
+            "win.edit-connection",
+        ),
+        (
+            "media-playback-start-symbolic",
+            i18n("Connect"),
+            "win.connect-to",
+        ),
+    ] {
+        let button = gtk::Button::builder()
+            .icon_name(icon)
+            .tooltip_text(&label)
+            .valign(gtk::Align::Center)
+            .css_classes(["flat", "row-action"])
+            .build();
+        button.update_property(&[gtk::accessible::Property::Label(&label)]);
+        button.set_action_name(Some(action));
+        button.set_action_target_value(Some(&conn.id.to_variant()));
+        actions.append(&button);
+    }
+    line.append(&actions);
     row.set_child(Some(&line));
     row.set_tooltip_text(Some(&conn.address()));
     // Named for the connection, not by the tooltip, which GTK would take.

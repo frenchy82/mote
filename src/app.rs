@@ -66,6 +66,9 @@ pub(crate) enum AppMsg {
     FocusSearch,
     EditSelected,
     ConnectSelected,
+    /// From a sidebar row's own buttons: that connection, selected or not.
+    Edit(String),
+    Connect(String),
     Session(SessionOutput),
     /// End a session, as closing its window does.
     CloseSession(String),
@@ -382,6 +385,12 @@ impl Component for AppModel {
                     self.open_editor(conn, false, &sender, root);
                 }
             }
+            AppMsg::Edit(id) => {
+                if let Some(conn) = self.connections.iter().find(|c| c.id == id).cloned() {
+                    self.open_editor(conn, false, &sender, root);
+                }
+            }
+            AppMsg::Connect(id) => self.connect(&id, &sender),
             AppMsg::ConnectSelected => {
                 if let Some(id) = self.selected.clone() {
                     self.connect(&id, &sender);
