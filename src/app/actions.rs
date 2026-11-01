@@ -144,10 +144,10 @@ pub(super) fn connection_menu() -> gio::Menu {
     menu
 }
 
-/// Every shortcut, in GNOME's own dialog. Those of a session are the ones
-/// that work while the remote desktop has the keyboard.
+/// Every shortcut. Those of a session are the ones that work while the
+/// remote desktop has the keyboard. Built from rows rather than with
+/// libadwaita 1.8's shortcuts dialog, which Debian 13 doesn't have.
 pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
-    let dialog = adw::ShortcutsDialog::new();
     let sections: [(String, Vec<(String, &str)>); 3] = [
         (
             i18n("Connections"),
@@ -176,13 +176,31 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
             ],
         ),
     ];
+    let page = adw::PreferencesPage::new();
     for (title, items) in sections {
-        let section = adw::ShortcutsSection::new(Some(&title));
+        let group = adw::PreferencesGroup::new();
+        group.set_title(&title);
         for (label, accel) in items {
-            section.add(adw::ShortcutsItem::new(&label, accel));
+            let row = adw::ActionRow::new();
+            row.set_title(&label);
+            // Deprecated for libadwaita 1.8's AdwShortcutLabel, which
+            // Debian 13 doesn't have yet.
+            #[allow(deprecated)]
+            let keys = gtk::ShortcutLabel::new(accel);
+            keys.set_valign(gtk::Align::Center);
+            row.add_suffix(&keys);
+            group.add(&row);
         }
-        dialog.add(section);
+        page.add(&group);
     }
+    let view = adw::ToolbarView::new();
+    view.add_top_bar(&adw::HeaderBar::new());
+    view.set_content(Some(&page));
+    let dialog = adw::Dialog::new();
+    dialog.set_title(&i18n("Keyboard Shortcuts"));
+    dialog.set_content_width(480);
+    dialog.set_content_height(640);
+    dialog.set_child(Some(&view));
     dialog.present(Some(parent));
 }
 

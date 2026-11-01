@@ -443,8 +443,9 @@ Built:
   active) unless one is chosen, and goes to the server as a Windows layout
   ID; xrdp sets the session's X layout by it, where it always set US
   English before, and the other servers keep their own.
-- Keyboard Shortcuts, on Ctrl+? and in the main menu, in GNOME's shortcuts
-  dialog; the same list is in [KEYBOARD_SHORTCUTS.md](KEYBOARD_SHORTCUTS.md).
+- Keyboard Shortcuts, on Ctrl+? and in the main menu, in a dialog of rows
+  rather than libadwaita's shortcuts dialog, which needs 1.8 where Debian 13
+  has 1.7; the same list is in [KEYBOARD_SHORTCUTS.md](KEYBOARD_SHORTCUTS.md).
 - Right Ctrl, alone, lets go of the keyboard, as Remmina's host key does:
   without it a keyboard alone couldn't leave a session, which takes every
   key. With another key it goes to the server.
