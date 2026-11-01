@@ -23,7 +23,9 @@ the app.
 While the remote desktop has the keyboard, every key goes to it, the
 shortcuts above included, and so do the desktop's own (Super, Alt+Tab and
 the rest) unless **Settings → Sessions → Grab Keyboard** is off. The desktop
-takes the keyboard when it appears and whenever the pointer comes onto it.
+takes the keyboard when it appears and whenever the pointer comes onto it,
+and gives it back to this computer when the pointer leaves it. A drag that
+leaves the desktop keeps the keyboard until its button is let go.
 
 | Key | |
 | --- | --- |

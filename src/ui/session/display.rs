@@ -651,6 +651,21 @@ fn connect_input(display: &Display) {
             }
         }
     ));
+    // And the pointer leaving it gives them back, to this computer: no click
+    // elsewhere needed first. A drag that leaves keeps them until it ends:
+    // GTK tells of the leaving then, with the release.
+    motion.connect_leave(glib::clone!(
+        #[weak]
+        display,
+        move |motion| {
+            let held = motion
+                .current_event()
+                .is_some_and(|event| holds_button(&event));
+            if !held {
+                display.let_go_on_leave();
+            }
+        }
+    ));
     motion.connect_motion(glib::clone!(
         #[weak]
         display,
@@ -751,6 +766,22 @@ impl Display {
         }
     }
 
+    /// Give the keyboard and the shortcuts back to this computer, as the
+    /// pointer has left the desktop. Losing focus lets go of the keys held
+    /// on the server and of the shortcuts; the pointer coming back takes
+    /// them again.
+    fn let_go_on_leave(&self) {
+        // The focus in its window, as the window needn't be active: a drag
+        // ending off the desktop comes while it says it isn't.
+        if !self.is_focus() {
+            return;
+        }
+        tracing::debug!("the pointer left the desktop, and the keyboard with it");
+        if let Some(window) = self.root().and_downcast::<gtk::Window>() {
+            gtk::prelude::GtkWindowExt::set_focus(&window, None::<&gtk::Widget>);
+        }
+    }
+
     /// Match the server's Caps, Num and Scroll Lock to this keyboard's.
     fn sync_locks(&self) {
         if self.imp().view_only.get() {
@@ -766,6 +797,22 @@ impl Display {
             false,
         )]);
     }
+}
+
+/// Whether a mouse button is still down after `event`: a release's state
+/// is from before it, with its own button down.
+fn holds_button(event: &gdk::Event) -> bool {
+    use gdk::ModifierType as M;
+    let mut buttons = M::BUTTON1_MASK | M::BUTTON2_MASK | M::BUTTON3_MASK;
+    if event.event_type() == gdk::EventType::ButtonRelease {
+        match event.downcast_ref::<gdk::ButtonEvent>().map(|e| e.button()) {
+            Some(gdk::BUTTON_PRIMARY) => buttons.remove(M::BUTTON1_MASK),
+            Some(gdk::BUTTON_MIDDLE) => buttons.remove(M::BUTTON2_MASK),
+            Some(gdk::BUTTON_SECONDARY) => buttons.remove(M::BUTTON3_MASK),
+            _ => {}
+        }
+    }
+    event.modifier_state().intersects(buttons)
 }
 
 /// GTK's hardware keycode is the evdev code plus 8.
