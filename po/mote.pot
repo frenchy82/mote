@@ -674,3 +674,45 @@ msgstr ""
 
 msgid "RDP;Remote Desktop;xrdp;"
 msgstr ""
+
+msgid "Connect to Linux desktops over RDP"
+msgstr ""
+
+msgid ""
+"Mote is a remote desktop client for GNOME, for Linux machines that run an "
+"RDP server: GNOME Remote Desktop, including its Remote Login, xrdp and KRdp."
+msgstr ""
+
+msgid ""
+"Connections kept in groups, with their passwords in the keyring, and brought "
+"in from .rdp files and Remmina"
+msgstr ""
+
+msgid ""
+"The remote desktop at the screen's own scale, fractional scales included, "
+"resized with the window, on one monitor or on all of them"
+msgstr ""
+
+msgid "H.264 and RemoteFX through the graphics pipeline"
+msgstr ""
+
+msgid "The clipboard in both directions, with text, pictures and files"
+msgstr ""
+
+msgid "Sound, the microphone and a shared folder"
+msgstr ""
+
+msgid ""
+"SSH tunnels, RD Gateway, Wake-on-LAN, and reconnecting after the network "
+"drops"
+msgstr ""
+
+msgid ""
+"The keyboard's shortcuts going to the session, view-only mode and screenshots"
+msgstr ""
+
+msgid "A session beside the saved connections"
+msgstr ""
+
+msgid "Hyprlab"
+msgstr ""

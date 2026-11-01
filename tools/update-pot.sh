@@ -4,8 +4,8 @@
 #
 # Strings reach the template through the helpers in src/i18n.rs: i18n(),
 # i18n_f(), ni18n_f() and i18n_noop(), extracted by xtr (the Rust-aware
-# xgettext: `cargo install xtr`), plus the launcher's entries through
-# xgettext. Translators never touch the source: they edit po/<lang>.po
+# xgettext: `cargo install xtr`), plus the launcher's and the metainfo's
+# entries through xgettext. Translators never touch the source: they edit po/<lang>.po
 # (Poedit, Gtranslator, or any editor) and send that back.
 #
 #   tools/update-pot.sh            # run after strings change, before a release
@@ -35,7 +35,12 @@ xtr -k i18n -k i18n_f -k ni18n_f:1,2 -k i18n_noop \
 xgettext --from-code=UTF-8 --language=Desktop \
     -k --keyword=Name --keyword=GenericName --keyword=Comment --keyword=Keywords \
     -o "$tmp/desktop.pot" data/co.hyprlab.Mote.desktop
-msgcat --use-first --no-location "$tmp/header.pot" "$tmp/src.pot" "$tmp/desktop.pot" \
+# The metainfo's name, summary and description, not the release history,
+# which nobody should have to translate.
+sed '/<releases>/,/<\/releases>/d' data/co.hyprlab.Mote.metainfo.xml > "$tmp/metainfo.xml.in"
+xgettext --from-code=UTF-8 --its=/usr/share/gettext/its/metainfo.its \
+    -o "$tmp/metainfo.pot" "$tmp/metainfo.xml.in"
+msgcat --use-first --no-location "$tmp/header.pot" "$tmp/src.pot" "$tmp/desktop.pot" "$tmp/metainfo.pot" \
   | sed '/^"POT-Creation-Date/d' > po/mote.pot
 
 for po in po/*.po; do

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright 2026 Hyprlab -->
+<component type="desktop-application">
+  <id>co.hyprlab.Mote</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-or-later</project_license>
+
+  <name>Mote</name>
+  <summary>Connect to Linux desktops over RDP</summary>
+
+  <description>
+    <p>
+      Mote is a remote desktop client for GNOME, for Linux machines that run
+      an RDP server: GNOME Remote Desktop, including its Remote Login, xrdp
+      and KRdp.
+    </p>
+    <ul>
+      <li>Connections kept in groups, with their passwords in the keyring, and brought in from .rdp files and Remmina</li>
+      <li>The remote desktop at the screen's own scale, fractional scales included, resized with the window, on one monitor or on all of them</li>
+      <li>H.264 and RemoteFX through the graphics pipeline</li>
+      <li>The clipboard in both directions, with text, pictures and files</li>
+      <li>Sound, the microphone and a shared folder</li>
+      <li>SSH tunnels, RD Gateway, Wake-on-LAN, and reconnecting after the network drops</li>
+      <li>The keyboard's shortcuts going to the session, view-only mode and screenshots</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">co.hyprlab.Mote.desktop</launchable>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#ffd3a3</color>
+    <color type="primary" scheme_preference="dark">#3d3846</color>
+  </branding>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/hyprlab/mote/main/data/repo/screenshot.png</image>
+      <caption>A session beside the saved connections</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/hyprlab/mote</url>
+  <url type="bugtracker">https://github.com/hyprlab/mote/issues</url>
+  <url type="vcs-browser">https://github.com/hyprlab/mote</url>
+  <url type="translate">https://github.com/hyprlab/mote/tree/main/po</url>
+
+  <developer id="co.hyprlab">
+    <name>Hyprlab</name>
+  </developer>
+  <update_contact>hyprlab@proton.me</update_contact>
+
+  <content_rating type="oars-1.1"/>
+
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+
+  <releases>
+    <release version="0.1.0" date="2026-11-01" type="development">
+      <description>
+        <p>The first build: every section of the roadmap, for testing.</p>
+      </description>
+    </release>
+  </releases>
+</component>
