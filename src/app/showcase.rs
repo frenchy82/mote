@@ -78,7 +78,10 @@ impl AppModel {
                 }
                 // Scroll the open dialog to its end, after the steps before.
                 ("bottom", _) => {
-                    gtk::glib::timeout_add_local_once(Duration::from_secs(wait + 1), scroll_dialog_to_end);
+                    gtk::glib::timeout_add_local_once(
+                        Duration::from_secs(wait + 1),
+                        scroll_dialog_to_end,
+                    );
                 }
                 ("search", text) => {
                     send(AppMsg::FocusSearch);
