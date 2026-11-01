@@ -1,0 +1,79 @@
+# Flatpak manifest for Mote. The GNOME runtime and SDK come from the flathub
+# remote, and with the 25.08 runtime underneath them, so does codecs-extra,
+# which carries FFmpeg's H.264 decoder: Flatpak installs it along with the
+# runtime, and Mote finds it under the runtime's own libavcodec name.
+#
+# Local test build (flatpak-cargo-generator.py is in flatpak-builder-tools):
+#   python3 flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+#   flatpak install flathub org.gnome.Sdk//50 org.gnome.Platform//50 \
+#       org.freedesktop.Sdk.Extension.rust-stable//25.08
+#   flatpak-builder --force-clean build-dir co.hyprlab.Mote.yml
+#   flatpak-builder --run build-dir co.hyprlab.Mote.yml mote
+id: co.hyprlab.Mote
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: mote
+# The message catalogues stay in the app rather than in a .Locale extension
+# that installs only the system's languages.
+separate-locales: false
+
+finish-args:
+  - --share=ipc
+  - --share=network                    # RDP, SSH, the RD Gateway, Wake-on-LAN
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri                       # GTK's GPU renderer
+  - --socket=pulseaudio                # sound and the microphone
+  # SSH tunnels: the agent's keys, and ~/.ssh for known_hosts and the key
+  # files without a passphrase, read and never written.
+  - --socket=ssh-auth
+  - --filesystem=~/.ssh:ro
+  # Take Screenshot saves into the Screenshots folder of Pictures, whose
+  # name follows the language.
+  - --filesystem=xdg-pictures
+  # Import from Remmina reads its profiles, wherever Remmina kept them.
+  - --filesystem=xdg-data/remmina:ro
+  - --filesystem=~/.var/app/org.remmina.Remmina/data/remmina:ro
+  - --filesystem=~/.remmina:ro
+  # Passwords go through the secret portal, and a shared folder through the
+  # file chooser's, so neither needs a permission here.
+
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/mote/cargo
+
+modules:
+  - name: mote
+    buildsystem: simple
+    build-commands:
+      - cargo --offline fetch --manifest-path Cargo.toml --verbose
+      - cargo --offline build --release --verbose
+      - install -Dm755 target/release/mote /app/bin/mote
+      # Translations: each po/<lang>.po becomes a catalogue, and the
+      # launcher and metainfo get their translated fields merged in (see
+      # po/README.md).
+      - for po in po/*.po; do [ -e "$po" ] || continue; lang=$(basename "$po" .po); install -d /app/share/locale/$lang/LC_MESSAGES; msgfmt -o /app/share/locale/$lang/LC_MESSAGES/mote.mo "$po"; done
+      - install -d /app/share/applications && msgfmt --desktop --template=data/co.hyprlab.Mote.desktop -d po -o /app/share/applications/co.hyprlab.Mote.desktop
+      - install -d /app/share/metainfo && msgfmt --xml --template=data/co.hyprlab.Mote.metainfo.xml -d po -o /app/share/metainfo/co.hyprlab.Mote.metainfo.xml
+      - install -Dm644 data/icons/hicolor/256x256/apps/co.hyprlab.Mote.png /app/share/icons/hicolor/256x256/apps/co.hyprlab.Mote.png
+      - install -Dm644 data/icons/hicolor/512x512/apps/co.hyprlab.Mote.png /app/share/icons/hicolor/512x512/apps/co.hyprlab.Mote.png
+      - install -Dm644 data/icons/hicolor/scalable/apps/co.hyprlab.Mote.svg /app/share/icons/hicolor/scalable/apps/co.hyprlab.Mote.svg
+      - install -Dm644 data/icons/hicolor/symbolic/apps/co.hyprlab.Mote-symbolic.svg /app/share/icons/hicolor/symbolic/apps/co.hyprlab.Mote-symbolic.svg
+    sources:
+      # This checkout, without what builds leave in it. A release would name
+      # a tag of the repository instead.
+      - type: dir
+        path: .
+        skip:
+          - target
+          - temp
+          - build-dir
+          - .flatpak-builder
+          - po/.build
+          - packaging/out
+      # Vendored crate sources for the offline build; see the top.
+      - cargo-sources.json

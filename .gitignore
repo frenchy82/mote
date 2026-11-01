@@ -8,3 +8,7 @@
 # Local Claude Code settings
 .claude/
 /po/.build
+/cargo-sources.json
+/build-dir
+/.flatpak-builder
+/packaging/out
