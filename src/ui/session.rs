@@ -301,6 +301,14 @@ impl Component for Session {
         );
         let sign_in_page = &model.sign_in.page.clone();
         let widgets = view_output!();
+        // The desktop takes the keyboard as soon as it shows: asked for
+        // while its page is still hidden, GTK ignores the request.
+        let display = model.display.clone();
+        model.stack.connect_visible_child_notify(move |stack| {
+            if stack.visible_child_name().as_deref() == Some("desktop") {
+                display.grab_focus();
+            }
+        });
 
         let id = model.connection.id.clone();
         sender.oneshot_command(async move {

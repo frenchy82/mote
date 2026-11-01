@@ -574,6 +574,21 @@ fn connect_input(display: &Display) {
     display.add_controller(focus);
 
     let motion = gtk::EventControllerMotion::new();
+    // The pointer coming onto the desktop gives it the keyboard, and with
+    // it the shortcuts, as Remmina does: no click or key needed first.
+    motion.connect_enter(glib::clone!(
+        #[weak]
+        display,
+        move |_, _, _| {
+            let active = display
+                .root()
+                .and_downcast::<gtk::Window>()
+                .is_some_and(|window| window.is_active());
+            if active && !display.has_focus() {
+                display.grab_focus();
+            }
+        }
+    ));
     motion.connect_motion(glib::clone!(
         #[weak]
         display,

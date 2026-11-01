@@ -389,7 +389,10 @@ Built, in the session menu and the editor:
 
 - The keyboard grab: while the remote desktop has focus, this computer's
   shortcuts are held back through the compositor's shortcut inhibitor, so
-  Super, Alt+Tab and the rest go to the session. GNOME asks once whether
+  Super, Alt+Tab and the rest go to the session. As in Remmina, it follows
+  focus with nothing to press: the desktop takes the keyboard as soon as it
+  shows and whenever the pointer comes onto it, and lets go when the
+  window or the keyboard goes elsewhere. GNOME asks once whether
   to allow it, and gives the shortcuts back on Super+Esc; a toast says so
   the first time. Grab Keyboard in the menu turns it off for the session.
 - Send Keys: Ctrl+Alt+Delete, Super, Alt+Tab, Print Screen and Ctrl+Alt+F1
