@@ -74,7 +74,7 @@ on something a section needs, that section adds it upstream.
 | 9 | Network | Testing |
 | 10 | Session controls | Testing |
 | 11 | Settings and polish | Testing |
-| 12 | Packaging | |
+| 12 | Packaging | Testing |
 
 ### 1. Foundation
 
@@ -472,6 +472,29 @@ needs `--socket=ssh-auth` for the agent and `--filesystem=~/.ssh:ro` for
 `known_hosts` and the key files, and screenshots
 `--filesystem=xdg-pictures`. Commands before and after a session run
 inside the sandbox.
+
+Built, as Hylki's are (the steps are in [BUILDING.md](BUILDING.md#flatpak)):
+
+- `co.hyprlab.Mote.yml`, a Flatpak on the GNOME 50 runtime, built offline
+  from vendored crates. Beside the permissions above it reads Remmina's
+  profiles, read-only, for the import, and needs nothing for passwords or
+  a shared folder, which go through portals. codecs-extra comes with the
+  25.08 runtime underneath, which Flatpak installs along with it from
+  Flathub, and its libavcodec is the one the runtime's linker finds first.
+- `data/co.hyprlab.Mote.metainfo.xml`, which `appstreamcli` passes, with
+  the icon's colors for branding and `data/repo/screenshot.png`; its text
+  goes into the translation template.
+- `packaging/fedora/mote.spec` and `tools/build-packages.sh`, an RPM of the
+  host's release build. The libraries Mote opens itself (PulseAudio's simple
+  API, Opus, FFmpeg, OpenH264) are recommended, as rpm can't see them
+  linked.
+
+Tried: the Flatpak, installed for the user and run in a headless GNOME,
+signed in to a private GNOME Remote Desktop and showed it, found FFmpeg
+through codecs-extra, and found libopus and libpulse-simple in the runtime.
+The RPM installed into a clean Fedora 44 with every library it links found
+and its recommendations pulled in. Not tried yet: either one on a real
+desktop, H.264 from xrdp in the Flatpak, and a release build from a tag.
 
 ## Remmina parity
 

@@ -91,6 +91,34 @@ tools, and brings every `po/<lang>.po` up to date with it.
 `tools/build-locale.sh` compiles them so a source-tree run picks them up.
 See [po/README.md](../po/README.md).
 
+## Flatpak
+
+The manifest is `co.hyprlab.Mote.yml`, for `flatpak-builder`, on the GNOME
+50 runtime. Its crates come from `cargo-sources.json`, which is generated
+from `Cargo.lock` with `flatpak-cargo-generator.py` from
+[flatpak-builder-tools](https://github.com/flatpak/flatpak-builder-tools)
+whenever the lock file changes, and isn't kept in the repository:
+
+```sh
+python3 flatpak-cargo-generator.py Cargo.lock -o cargo-sources.json
+flatpak install flathub org.gnome.Sdk//50 org.gnome.Platform//50 \
+    org.freedesktop.Sdk.Extension.rust-stable//25.08
+flatpak-builder --force-clean build-dir co.hyprlab.Mote.yml
+flatpak-builder --run build-dir co.hyprlab.Mote.yml mote
+```
+
+The last line runs the build without installing it; `--user --install`
+installs it. H.264 comes from the runtime's codecs-extra extension, which
+Flatpak installs with the runtime from Flathub; elsewhere it is
+`org.freedesktop.Platform.codecs-extra//25.08-extra`.
+
+## RPM
+
+`tools/build-packages.sh` builds the release binary on this machine and
+wraps it, with the launcher, metainfo, icons and translations, into
+`packaging/out/mote-<version>-1.<dist>.<arch>.rpm`, for the Fedora release
+it was built on. It needs `rpm-build` and gettext.
+
 ## Pictures of the interface
 
 With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
