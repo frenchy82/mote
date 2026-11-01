@@ -45,6 +45,11 @@ is to go upstream:
   it leaves out, turns xrdp's forward slashes into backslashes, lets every
   handle delete, and removes an entry when the handle that marked it
   closes rather than the last one, as xrdp leaves a handle open.
+- IronRDP's reactivation sequence takes every message that comes while
+  it runs for its own. xrdp goes on sending on its static channels during
+  the reactivation after a change of monitors, and the sequence fails on
+  the first such message. Mote holds those messages back and takes them up
+  once the sequence ends.
 - IronRDP's RD Gateway client turns on the network client of its NTLM
   library, which brings aws-lc into rustls beside ring. With two providers
   rustls can't choose one, so Mote names ring as the process's own.
@@ -67,7 +72,7 @@ on something a section needs, that section adds it upstream.
 | 7 | Audio | Testing |
 | 8 | Device redirection | Testing |
 | 9 | Network | Testing |
-| 10 | Session controls | |
+| 10 | Session controls | Testing |
 | 11 | Settings and polish | |
 | 12 | Packaging | |
 
@@ -380,6 +385,47 @@ Tried:
 - Screenshots, view-only mode, multiple monitors.
 - Commands run before connecting and after disconnecting.
 
+Built, in the session menu and the editor:
+
+- The keyboard grab: while the remote desktop has focus, this computer's
+  shortcuts are held back through the compositor's shortcut inhibitor, so
+  Super, Alt+Tab and the rest go to the session. GNOME asks once whether
+  to allow it, and gives the shortcuts back on Super+Esc; a toast says so
+  the first time. Grab Keyboard in the menu turns it off for the session.
+- Send Keys: Ctrl+Alt+Delete, Super, Alt+Tab, Print Screen and Ctrl+Alt+F1
+  to F12, for when the grab is off.
+- View Only, in the menu and the editor (Remmina's `viewonly`): keys and
+  the pointer stay here. What the menu sets is kept.
+- Take Screenshot saves the desktop, at its full size, as a PNG in the
+  Screenshots folder of Pictures, where GNOME's own go, named for the
+  connection and the time.
+- Fullscreen on All Monitors, with more than one monitor: the remote
+  desktop gets a monitor for each one here, in the same arrangement, over
+  Display Control, and each monitor beyond the session window's shows its
+  part in a fullscreen window of its own. Monitors with different scales go
+  side by side, as their pixels don't line up. Leaving fullscreen brings it
+  back to one. A server without Display Control, or with room for fewer
+  monitors, says so and stays on one. Spanning one window over several
+  monitors, as Remmina does on X11, isn't something Wayland allows.
+- Commands before connecting and after disconnecting, run by `sh -c` with
+  the connection in `MOTE_HOST`, `MOTE_PORT`, `MOTE_USER`, `MOTE_NAME` and
+  `MOTE_GROUP` rather than pasted into the text. The connection waits for
+  the first, and stops with its last line of errors when it fails.
+  Remmina's `precommand` and `postcommand` come across, with `%h`, `%u`,
+  `%p` and `%g` turned into those variables.
+
+Remmina's tabs, floating toolbar and scrolled view are already here in
+other forms: a session per connection in the sidebar, the header that
+comes down at the top edge in fullscreen, and Actual Size.
+
+Tried in a headless GNOME with two monitors against a private GNOME Remote
+Desktop: the grab granted, keys typed and blocked in view-only, a
+screenshot, a window dragged from one monitor to the other, back to one,
+and both commands, the first failing as well. xrdp and GNOME Remote Desktop
+both took a layout of two monitors in the live test; KRdp has no Display
+Control. Not tried yet on a real desktop with two monitors, where GNOME
+asks before granting the grab.
+
 ### 11. Settings and polish
 
 App preferences, default connection settings, a keyboard shortcuts dialog,
@@ -391,7 +437,9 @@ A Flatpak on the GNOME runtime, AppStream metainfo, the app icon, a desktop
 file, and an RPM. The Flatpak needs the codecs-extra extension for H.264
 and `--socket=pulseaudio` for sound and the microphone; the SSH tunnel
 needs `--socket=ssh-auth` for the agent and `--filesystem=~/.ssh:ro` for
-`known_hosts` and the key files.
+`known_hosts` and the key files, and screenshots
+`--filesystem=xdg-pictures`. Commands before and after a session run
+inside the sandbox.
 
 ## Remmina parity
 
@@ -420,9 +468,9 @@ What Remmina's RDP plugin offers, and the section that brings it to Mote.
 | RD Gateway | 9 |
 | Wake-on-LAN | 9 |
 | Auto-reconnect | 9 |
-| Tabs, floating toolbar, scrolled and fullscreen views | 10 |
+| Tabs, floating toolbar, scrolled and fullscreen views | 4, 10 |
 | Keyboard grab, send Ctrl+Alt+Del | 10 |
 | Screenshot, view only | 10 |
-| Multiple monitors, span | 10 |
+| Multiple monitors; span, which Wayland doesn't allow | 10 |
 | Pre and post commands | 10 |
 | Keyboard layout, left-handed mouse | 3, 11 |

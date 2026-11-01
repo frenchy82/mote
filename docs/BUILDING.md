@@ -153,6 +153,12 @@ it, such as `localhost:3389`. It signs in with the agent in
 `MOTE_TEST_WAKE=<mac>` sends a Wake-on-LAN packet first. While a session
 stays (`MOTE_TEST_SECONDS`), breaking its connection shows it reconnect.
 
+### Monitors
+
+`MOTE_TEST_LAYOUT=<width>x<height>,<width>x<height>` makes the live test ask
+for monitors of those sizes side by side after the first frame, the first
+of them the primary one. `MOTE_TEST_PICTURE` then holds the whole desktop.
+
 ### Measuring performance
 
 `MOTE_LOG=mote::stats=info`, for the app or the live test, logs what a
