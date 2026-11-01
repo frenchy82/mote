@@ -8,7 +8,7 @@ use adw::prelude::*;
 use relm4::prelude::*;
 
 use super::{PrefChange, Preferences};
-use crate::config::{ColorScheme, Settings, SortOrder};
+use crate::config::{ColorScheme, Settings};
 use crate::connection::{Quality, Scaling};
 use crate::i18n::i18n;
 use crate::ui::editor::{quality_cost, quality_label};
@@ -223,22 +223,6 @@ fn appearance(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw
 fn sidebar(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::PreferencesPage {
     let group = adw::PreferencesGroup::new();
     group.set_title(&i18n("Connections"));
-
-    let sort = adw::ComboRow::new();
-    sort.set_title(&i18n("Sort By"));
-    let orders = [SortOrder::Name, SortOrder::RecentlyUsed];
-    sort.set_model(Some(&gtk::StringList::new(&[
-        &i18n("Name"),
-        &i18n("Recently Used"),
-    ])));
-    sort.set_selected(orders.iter().position(|o| *o == settings.sort).unwrap_or(0) as u32);
-    let out = sender.output_sender().clone();
-    sort.connect_selected_notify(move |r| {
-        if let Some(order) = orders.get(r.selected() as usize) {
-            out.emit(PrefChange::Sort(*order));
-        }
-    });
-    group.add(&sort);
 
     let groups = adw::SwitchRow::new();
     groups.set_title(&i18n("Show Groups"));

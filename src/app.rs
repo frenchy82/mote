@@ -74,6 +74,13 @@ pub(crate) enum AppMsg {
     CloseSession(String),
     DuplicateSelected,
     DeleteSelected,
+    /// Move a connection beside another, or to the end; dragged there, or
+    /// Alt+Up and Alt+Down.
+    Move {
+        id: String,
+        target: String,
+        after: bool,
+    },
     Delete(String),
     Saved {
         connection: Box<Connection>,
@@ -142,6 +149,12 @@ impl Component for AppModel {
                                 set_tooltip_text: Some(&i18n("New Connection")),
                                 update_property: &[gtk::accessible::Property::Label(&i18n("New Connection"))],
                                 set_action_name: Some("win.new-connection"),
+                            },
+                            pack_start = &gtk::MenuButton {
+                                set_icon_name: "view-sort-descending-symbolic",
+                                set_tooltip_text: Some(&i18n("Sort By")),
+                                update_property: &[gtk::accessible::Property::Label(&i18n("Sort By"))],
+                                set_menu_model: Some(&sort_menu),
                             },
                             pack_end = &gtk::MenuButton {
                                 set_icon_name: "open-menu-symbolic",
@@ -323,6 +336,7 @@ impl Component for AppModel {
             &model.toasts.clone(),
         );
         let main_menu = actions::main_menu();
+        let sort_menu = actions::sort_menu();
         let connection_menu = actions::connection_menu();
         let widgets = view_output!();
         search_bar.connect_entry(search);
@@ -355,7 +369,7 @@ impl Component for AppModel {
                 }
             }
         ));
-        actions::install(&root, &sender);
+        actions::install(&root, &sender, model.settings.sort);
         model.rebuild_list();
         model.arm_showcase(&sender);
         ComponentParts { model, widgets }
@@ -433,6 +447,7 @@ impl Component for AppModel {
             AppMsg::ExportTo(id, path) => self.export(&id, &path),
             AppMsg::OpenSettings => self.open_settings(&sender, root),
             AppMsg::Pref(change) => self.apply_pref(change),
+            AppMsg::Move { id, target, after } => self.move_connection(&id, &target, after, root),
             AppMsg::About => actions::present_about(root),
             AppMsg::Shortcuts => actions::present_shortcuts(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
@@ -572,11 +587,18 @@ impl AppModel {
             ..original.clone()
         };
         let (from, to, title) = (original.id.clone(), copy.id.clone(), copy.name.clone());
+        let from_id = from.clone();
         sender.oneshot_command(async move {
             AppCmd::Keyring(secrets::copy_passwords(from, to, title).await)
         });
         let id = copy.id.clone();
-        self.connections.push(copy);
+        // Beside its original, which matters in a custom order.
+        let at = self
+            .connections
+            .iter()
+            .position(|c| c.id == from_id)
+            .map_or(self.connections.len(), |i| i + 1);
+        self.connections.insert(at, copy);
         config::save_connections(&self.connections);
         self.select(Some(id));
         self.rebuild_list();

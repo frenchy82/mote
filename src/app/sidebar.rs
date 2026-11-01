@@ -2,16 +2,18 @@
 //! search or the settings change. A list of a few dozen rows rebuilds faster
 //! than it can be kept in step.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use adw::prelude::*;
+use gtk::glib;
 use relm4::prelude::*;
 
 use super::{AppModel, AppMsg};
-use crate::config::SortOrder;
+use crate::config::{self, SortOrder};
 use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
+use crate::ui::preferences::PrefChange;
 
 const ROW_PREFIX: &str = "conn:";
 
@@ -42,14 +44,156 @@ pub(super) fn connect_list(
     list.add_controller(clicks);
     let keys = gtk::EventControllerKey::new();
     let input = sender.input_sender().clone();
-    keys.connect_key_pressed(move |_, key, _, mods| {
-        if key == gtk::gdk::Key::Delete && mods.is_empty() {
-            input.emit(AppMsg::DeleteSelected);
-            return gtk::glib::Propagation::Stop;
+    keys.connect_key_pressed(glib::clone!(
+        #[weak]
+        list,
+        #[upgrade_or]
+        gtk::glib::Propagation::Proceed,
+        move |_, key, _, mods| {
+            use gtk::gdk::{Key, ModifierType};
+            if key == Key::Delete && mods.is_empty() {
+                input.emit(AppMsg::DeleteSelected);
+                return gtk::glib::Propagation::Stop;
+            }
+            // Alt+Up and Alt+Down move the selected connection past its
+            // neighbor, as dragging it would.
+            if mods == ModifierType::ALT_MASK && (key == Key::Up || key == Key::Down) {
+                let down = key == Key::Down;
+                let neighbor = list.selected_row().and_then(|row| {
+                    let id = row_id(&row)?;
+                    let step = if down { 1 } else { -1 };
+                    let mut i = row.index() + step;
+                    while let Some(other) = list.row_at_index(i) {
+                        if let Some(target) = row_id(&other) {
+                            return Some((id, target));
+                        }
+                        i += step;
+                    }
+                    None
+                });
+                if let Some((id, target)) = neighbor {
+                    input.emit(AppMsg::Move {
+                        id,
+                        target,
+                        after: down,
+                    });
+                }
+                return gtk::glib::Propagation::Stop;
+            }
+            gtk::glib::Propagation::Proceed
         }
-        gtk::glib::Propagation::Proceed
-    });
+    ));
     list.add_controller(keys);
+    connect_reorder(list, sender);
+}
+
+/// Rows drag to another place in the list, the connection's id their
+/// content. A line above or below a row shows where one would land.
+fn connect_reorder(list: &gtk::ListBox, sender: &ComponentSender<AppModel>) {
+    use gtk::gdk;
+
+    let source = gtk::DragSource::new();
+    source.set_actions(gdk::DragAction::MOVE);
+    source.connect_prepare(glib::clone!(
+        #[weak]
+        list,
+        #[upgrade_or]
+        None,
+        move |source, x, y| {
+            let row = list.row_at_y(y as i32)?;
+            let id = row_id(&row)?;
+            // The row itself follows the pointer, held where it was picked up.
+            let at = list.compute_point(&row, &gtk::graphene::Point::new(x as f32, y as f32))?;
+            let picture = gtk::WidgetPaintable::new(Some(&row));
+            source.set_icon(Some(&picture), at.x() as i32, at.y() as i32);
+            Some(gdk::ContentProvider::for_value(&id.to_value()))
+        }
+    ));
+    list.add_controller(source);
+
+    let marked: Rc<RefCell<Option<gtk::ListBoxRow>>> = Rc::default();
+    let unmark = {
+        let marked = marked.clone();
+        move || {
+            if let Some(row) = marked.borrow_mut().take() {
+                row.remove_css_class("drop-before");
+                row.remove_css_class("drop-after");
+            }
+        }
+    };
+    let target = gtk::DropTarget::new(String::static_type(), gdk::DragAction::MOVE);
+    target.connect_motion(glib::clone!(
+        #[weak]
+        list,
+        #[strong]
+        marked,
+        #[strong]
+        unmark,
+        #[upgrade_or]
+        gdk::DragAction::empty(),
+        move |_, _, y| {
+            unmark();
+            let Some((row, after)) = landing(&list, y) else {
+                return gdk::DragAction::empty();
+            };
+            row.add_css_class(if after { "drop-after" } else { "drop-before" });
+            *marked.borrow_mut() = Some(row);
+            gdk::DragAction::MOVE
+        }
+    ));
+    target.connect_leave({
+        let unmark = unmark.clone();
+        move |_| unmark()
+    });
+    let input = sender.input_sender().clone();
+    target.connect_drop(glib::clone!(
+        #[weak]
+        list,
+        #[upgrade_or]
+        false,
+        move |_, value, _, y| {
+            unmark();
+            let (Ok(id), Some((row, after))) = (value.get::<String>(), landing(&list, y)) else {
+                return false;
+            };
+            let Some(target) = row_id(&row) else {
+                return false;
+            };
+            input.emit(AppMsg::Move { id, target, after });
+            true
+        }
+    ));
+    list.add_controller(target);
+}
+
+/// The connection row a drop at `y` lands beside, and whether after it. A
+/// group's heading stands for its first connection; below the last row is
+/// after the last.
+fn landing(list: &gtk::ListBox, y: f64) -> Option<(gtk::ListBoxRow, bool)> {
+    let Some(row) = list.row_at_y(y as i32) else {
+        let mut i = 0;
+        let mut last = None;
+        while let Some(row) = list.row_at_index(i) {
+            if row_id(&row).is_some() {
+                last = Some(row);
+            }
+            i += 1;
+        }
+        return last.map(|row| (row, true));
+    };
+    if row_id(&row).is_none() {
+        let mut i = row.index() + 1;
+        while let Some(next) = list.row_at_index(i) {
+            if row_id(&next).is_some() {
+                return Some((next, false));
+            }
+            i += 1;
+        }
+        return None;
+    }
+    let bounds = row.compute_bounds(list)?;
+    let after = y > f64::from(bounds.y() + bounds.height() / 2.0);
+    Some((row, after))
 }
 
 fn row_id(row: &gtk::ListBoxRow) -> Option<String> {
@@ -92,17 +236,9 @@ impl AppModel {
         self.quiet.set(false);
     }
 
-    pub(super) fn rebuild_list(&self) {
-        self.quiet.set(true);
-        while let Some(child) = self.list.first_child() {
-            self.list.remove(&child);
-        }
-
-        let mut shown: Vec<&Connection> = self
-            .connections
-            .iter()
-            .filter(|c| self.query.is_empty() || c.matches(&self.query))
-            .collect();
+    /// Every connection, in the sidebar's order.
+    fn ordered(&self) -> Vec<&Connection> {
+        let mut shown: Vec<&Connection> = self.connections.iter().collect();
         let by_name = |a: &&Connection, b: &&Connection| {
             a.title().to_lowercase().cmp(&b.title().to_lowercase())
         };
@@ -111,6 +247,7 @@ impl AppModel {
             SortOrder::RecentlyUsed => {
                 shown.sort_by(|a, b| b.last_used.cmp(&a.last_used).then_with(|| by_name(a, b)))
             }
+            SortOrder::Custom => {}
         }
         if self.settings.show_groups {
             // Ungrouped first, then each group under its name, in order.
@@ -120,6 +257,66 @@ impl AppModel {
                     .cmp(&(!b.group.is_empty(), b.group.to_lowercase()))
             });
         }
+        shown
+    }
+
+    /// Put connection `id` just before or after `target`, in `target`'s
+    /// group while groups show. Any other order becomes the custom one,
+    /// starting from the order on screen.
+    pub(super) fn move_connection(
+        &mut self,
+        id: &str,
+        target: &str,
+        after: bool,
+        root: &adw::ApplicationWindow,
+    ) {
+        let position =
+            |connections: &[Connection], id: &str| connections.iter().position(|c| c.id == id);
+        if id == target
+            || position(&self.connections, id).is_none()
+            || position(&self.connections, target).is_none()
+        {
+            return;
+        }
+        if self.settings.sort != SortOrder::Custom {
+            let order: Vec<String> = self.ordered().iter().map(|c| c.id.clone()).collect();
+            self.connections
+                .sort_by_key(|c| order.iter().position(|o| *o == c.id));
+            self.apply_pref(PrefChange::Sort(SortOrder::Custom));
+            super::actions::show_sort(root, SortOrder::Custom);
+        }
+        let Some(from) = position(&self.connections, id) else {
+            return;
+        };
+        let mut conn = self.connections.remove(from);
+        let Some(to) = position(&self.connections, target) else {
+            return;
+        };
+        if self.settings.show_groups {
+            conn.group = self.connections[to].group.clone();
+        }
+        self.connections.insert(to + usize::from(after), conn);
+        config::save_connections(&self.connections);
+        self.rebuild_list();
+        // Keep the keyboard on a row moved by Alt+Up or Alt+Down.
+        if self.selected.as_deref() == Some(id)
+            && let Some(row) = self.list.selected_row()
+        {
+            row.grab_focus();
+        }
+    }
+
+    pub(super) fn rebuild_list(&self) {
+        self.quiet.set(true);
+        while let Some(child) = self.list.first_child() {
+            self.list.remove(&child);
+        }
+
+        let shown: Vec<&Connection> = self
+            .ordered()
+            .into_iter()
+            .filter(|c| self.query.is_empty() || c.matches(&self.query))
+            .collect();
 
         let mut group: Option<&str> = None;
         for conn in &shown {

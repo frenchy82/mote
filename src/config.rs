@@ -25,6 +25,25 @@ pub(crate) enum SortOrder {
     #[default]
     Name,
     RecentlyUsed,
+    /// The order of `connections.toml`, which dragging rows sets.
+    Custom,
+}
+
+impl SortOrder {
+    pub(crate) const ALL: [Self; 3] = [Self::Name, Self::RecentlyUsed, Self::Custom];
+
+    /// Its name in the `win.sort` action.
+    pub(crate) fn key(self) -> &'static str {
+        match self {
+            Self::Name => "name",
+            Self::RecentlyUsed => "recently-used",
+            Self::Custom => "custom",
+        }
+    }
+
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|o| o.key() == key)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

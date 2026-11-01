@@ -5,7 +5,9 @@ use gtk::{gio, glib};
 use relm4::prelude::*;
 
 use super::{AppModel, AppMsg};
+use crate::config::SortOrder;
 use crate::i18n::i18n;
+use crate::ui::preferences::PrefChange;
 use crate::{APP_ID, APP_NAME, VERSION};
 
 /// `win.<name>` actions and the message each sends, with their shortcuts.
@@ -41,7 +43,11 @@ fn message(action: &str) -> AppMsg {
     }
 }
 
-pub(super) fn install(window: &adw::ApplicationWindow, sender: &ComponentSender<AppModel>) {
+pub(super) fn install(
+    window: &adw::ApplicationWindow,
+    sender: &ComponentSender<AppModel>,
+    sort: SortOrder,
+) {
     let app = relm4::main_adw_application();
     // The shortcuts belong to this window and run after the focused widget
     // has had the key, never as the application's: GTK tries those first,
@@ -81,6 +87,19 @@ pub(super) fn install(window: &adw::ApplicationWindow, sender: &ComponentSender<
             .build();
         window.add_action_entries([action]);
     }
+    // The sort menu's choice, a radio group.
+    let input = sender.input_sender().clone();
+    let action = gio::ActionEntry::builder("sort")
+        .parameter_type(Some(glib::VariantTy::STRING))
+        .state(sort.key().to_variant())
+        .activate(move |_: &adw::ApplicationWindow, action, value| {
+            if let Some(order) = value.and_then(|v| v.str()).and_then(SortOrder::from_key) {
+                action.set_state(&order.key().to_variant());
+                input.emit(AppMsg::Pref(PrefChange::Sort(order)));
+            }
+        })
+        .build();
+    window.add_action_entries([action]);
     add("<Control>q", "app.quit");
     add("<Control>w", "window.close");
     window.add_controller(shortcuts);
@@ -133,6 +152,31 @@ pub(super) fn main_menu() -> gio::Menu {
     menu
 }
 
+/// The sort button's menu.
+pub(super) fn sort_menu() -> gio::Menu {
+    let menu = gio::Menu::new();
+    for (label, order) in [
+        (i18n("Name"), SortOrder::Name),
+        (i18n("Recently Used"), SortOrder::RecentlyUsed),
+        (i18n("Custom"), SortOrder::Custom),
+    ] {
+        let item = gio::MenuItem::new(Some(&label), None);
+        item.set_action_and_target_value(Some("win.sort"), Some(&order.key().to_variant()));
+        menu.append_item(&item);
+    }
+    let section = gio::Menu::new();
+    section.append_section(Some(&i18n("Sort By")), &menu);
+    section
+}
+
+/// Mark `order` in the sort menu, when something other than the menu
+/// changed it.
+pub(super) fn show_sort(window: &adw::ApplicationWindow, order: SortOrder) {
+    if let Some(action) = window.lookup_action("sort") {
+        action.change_state(&order.key().to_variant());
+    }
+}
+
 /// The imports, in the main menu.
 pub(super) fn import_menu() -> gio::Menu {
     let menu = gio::Menu::new();
@@ -174,6 +218,8 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
                 (i18n("Edit Connection"), "<Control>e"),
                 (i18n("Search"), "<Control>f"),
                 (i18n("Import .rdp Files…"), "<Control>o"),
+                (i18n("Move Connection Up"), "<Alt>Up"),
+                (i18n("Move Connection Down"), "<Alt>Down"),
             ],
         ),
         (
