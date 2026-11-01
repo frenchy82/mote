@@ -21,6 +21,8 @@ what each section holds is in [docs/ROADMAP.md](docs/ROADMAP.md).
 - Clipboard sharing in both directions: text, rich text, images and files.
 - Fast: hardware-friendly decoding of the RDP graphics pipeline, and no work
   on the main thread that the display does not need.
+- A small memory footprint, so a session costs little beside the rest of
+  the desktop.
 - Settings per connection, with defaults that suit a Linux server.
 
 ## Building
