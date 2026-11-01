@@ -45,6 +45,7 @@ struct Rows {
     gateway_password: adw::PasswordEntryRow,
     scaling: adw::ComboRow,
     quality: adw::ComboRow,
+    view_only: adw::SwitchRow,
     network: adw::ComboRow,
     clipboard: adw::SwitchRow,
     sound: adw::SwitchRow,
@@ -146,6 +147,7 @@ impl Component for Editor {
             gateway_password: password_entry(&i18n("Password")),
             scaling: adw::ComboRow::new(),
             quality: adw::ComboRow::new(),
+            view_only: adw::SwitchRow::new(),
             network: adw::ComboRow::new(),
             clipboard: adw::SwitchRow::new(),
             sound: adw::SwitchRow::new(),
@@ -193,6 +195,8 @@ impl Component for Editor {
                 .position(|n| *n == c.network)
                 .unwrap_or_default() as u32,
         );
+        rows.view_only.set_title(&i18n("View Only"));
+        rows.view_only.set_active(c.view_only);
         rows.clipboard.set_title(&i18n("Clipboard"));
         rows.clipboard
             .set_subtitle(&i18n("Text only with KRdp; xrdp leaves out folders"));
@@ -303,6 +307,7 @@ impl Component for Editor {
         display.set_title(&i18n("Display"));
         display.add(&rows.scaling);
         display.add(&rows.quality);
+        display.add(&rows.view_only);
         page.add(&display);
         let network = adw::PreferencesGroup::new();
         network.set_title(&i18n("Network"));
@@ -383,6 +388,7 @@ impl Component for Editor {
                         .get(r.network.selected() as usize)
                         .copied()
                         .unwrap_or_default(),
+                    view_only: r.view_only.is_active(),
                     clipboard: r.clipboard.is_active(),
                     sound: r.sound.is_active(),
                     microphone: r.microphone.is_active(),

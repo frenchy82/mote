@@ -4,6 +4,7 @@
 //! brings its own header either way.
 
 mod clipboard;
+mod controls;
 mod display;
 mod endings;
 mod pages;
@@ -96,6 +97,11 @@ pub(crate) enum SessionInput {
     Mapped,
     FullscreenChanged(bool),
     SetScaling(Scaling),
+    SetGrab(bool),
+    SetViewOnly(bool),
+    /// Send a combination from the Send Keys menu, by its name there.
+    SendKeys(String),
+    Screenshot,
     /// The room for the desktop, or the screen's scale, changed.
     Resized,
     /// Send the size, unless a newer change came since.
@@ -119,6 +125,8 @@ pub(crate) enum SessionOutput {
     ToggleSidebar,
     /// The scaling mode was changed, to be kept.
     Scaling(String, Scaling),
+    /// View-only was turned on or off, to be kept.
+    ViewOnly(String, bool),
     Detach(String),
     Attach(String),
 }
@@ -127,6 +135,7 @@ pub(crate) enum SessionCmd {
     /// The saved passwords, the account's first, `None` where there is none.
     Passwords(Result<[Option<String>; 3], String>),
     Event(u32, Event),
+    Screenshot(Result<std::path::PathBuf, String>),
 }
 
 impl std::fmt::Debug for SessionCmd {
@@ -134,6 +143,7 @@ impl std::fmt::Debug for SessionCmd {
         f.write_str(match self {
             Self::Passwords(_) => "Passwords",
             Self::Event(..) => "Event",
+            Self::Screenshot(_) => "Screenshot",
         })
     }
 }
@@ -243,11 +253,21 @@ impl Component for Session {
             ended,
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
-            menu: pages::menu(false),
+            menu: controls::menu(false),
             connection,
         };
-        install_actions(&root, &sender, model.scaling);
+        controls::install_actions(&root, &sender, model.scaling, model.connection.view_only);
         model.display.set_mode(model.scaling);
+        model.display.set_grab(true);
+        model.display.set_view_only(model.connection.view_only);
+        let (toasts, told) = (model.toasts.clone(), Cell::new(false));
+        model.display.set_on_grabbed(move || {
+            if !told.replace(true) {
+                toasts.add_toast(adw::Toast::new(&i18n(
+                    "Shortcuts go to the remote desktop. Super+Esc gives them back.",
+                )));
+            }
+        });
         let input = sender.input_sender().clone();
         model
             .display
@@ -323,7 +343,7 @@ impl Component for Session {
             }
             SessionInput::SetDetached(detached) => {
                 self.detached = detached;
-                self.menu = pages::menu(detached);
+                self.menu = controls::menu(detached);
                 if self.page == Page::Desktop {
                     self.display.grab_focus();
                 }
@@ -334,6 +354,30 @@ impl Component for Session {
                 self.display.set_mode(scaling);
                 let _ = sender.output(SessionOutput::Scaling(self.connection.id.clone(), scaling));
                 sender.input(SessionInput::Resized);
+            }
+            SessionInput::SetGrab(grab) => self.display.set_grab(grab),
+            SessionInput::SetViewOnly(view_only) => {
+                self.display.set_view_only(view_only);
+                let id = self.connection.id.clone();
+                let _ = sender.output(SessionOutput::ViewOnly(id, view_only));
+            }
+            SessionInput::SendKeys(name) => {
+                if let Some(codes) = controls::keys(&name) {
+                    self.display.send_keys(&codes);
+                }
+            }
+            SessionInput::Screenshot => {
+                let Some(texture) = self
+                    .display
+                    .texture()
+                    .filter(|_| self.page == Page::Desktop)
+                else {
+                    return;
+                };
+                let path = controls::screenshot_path(self.connection.title());
+                sender.oneshot_command(async move {
+                    SessionCmd::Screenshot(controls::save_screenshot(texture, path).await)
+                });
             }
             SessionInput::Resized => {
                 // A window being dragged to a new size changes it many
@@ -403,6 +447,21 @@ impl Component for Session {
                 self.event(event, &sender, root);
             }
             SessionCmd::Event(..) => {}
+            SessionCmd::Screenshot(Ok(path)) => {
+                let toast = adw::Toast::new(&i18n("Screenshot taken"));
+                toast.set_button_label(Some(&i18n("Show")));
+                let window = window_of(root);
+                toast.connect_button_clicked(move |_| {
+                    gtk::FileLauncher::new(Some(&gio::File::for_path(&path)))
+                        .open_containing_folder(window.as_ref(), None::<&gio::Cancellable>, |_| {});
+                });
+                self.toasts.add_toast(toast);
+            }
+            SessionCmd::Screenshot(Err(e)) => {
+                tracing::warn!("saving a screenshot: {e}");
+                self.toasts
+                    .add_toast(adw::Toast::new(&i18n("The screenshot could not be saved")));
+            }
         }
     }
 }
@@ -689,38 +748,6 @@ impl Session {
 
 fn window_of(widget: &impl IsA<gtk::Widget>) -> Option<gtk::Window> {
     widget.root().and_downcast::<gtk::Window>()
-}
-
-/// The session menu's actions, under `session.`.
-fn install_actions(root: &adw::ToolbarView, sender: &ComponentSender<Session>, scaling: Scaling) {
-    let group = gio::SimpleActionGroup::new();
-    let scale = gio::SimpleAction::new_stateful(
-        "scaling",
-        Some(glib::VariantTy::STRING),
-        &scaling.key().to_variant(),
-    );
-    let input = sender.input_sender().clone();
-    scale.connect_activate(move |action, value| {
-        let Some(scaling) = value.and_then(|v| v.str()).and_then(Scaling::from_key) else {
-            return;
-        };
-        action.set_state(&scaling.key().to_variant());
-        input.emit(SessionInput::SetScaling(scaling));
-    });
-    group.add_action(&scale);
-    for (name, message) in [
-        (
-            "disconnect",
-            (|| SessionInput::Disconnect) as fn() -> SessionInput,
-        ),
-        ("move", || SessionInput::ToggleDetached),
-    ] {
-        let action = gio::SimpleAction::new(name, None);
-        let input = sender.input_sender().clone();
-        action.connect_activate(move |_, _| input.emit(message()));
-        group.add_action(&action);
-    }
-    root.insert_action_group("session", Some(&group));
 }
 
 /// Fullscreen, the header hides; the pointer at the top edge brings it back

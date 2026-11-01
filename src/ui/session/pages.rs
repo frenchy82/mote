@@ -110,32 +110,6 @@ impl SignIn {
     }
 }
 
-/// The session menu. Detached, it offers the way back.
-pub(super) fn menu(detached: bool) -> gtk::gio::Menu {
-    let menu = gtk::gio::Menu::new();
-    let place = gtk::gio::Menu::new();
-    place.append(
-        Some(&if detached {
-            i18n("Return to Main Window")
-        } else {
-            i18n("Open in New Window")
-        }),
-        Some("session.move"),
-    );
-    menu.append_section(None, &place);
-    let scaling = gtk::gio::Menu::new();
-    for mode in Scaling::ALL {
-        let item = gtk::gio::MenuItem::new(Some(&scaling_label(mode)), None);
-        item.set_action_and_target_value(Some("session.scaling"), Some(&mode.key().to_variant()));
-        scaling.append_item(&item);
-    }
-    menu.append_section(None, &scaling);
-    let end = gtk::gio::Menu::new();
-    end.append(Some(&i18n("Disconnect")), Some("session.disconnect"));
-    menu.append_section(None, &end);
-    menu
-}
-
 /// The scaling modes as the menu and the editor name them.
 pub(crate) fn scaling_label(mode: Scaling) -> String {
     match mode {

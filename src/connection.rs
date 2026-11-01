@@ -32,6 +32,8 @@ pub(crate) struct Connection {
     pub(crate) microphone: bool,
     /// A folder lent to the remote desktop; empty for none.
     pub(crate) folder: String,
+    /// Show the desktop without sending it keys or the pointer.
+    pub(crate) view_only: bool,
     /// Reach the computer through an SSH server.
     pub(crate) ssh_tunnel: bool,
     /// The SSH server, as `host` or `host:port`.
@@ -181,6 +183,7 @@ impl Default for Connection {
             sound: true,
             microphone: false,
             folder: String::new(),
+            view_only: false,
             ssh_tunnel: false,
             ssh_host: String::new(),
             ssh_username: String::new(),

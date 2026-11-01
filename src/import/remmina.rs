@@ -91,6 +91,7 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
             // Remmina keeps FreeRDP's device option there, such as sys:pulse.
             "microphone" => conn.microphone = !value.is_empty(),
             "sharefolder" => conn.folder = value.to_owned(),
+            "viewonly" => conn.view_only = value == "1",
             "ssh_tunnel_enabled" => conn.ssh_tunnel = value == "1",
             "ssh_tunnel_server" => conn.ssh_host = value.to_owned(),
             "ssh_tunnel_username" => conn.ssh_username = value.to_owned(),

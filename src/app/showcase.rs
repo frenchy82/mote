@@ -8,7 +8,9 @@
 //!   captures that window instead, `about` opens About, `search:<text>`
 //!   opens the search with that text in it, and `connect:<name>` connects
 //!   to the connection of that name; `detach` and `fullscreen` then do that
-//!   to its session, and `scaling:<resize|fit|actual>` sets its scaling.
+//!   to its session, and `scaling:<resize|fit|actual>` sets its scaling;
+//!   `keys:<name>` sends a combination from its Send Keys menu,
+//!   `screenshot` takes a screenshot, and `view-only:<1|0>` sets that.
 //!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
 //!   scrolls an open dialog to its end.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
@@ -73,7 +75,11 @@ impl AppModel {
                         send(AppMsg::ConnectSelected);
                     }
                 }
-                (name @ ("detach" | "fullscreen" | "scaling"), argument) => {
+                (
+                    name @ ("detach" | "fullscreen" | "scaling" | "keys" | "screenshot"
+                    | "view-only"),
+                    argument,
+                ) => {
                     send(AppMsg::ShowcaseSession(format!("{name}:{argument}")));
                 }
                 // Scroll the open dialog to its end, after the steps before.
@@ -109,6 +115,9 @@ impl AppModel {
                 None => return,
             },
             Some(("detach", _)) => SessionInput::ToggleDetached,
+            Some(("keys", name)) => SessionInput::SendKeys(name.to_owned()),
+            Some(("screenshot", _)) => SessionInput::Screenshot,
+            Some(("view-only", on)) => SessionInput::SetViewOnly(on != "0"),
             _ => SessionInput::ToggleFullscreen,
         });
     }

@@ -18,6 +18,7 @@ use crate::rdp::{self, keymap};
 
 type InputSink = Rc<dyn Fn(Vec<FastPathInputEvent>)>;
 type SizeSink = Rc<dyn Fn()>;
+type GrabSink = Rc<dyn Fn()>;
 
 mod imp {
     use super::*;
@@ -44,6 +45,14 @@ mod imp {
         /// frames to the screen.
         pub(super) clock: RefCell<Option<(gdk::FrameClock, glib::SignalHandlerId)>>,
         pub(super) stats: RefCell<Option<crate::stats::Stats>>,
+        /// Keyboard and pointer stay here; the desktop is only shown.
+        pub(super) view_only: Cell<bool>,
+        /// Hold the desktop's own shortcuts back while focused.
+        pub(super) grab: Cell<bool>,
+        /// Told when the desktop's shortcuts are held back.
+        pub(super) on_grabbed: RefCell<Option<GrabSink>>,
+        /// The window's surface, and the handler watching its shortcuts.
+        pub(super) inhibit: RefCell<Option<(gdk::Surface, glib::SignalHandlerId)>>,
     }
 
     #[glib::object_subclass]
@@ -104,6 +113,29 @@ mod imp {
                     widget.size_changed();
                 }
             ));
+            if let Some(toplevel) = surface.downcast_ref::<gdk::Toplevel>() {
+                let handler = toplevel.connect_shortcuts_inhibited_notify(glib::clone!(
+                    #[weak]
+                    widget,
+                    move |toplevel| {
+                        tracing::info!(
+                            "this computer's shortcuts {}",
+                            if toplevel.is_shortcuts_inhibited() {
+                                "are held back"
+                            } else {
+                                "work again"
+                            }
+                        );
+                        if toplevel.is_shortcuts_inhibited() {
+                            let sink = widget.imp().on_grabbed.borrow().clone();
+                            if let Some(sink) = sink {
+                                sink();
+                            }
+                        }
+                    }
+                ));
+                self.inhibit.replace(Some((surface.clone(), handler)));
+            }
             self.watched.replace(Some((surface, handler)));
             if let Some(clock) = widget.frame_clock() {
                 let handler = clock.connect_after_paint(glib::clone!(
@@ -117,6 +149,9 @@ mod imp {
 
         fn unrealize(&self) {
             if let Some((surface, handler)) = self.watched.take() {
+                surface.disconnect(handler);
+            }
+            if let Some((surface, handler)) = self.inhibit.take() {
                 surface.disconnect(handler);
             }
             if let Some((clock, handler)) = self.clock.take() {
@@ -169,6 +204,65 @@ impl Display {
     /// Where input goes: to the session.
     pub(crate) fn set_input(&self, sink: impl Fn(Vec<FastPathInputEvent>) + 'static) {
         self.imp().input.replace(Some(Rc::new(sink)));
+    }
+
+    /// Hold the desktop's own shortcuts back while the desktop has focus,
+    /// so Super, Alt+Tab and the rest go to the session. GNOME asks the
+    /// user the first time, and gives them back on Super+Esc.
+    pub(crate) fn set_grab(&self, grab: bool) {
+        self.imp().grab.set(grab);
+        if self.has_focus() {
+            self.hold_shortcuts(grab);
+        }
+    }
+
+    /// Told when the desktop's shortcuts are held back.
+    pub(crate) fn set_on_grabbed(&self, sink: impl Fn() + 'static) {
+        self.imp().on_grabbed.replace(Some(Rc::new(sink)));
+    }
+
+    fn hold_shortcuts(&self, hold: bool) {
+        let Some(toplevel) = self
+            .native()
+            .and_then(|n| n.surface())
+            .and_downcast::<gdk::Toplevel>()
+        else {
+            return;
+        };
+        if hold {
+            toplevel.inhibit_system_shortcuts(None::<&gdk::Event>);
+        } else {
+            toplevel.restore_system_shortcuts();
+        }
+    }
+
+    /// Show the desktop without sending it keys or the pointer.
+    pub(crate) fn set_view_only(&self, view_only: bool) {
+        self.imp().view_only.set(view_only);
+        if view_only {
+            let events = self.imp().state.borrow_mut().release_all();
+            self.send(events);
+        }
+    }
+
+    /// Press the keys in order and let them go in reverse: a combination
+    /// this computer would otherwise take for itself.
+    pub(crate) fn send_keys(&self, codes: &[u16]) {
+        if self.imp().view_only.get() {
+            return;
+        }
+        let codes: Vec<Scancode> = codes.iter().map(|&c| Scancode::from_u16(c)).collect();
+        let operations = codes
+            .iter()
+            .map(|&c| Operation::KeyPressed(c))
+            .chain(codes.iter().rev().map(|&c| Operation::KeyReleased(c)));
+        let events = self.imp().state.borrow_mut().apply(operations);
+        self.send(events);
+    }
+
+    /// The desktop as last shown.
+    pub(crate) fn texture(&self) -> Option<gdk::Texture> {
+        self.imp().texture.borrow().clone()
     }
 
     /// The window painted: time how long the newest frame took to get here.
@@ -392,6 +486,10 @@ fn connect_input(display: &Display) {
         #[upgrade_or]
         glib::Propagation::Proceed,
         move |_, _, keycode, _| {
+            if display.imp().view_only.get() {
+                // Kept from this computer's shortcuts all the same.
+                return glib::Propagation::Stop;
+            }
             if let Some(code) = scancode(keycode) {
                 // The server repeats a held key itself.
                 if !display.imp().state.borrow().is_key_pressed(code) {
@@ -406,7 +504,7 @@ fn connect_input(display: &Display) {
         #[weak]
         display,
         move |_, _, keycode, _| {
-            if let Some(code) = scancode(keycode) {
+            if let Some(code) = scancode(keycode).filter(|_| !display.imp().view_only.get()) {
                 display.apply(Operation::KeyReleased(code));
             }
         }
@@ -417,7 +515,12 @@ fn connect_input(display: &Display) {
     focus.connect_enter(glib::clone!(
         #[weak]
         display,
-        move |_| display.sync_locks()
+        move |_| {
+            display.sync_locks();
+            if display.imp().grab.get() {
+                display.hold_shortcuts(true);
+            }
+        }
     ));
     // Keys let go of elsewhere would stay down on the server.
     focus.connect_leave(glib::clone!(
@@ -426,6 +529,7 @@ fn connect_input(display: &Display) {
         move |_| {
             let events = display.imp().state.borrow_mut().release_all();
             display.send(events);
+            display.hold_shortcuts(false);
         }
     ));
     display.add_controller(focus);
@@ -435,6 +539,9 @@ fn connect_input(display: &Display) {
         #[weak]
         display,
         move |_, x, y| {
+            if display.imp().view_only.get() {
+                return;
+            }
             if let Some(position) = display.remote_point(x, y) {
                 display.apply(Operation::MouseMove(position));
             }
@@ -464,6 +571,11 @@ fn connect_input(display: &Display) {
             };
             if pressed {
                 display.grab_focus();
+            }
+            if display.imp().view_only.get() {
+                return glib::Propagation::Stop;
+            }
+            if pressed {
                 display.apply(Operation::MouseButtonPressed(button));
             } else {
                 display.apply(Operation::MouseButtonReleased(button));
@@ -480,7 +592,9 @@ fn connect_input(display: &Display) {
         #[upgrade_or]
         glib::Propagation::Proceed,
         move |controller, dx, dy| {
-            display.scroll(controller.unit(), dx, dy);
+            if !display.imp().view_only.get() {
+                display.scroll(controller.unit(), dx, dy);
+            }
             glib::Propagation::Stop
         }
     ));
@@ -521,6 +635,9 @@ impl Display {
 
     /// Match the server's Caps, Num and Scroll Lock to this keyboard's.
     fn sync_locks(&self) {
+        if self.imp().view_only.get() {
+            return;
+        }
         let Some(keyboard) = self.display().default_seat().and_then(|s| s.keyboard()) else {
             return;
         };
