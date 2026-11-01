@@ -73,7 +73,7 @@ on something a section needs, that section adds it upstream.
 | 8 | Device redirection | Testing |
 | 9 | Network | Testing |
 | 10 | Session controls | Testing |
-| 11 | Settings and polish | |
+| 11 | Settings and polish | Testing |
 | 12 | Packaging | |
 
 ### 1. Foundation
@@ -434,6 +434,35 @@ asks before granting the grab.
 App preferences, default connection settings, a keyboard shortcuts dialog,
 accessibility review, and translations.
 
+Built:
+
+- New Connections in Settings sets the scaling, codec, clipboard, sound and
+  microphone a new connection starts with, beside its port and account.
+- A Sessions page holds the keyboard layout, the keyboard grab and
+  reconnecting. The layout follows this computer's (the one GDK reports
+  active) unless one is chosen, and goes to the server as a Windows layout
+  ID; xrdp sets the session's X layout by it, where it always set US
+  English before, and the other servers keep their own.
+- Keyboard Shortcuts, on Ctrl+? and in the main menu, in GNOME's shortcuts
+  dialog; the same list is in [KEYBOARD_SHORTCUTS.md](KEYBOARD_SHORTCUTS.md).
+- Right Ctrl, alone, lets go of the keyboard, as Remmina's host key does:
+  without it a keyboard alone couldn't leave a session, which takes every
+  key. With another key it goes to the server.
+- The accessibility review, through the AT-SPI tree in a headless GNOME:
+  every icon-only button has a name, the sidebars' rows are named for
+  their connection or category rather than by their tooltip, group
+  headings are named, and the desktop is named for its connection. What is
+  left unnamed is inside libadwaita's combo and expander rows, which name
+  themselves.
+- Translations: `po/mote.pot`, the tools that make and compile it, and
+  `po/README.md` for translators, as Hylki has. Languages come from the
+  people who speak them.
+
+Tried: xrdp took German (`0x407`) and US English, as `setxkbmap -query` in
+the session showed; Right Ctrl alone let go in a session, and Right Ctrl+A
+selected everything on the server; a copy of a real `settings.toml` loaded
+unchanged; a German catalogue built from the tree showed in the app.
+
 ### 12. Packaging
 
 A Flatpak on the GNOME runtime, AppStream metainfo, the app icon, a desktop
@@ -476,4 +505,5 @@ What Remmina's RDP plugin offers, and the section that brings it to Mote.
 | Screenshot, view only | 10 |
 | Multiple monitors; span, which Wayland doesn't allow | 10 |
 | Pre and post commands | 10 |
-| Keyboard layout, left-handed mouse | 3, 11 |
+| Keyboard layout | 11 |
+| Left-handed mouse: GNOME swaps the buttons before Mote sees them | 3 |
