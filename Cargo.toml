@@ -50,6 +50,15 @@ ironrdp-svc = "0.10"
 ironrdp-rdpdr = "0.9"
 ironrdp-rdpdr-native = "0.9"
 nix = { version = "0.31", features = ["fs"] }
+# The ways to a server other than straight there: an RD Gateway, through
+# IronRDP's client for it, and an SSH tunnel, through russh on ring, the
+# crypto rustls already uses. The gateway's NTLM brings aws-lc along, so
+# rustls has two providers and is told to use ring (see `rdp::start`).
+ironrdp-mstsgu = "0.1"
+russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }
+# Keepalive and a send timeout on the connection, so a dropped network is
+# noticed in seconds rather than the minutes TCP takes.
+socket2 = { version = "0.6", features = ["all"] }
 # H.264 through the system's OpenH264, loaded at run time: no C++ to build,
 # and Cisco's patent license stays with Cisco's library.
 openh264 = { version = "0.9", default-features = false, features = ["libloading"] }
@@ -60,8 +69,9 @@ ureq = "3"
 bzip2 = "0.6"
 # Each session runs on its own thread, on a single-threaded runtime.
 tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "macros"] }
-# Its errors, to tell an old TLS version from other handshake failures.
-rustls = { version = "0.23", default-features = false }
+# Its errors, to tell an old TLS version from other handshake failures, and
+# its choice of crypto provider.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 # The server certificate's DER, for its fingerprint.
 x509-cert = "0.3"
 

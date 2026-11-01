@@ -13,6 +13,7 @@ mod frames;
 pub(crate) mod h264;
 pub(crate) mod keymap;
 mod rdstls;
+mod route;
 mod session;
 mod tap;
 
@@ -23,7 +24,7 @@ use ironrdp_pdu::input::fast_path::FastPathInputEvent;
 use tokio::sync::{mpsc, oneshot};
 
 pub(crate) use clipboard::{ClipboardCommand, ClipboardEvent};
-pub(crate) use failure::{Disconnect, Ending, Failure, Security, Unreachable};
+pub(crate) use failure::{Disconnect, Ending, Failure, Security, Tunnel, Unreachable};
 
 /// Where to connect, and as whom.
 #[derive(Clone)]
@@ -47,16 +48,45 @@ pub(crate) struct Target {
     pub(crate) microphone: bool,
     /// A folder to lend the remote desktop.
     pub(crate) folder: Option<std::path::PathBuf>,
+    /// The way there, when it isn't straight to the host.
+    pub(crate) via: Via,
+    /// The MAC address to send a Wake-on-LAN packet to before connecting.
+    pub(crate) wake: Option<[u8; 6]>,
+}
+
+/// What stands between this computer and the server.
+#[derive(Clone)]
+pub(crate) enum Via {
+    Direct,
+    /// An SSH server, which forwards the connection the way `ssh -L` does.
+    Ssh(Hop),
+    /// An RD Gateway.
+    Gateway(Hop),
+}
+
+/// An SSH server or an RD Gateway, and the account it takes.
+#[derive(Clone)]
+pub(crate) struct Hop {
+    pub(crate) host: String,
+    pub(crate) port: u16,
+    pub(crate) username: String,
+    pub(crate) password: String,
 }
 
 pub(crate) enum Event {
-    /// The server's certificate, checked before any credentials go out.
+    /// The server's certificate, checked before any credentials go out; or
+    /// the key of the SSH server, or the gateway's certificate.
     Certificate {
         host: String,
         port: u16,
         fingerprint: String,
+        of: Identity,
         reply: oneshot::Sender<Trust>,
     },
+    /// The computer doesn't answer yet, after a Wake-on-LAN packet.
+    Waking,
+    /// The connection dropped, and is being made again.
+    Reconnecting,
     /// The session is up, or the server changed the desktop's size.
     Connected {
         width: u16,
@@ -90,6 +120,14 @@ pub(crate) struct Rect {
     pub(crate) y: i32,
     pub(crate) width: i32,
     pub(crate) height: i32,
+}
+
+/// Whose identity [`Event::Certificate`] asks about.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum Identity {
+    Server,
+    Ssh,
+    Gateway,
 }
 
 /// The answer to [`Event::Certificate`].
@@ -139,6 +177,9 @@ impl Handle {
 
 /// Connect to `target`, and keep the session going until it ends.
 pub(crate) fn start(target: Target) -> (Handle, mpsc::Receiver<Event>) {
+    // The gateway's NTLM brings a second crypto provider into rustls, which
+    // then can't choose; ring is the one the rest of the engine was built on.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let (commands, command_rx) = mpsc::unbounded_channel();
     let (event_tx, events) = mpsc::channel(8);
     // A thread of its own per session, on a single-threaded runtime: the
@@ -167,6 +208,9 @@ pub(crate) fn start(target: Target) -> (Handle, mpsc::Receiver<Event>) {
 /// How many redirections one connection follows before giving up.
 const MAX_HOPS: usize = 4;
 
+/// How long a dropped session keeps trying to come back.
+const RECONNECT_FOR: std::time::Duration = std::time::Duration::from_secs(120);
+
 async fn run(
     mut target: Target,
     events: mpsc::Sender<Event>,
@@ -184,45 +228,88 @@ async fn drive(
     events: &mpsc::Sender<Event>,
     commands: &mut mpsc::UnboundedReceiver<Command>,
 ) -> Result<Ending, Failure> {
+    // Where a dropped session goes back to: the server first asked for,
+    // not one it redirected to, whose credentials were for one use.
+    let mut first = target.clone();
     let mut redirect = None;
     let mut clipboard = clipboard::Clipboard::new(target.clipboard);
     let mut early = Vec::new();
     let mut audio = audio::Audio::new(target.sound, target.microphone);
-    for _ in 0..MAX_HOPS {
-        let (result, framed) = tokio::select! {
-            connected = connect::connect(target, redirect.take(), events, &mut clipboard, &audio) => connected?,
+    let mut hops = 0;
+    // Since when the session has been trying to come back, and how long it
+    // waits before the next try.
+    let mut lost: Option<(std::time::Instant, std::time::Duration)> = None;
+    loop {
+        let connected = tokio::select! {
+            connected = connect::connect(target, redirect.take(), events, &mut clipboard, &audio) => connected,
             () = closed(commands, &mut early) => return Ok(Ending::Closed),
         };
+        let (result, framed) = match connected {
+            Ok(connected) => connected,
+            Err(failure) => match &mut lost {
+                Some((since, wait)) if failure.passing() && since.elapsed() < RECONNECT_FOR => {
+                    tracing::info!("reconnecting failed; trying again in {wait:?}");
+                    tokio::select! {
+                        () = tokio::time::sleep(*wait) => {}
+                        () = closed(commands, &mut early) => return Ok(Ending::Closed),
+                    }
+                    *wait = (*wait * 2).min(std::time::Duration::from_secs(10));
+                    continue;
+                }
+                _ => return Err(failure),
+            },
+        };
+        lost = None;
         for command in early.drain(..) {
             clipboard.early(command);
         }
-        let opened = (
+        let mut size = (
             u32::from(target.width),
             u32::from(target.height),
             target.scale,
         );
-        match session::run(
+        let outcome = session::run(
             framed,
             result,
             events,
             commands,
-            opened,
+            &mut size,
             &mut clipboard,
             &mut audio,
         )
-        .await?
-        {
-            session::Outcome::Ended(ending) => return Ok(ending),
+        .await;
+        match outcome {
+            Ok(session::Outcome::Ended(ending)) => return Ok(ending),
             // A server can hand the session on after it starts: GNOME's
             // Remote Login does, once someone logs in at its login screen.
-            session::Outcome::Redirect(pdu) => {
+            Ok(session::Outcome::Redirect(pdu)) => {
+                hops += 1;
+                if hops > MAX_HOPS {
+                    return Err(Failure::Protocol("too many redirections".into()));
+                }
                 tracing::info!("the server redirected the session");
                 connect::follow(target, &pdu)?;
                 redirect = Some(pdu);
             }
+            // The network went away: come back to the same desktop, at the
+            // size it had, once it returns.
+            Err(Failure::Lost(why)) => {
+                tracing::info!("the connection dropped ({why}); reconnecting");
+                (first.width, first.height, first.scale) = (
+                    u16::try_from(size.0).unwrap_or(first.width),
+                    u16::try_from(size.1).unwrap_or(first.height),
+                    size.2,
+                );
+                *target = first.clone();
+                hops = 0;
+                lost = Some((std::time::Instant::now(), std::time::Duration::from_secs(1)));
+                if events.send(Event::Reconnecting).await.is_err() {
+                    return Ok(Ending::Closed);
+                }
+            }
+            Err(failure) => return Err(failure),
         }
     }
-    Err(Failure::Protocol("too many redirections".into()))
 }
 
 /// Resolves when the interface closes the session, ignoring input sent
@@ -250,12 +337,17 @@ fn physical_size(width: u32, height: u32, scale: u32) -> (u32, u32) {
     (millimeters(width), millimeters(height))
 }
 
-/// The I/O error at the root of an error, if there is one.
+/// The kind of I/O error at the root of an error, if there is one.
 fn io_kind(error: &(dyn std::error::Error + 'static)) -> Option<std::io::ErrorKind> {
+    io_error(error).map(std::io::Error::kind)
+}
+
+/// The I/O error at the root of an error, if there is one.
+fn io_error<'a>(error: &'a (dyn std::error::Error + 'static)) -> Option<&'a std::io::Error> {
     let mut current = Some(error);
     while let Some(e) = current {
         if let Some(io) = e.downcast_ref::<std::io::Error>() {
-            return Some(io.kind());
+            return Some(io);
         }
         current = e.source();
     }
@@ -394,6 +486,34 @@ mod tests {
         }
     }
 
+    /// `MOTE_TEST_SSH=<user>@<host>[:port]` (with `MOTE_TEST_SSH_PASSWORD`
+    /// if the agent's keys aren't enough) goes through that SSH server;
+    /// `MOTE_TEST_GATEWAY=<host>:<port>` through that RD Gateway, as
+    /// `MOTE_TEST_GATEWAY_USER` with `MOTE_TEST_GATEWAY_PASSWORD`.
+    fn test_via() -> Via {
+        let var = |name: &str| std::env::var(name).unwrap_or_default();
+        if let Ok(ssh) = std::env::var("MOTE_TEST_SSH") {
+            let (username, server) = ssh.split_once('@').expect("<user>@<host>");
+            let (host, port) = crate::connection::split_address(server).expect("an address");
+            return Via::Ssh(Hop {
+                host,
+                port: port.unwrap_or(22),
+                username: username.into(),
+                password: var("MOTE_TEST_SSH_PASSWORD"),
+            });
+        }
+        if let Ok(gateway) = std::env::var("MOTE_TEST_GATEWAY") {
+            let (host, port) = crate::connection::split_address(&gateway).expect("an address");
+            return Via::Gateway(Hop {
+                host,
+                port: port.unwrap_or(443),
+                username: var("MOTE_TEST_GATEWAY_USER"),
+                password: var("MOTE_TEST_GATEWAY_PASSWORD"),
+            });
+        }
+        Via::Direct
+    }
+
     /// Connects to the server in `MOTE_TEST_SERVER` (`host:port`) as
     /// `MOTE_TEST_USER` with `MOTE_TEST_PASSWORD` (both `mote` by default,
     /// as `temp/grd/run.sh` sets them up), and expects the session to end
@@ -451,6 +571,11 @@ mod tests {
             microphone: std::env::var_os("MOTE_TEST_MICROPHONE").is_some(),
             // MOTE_TEST_FOLDER=<dir>: lend that folder.
             folder: std::env::var_os("MOTE_TEST_FOLDER").map(Into::into),
+            via: test_via(),
+            // MOTE_TEST_WAKE=<mac>: wake it first.
+            wake: std::env::var("MOTE_TEST_WAKE")
+                .ok()
+                .and_then(|mac| crate::connection::parse_mac(&mac)),
         };
         // MOTE_TEST_DOWNLOAD: fetch Cisco's OpenH264 first.
         if std::env::var_os("MOTE_TEST_DOWNLOAD").is_some() {
@@ -475,11 +600,16 @@ mod tests {
         while let Some(event) = events.blocking_recv() {
             match event {
                 Event::Certificate {
-                    fingerprint, reply, ..
+                    fingerprint,
+                    of,
+                    reply,
+                    ..
                 } => {
-                    eprintln!("certificate {fingerprint}");
+                    eprintln!("certificate {of:?} {fingerprint}");
                     let _ = reply.send(Trust::Accepted);
                 }
+                Event::Waking => eprintln!("waking"),
+                Event::Reconnecting => eprintln!("reconnecting"),
                 Event::Connected { width, height } => {
                     eprintln!("connected {width}x{height}");
                     clipboard_test::offer(&handle);
@@ -548,6 +678,14 @@ mod tests {
                         }
                         .to_owned(),
                         Ending::Failed(Failure::Rejected) => "rejected".to_owned(),
+                        Ending::Failed(Failure::Ssh(why) | Failure::Gateway(why)) => match why {
+                            Tunnel::Unreachable(_) => "hop unreachable".to_owned(),
+                            Tunnel::Refused => "hop refused".to_owned(),
+                            Tunnel::KeyChanged => "key changed".to_owned(),
+                            Tunnel::Denied => "hop denied".to_owned(),
+                            Tunnel::NoRoute(e) => format!("no route: {e}"),
+                            Tunnel::Other(e) => format!("hop failed: {e}"),
+                        },
                     };
                     eprintln!("ended: {text}");
                     let expected = var("MOTE_TEST_EXPECT", "closed");

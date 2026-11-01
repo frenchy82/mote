@@ -35,8 +35,27 @@ pub(crate) enum Failure {
     Rejected,
     /// The connection dropped.
     Lost(String),
+    /// The SSH tunnel couldn't be opened.
+    Ssh(Tunnel),
+    /// The RD Gateway couldn't be passed.
+    Gateway(Tunnel),
     /// Anything else, as the engine describes it.
     Protocol(String),
+}
+
+/// Why an SSH server or an RD Gateway didn't lead on to the computer.
+pub(crate) enum Tunnel {
+    /// The SSH server or the gateway itself couldn't be reached.
+    Unreachable(Unreachable),
+    /// It turned down the account, or every key.
+    Refused,
+    /// The SSH server's key differs from the one in `~/.ssh/known_hosts`.
+    KeyChanged,
+    /// It may not lead to the computer.
+    Denied,
+    /// It couldn't reach the computer.
+    NoRoute(String),
+    Other(String),
 }
 
 /// Why a computer couldn't be reached.
@@ -100,6 +119,31 @@ impl Unreachable {
 }
 
 impl Failure {
+    /// Whether trying again shortly could work: the network, or the
+    /// computer, may be back by then.
+    pub(super) fn passing(&self) -> bool {
+        match self {
+            Self::Lost(_) => true,
+            Self::Unreachable(why)
+            | Self::Ssh(Tunnel::Unreachable(why))
+            | Self::Gateway(Tunnel::Unreachable(why)) => !matches!(why, Unreachable::NotRdp),
+            Self::Ssh(Tunnel::NoRoute(_)) | Self::Gateway(Tunnel::NoRoute(_)) => true,
+            _ => false,
+        }
+    }
+
+    /// Whether a computer that is asleep could fail this way.
+    pub(super) fn asleep(&self) -> bool {
+        match self {
+            Self::Unreachable(why) => matches!(
+                why,
+                Unreachable::NoAnswer | Unreachable::Refused | Unreachable::Other(_)
+            ),
+            Self::Ssh(Tunnel::NoRoute(_)) | Self::Gateway(Tunnel::NoRoute(_)) => true,
+            _ => false,
+        }
+    }
+
     /// A failure in the first exchange, before TLS: a server that closes
     /// the connection then turns every client away.
     pub(super) fn opening(error: &ConnectorError) -> Self {

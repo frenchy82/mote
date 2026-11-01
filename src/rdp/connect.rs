@@ -1,7 +1,5 @@
-//! The connection sequence: TCP, TLS, the certificate check, NLA, and the
-//! redirections a server can ask for on the way.
-
-use std::time::Duration;
+//! The connection sequence: the way there, TLS, the certificate check, NLA,
+//! and the redirections a server can ask for on the way.
 
 use ironrdp_connector::credssp::CredsspSequence;
 use ironrdp_connector::sspi::generator::NetworkRequest;
@@ -18,11 +16,10 @@ use ironrdp_pdu::rdp::client_info::{PerformanceFlags, TimezoneInfo};
 use ironrdp_pdu::rdp::server_redirection::{ServerRedirectionFlags, ServerRedirectionPdu};
 use ironrdp_tokio::{NetworkClient, TokioFramed};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
 use tokio::sync::{mpsc, oneshot};
 use x509_cert::der::Encode as _;
 
-use super::{Event, Failure, MAX_HOPS, Target, Trust, Unreachable, describe, rdstls};
+use super::{Event, Failure, Identity, MAX_HOPS, Target, Trust, Via, describe, rdstls};
 use crate::connection::{Network, Quality};
 
 pub(super) trait Stream: AsyncRead + AsyncWrite + Unpin + Send + Sync {}
@@ -30,8 +27,6 @@ impl<T: AsyncRead + AsyncWrite + Unpin + Send + Sync> Stream for T {}
 
 /// The connection once TLS is up, ready for the session.
 pub(super) type Framed = TokioFramed<Box<dyn Stream>>;
-
-const TCP_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Connect, following the server's redirections, until a session starts.
 /// `redirect` carries a redirection the session itself asked for.
@@ -130,20 +125,7 @@ async fn attempt(
     clipboard: &mut super::clipboard::Clipboard,
     audio: &super::audio::Audio,
 ) -> Result<(ConnectionOutcome, Framed), Attempt> {
-    let stream = match tokio::time::timeout(
-        TCP_TIMEOUT,
-        TcpStream::connect((target.host.as_str(), target.port)),
-    )
-    .await
-    {
-        Ok(Ok(stream)) => stream,
-        Ok(Err(e)) => return Err(Failure::Unreachable(Unreachable::from_io(&e)).into()),
-        Err(_) => return Err(Failure::Unreachable(Unreachable::NoAnswer).into()),
-    };
-    let _ = stream.set_nodelay(true);
-    let client_addr = stream
-        .local_addr()
-        .map_err(|e| Failure::Unreachable(Unreachable::from_io(&e)))?;
+    let (stream, client_addr) = super::route::open(target, events).await?;
     let mut framed = TokioFramed::new(stream);
 
     let mut connector = ClientConnector::new(config(target, audio), client_addr)
@@ -265,11 +247,18 @@ async fn ask_trust(
     events: &mpsc::Sender<Event>,
 ) -> Result<bool, Attempt> {
     let (reply, answer) = oneshot::channel();
+    // Behind a tunnel or a gateway, the name is the one it goes by there,
+    // where "localhost" is another machine than here.
+    let host = match &target.via {
+        Via::Direct => target.host.clone(),
+        Via::Ssh(hop) | Via::Gateway(hop) => format!("{} via {}", target.host, hop.host),
+    };
     events
         .send(Event::Certificate {
-            host: target.host.clone(),
+            host,
             port: target.port,
             fingerprint: fingerprint(der),
+            of: Identity::Server,
             reply,
         })
         .await

@@ -32,6 +32,21 @@ pub(crate) struct Connection {
     pub(crate) microphone: bool,
     /// A folder lent to the remote desktop; empty for none.
     pub(crate) folder: String,
+    /// Reach the computer through an SSH server.
+    pub(crate) ssh_tunnel: bool,
+    /// The SSH server, as `host` or `host:port`.
+    pub(crate) ssh_host: String,
+    /// The account on it; empty for the local user's name.
+    pub(crate) ssh_username: String,
+    /// Reach the computer through an RD Gateway.
+    pub(crate) gateway: bool,
+    /// The gateway, as `host` or `host:port`.
+    pub(crate) gateway_host: String,
+    /// The account it takes; empty for the connection's own.
+    pub(crate) gateway_username: String,
+    /// The computer's MAC address, to wake it with before connecting; empty
+    /// for none.
+    pub(crate) mac_address: String,
 }
 
 /// How the remote desktop meets the window.
@@ -166,6 +181,13 @@ impl Default for Connection {
             sound: true,
             microphone: false,
             folder: String::new(),
+            ssh_tunnel: false,
+            ssh_host: String::new(),
+            ssh_username: String::new(),
+            gateway: false,
+            gateway_host: String::new(),
+            gateway_username: String::new(),
+            mac_address: String::new(),
         }
     }
 }
@@ -179,6 +201,23 @@ impl Connection {
     pub(crate) fn shared_folder(&self) -> Option<std::path::PathBuf> {
         let folder = std::path::PathBuf::from(&self.folder);
         (!self.folder.is_empty() && folder.is_dir()).then_some(folder)
+    }
+
+    /// The SSH server to go through, and its port.
+    pub(crate) fn ssh_server(&self) -> Option<(String, u16)> {
+        let (host, port) = split_address(&self.ssh_host).filter(|_| self.ssh_tunnel)?;
+        Some((host, port.unwrap_or(SSH_PORT)))
+    }
+
+    /// The RD Gateway to go through, and its port.
+    pub(crate) fn gateway_server(&self) -> Option<(String, u16)> {
+        let (host, port) = split_address(&self.gateway_host).filter(|_| self.gateway)?;
+        Some((host, port.unwrap_or(HTTPS_PORT)))
+    }
+
+    /// The MAC address to wake, if one is set and reads as one.
+    pub(crate) fn wake_address(&self) -> Option<[u8; 6]> {
+        parse_mac(&self.mac_address)
     }
 
     /// What the connection is called on screen.
@@ -233,6 +272,15 @@ impl Connection {
         self.group = self.group.trim().to_owned();
         self.domain = self.domain.trim().to_owned();
         self.username = self.username.trim().to_owned();
+        for field in [
+            &mut self.ssh_host,
+            &mut self.ssh_username,
+            &mut self.gateway_host,
+            &mut self.gateway_username,
+            &mut self.mac_address,
+        ] {
+            *field = field.trim().to_owned();
+        }
         if let Some((host, port)) = split_address(&self.host) {
             self.host = host;
             if let Some(port) = port {
@@ -249,6 +297,27 @@ impl Connection {
         }
         self
     }
+}
+
+const SSH_PORT: u16 = 22;
+const HTTPS_PORT: u16 = 443;
+
+/// A MAC address as people write it: six pairs of hex digits, split by
+/// colons or dashes, or not split at all.
+pub(crate) fn parse_mac(text: &str) -> Option<[u8; 6]> {
+    let digits: String = text
+        .trim()
+        .chars()
+        .filter(|c| !matches!(c, ':' | '-'))
+        .collect();
+    if digits.len() != 12 || !digits.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let mut mac = [0; 6];
+    for (i, byte) in mac.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&digits[i * 2..i * 2 + 2], 16).ok()?;
+    }
+    Some(mac)
 }
 
 /// Split what someone typed as an address into a host and, if one was
@@ -315,6 +384,32 @@ mod tests {
         assert_eq!((c.host.as_str(), c.port), ("box", 3390));
         assert_eq!((c.domain.as_str(), c.username.as_str()), ("CORP", "jo"));
         assert_eq!(c.account().as_deref(), Some("CORP\\jo"));
+    }
+
+    #[test]
+    fn mac_addresses_parse_however_written() {
+        let mac = Some([0x52, 0x54, 0x00, 0xab, 0xcd, 0xef]);
+        assert_eq!(parse_mac("52:54:00:ab:cd:ef"), mac);
+        assert_eq!(parse_mac(" 52-54-00-AB-CD-EF "), mac);
+        assert_eq!(parse_mac("525400abcdef"), mac);
+        assert_eq!(parse_mac("52:54:00:ab:cd"), None);
+        assert_eq!(parse_mac("52:54:00:ab:cd:eg"), None);
+        assert_eq!(parse_mac(""), None);
+    }
+
+    #[test]
+    fn tunnels_take_their_usual_ports() {
+        let c = Connection {
+            ssh_tunnel: true,
+            ssh_host: "bastion".into(),
+            gateway_host: "gw.example.com:8443".into(),
+            ..Connection::default()
+        };
+        assert_eq!(c.ssh_server(), Some(("bastion".into(), 22)));
+        // Set, but turned off.
+        assert_eq!(c.gateway_server(), None);
+        let c = Connection { gateway: true, ..c };
+        assert_eq!(c.gateway_server(), Some(("gw.example.com".into(), 8443)));
     }
 
     #[test]

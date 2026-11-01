@@ -7,9 +7,9 @@ use std::rc::Rc;
 use adw::prelude::*;
 use relm4::prelude::*;
 
-use crate::connection::{Connection, Network, Quality, Scaling, split_address};
+use crate::connection::{Connection, Network, Quality, Scaling, parse_mac, split_address};
 use crate::i18n::i18n;
-use crate::secrets;
+use crate::secrets::{self, Secret};
 
 pub(crate) struct EditorInit {
     pub(crate) connection: Connection,
@@ -20,9 +20,9 @@ pub(crate) struct Editor {
     base: Connection,
     valid: bool,
     rows: Rows,
-    /// Set by the user typing, never by the keyring filling the row in: an
-    /// untouched password is not written back.
-    password_edited: bool,
+    /// The passwords the user typed in, never the keyring filling a row
+    /// in: an untouched password is not written back.
+    edited: Vec<Secret>,
     filling: Rc<Cell<bool>>,
 }
 
@@ -34,6 +34,15 @@ struct Rows {
     username: adw::EntryRow,
     domain: adw::EntryRow,
     password: adw::PasswordEntryRow,
+    mac: adw::EntryRow,
+    ssh: adw::ExpanderRow,
+    ssh_host: adw::EntryRow,
+    ssh_username: adw::EntryRow,
+    ssh_password: adw::PasswordEntryRow,
+    gateway: adw::ExpanderRow,
+    gateway_host: adw::EntryRow,
+    gateway_username: adw::EntryRow,
+    gateway_password: adw::PasswordEntryRow,
     scaling: adw::ComboRow,
     quality: adw::ComboRow,
     network: adw::ComboRow,
@@ -47,25 +56,26 @@ struct Rows {
 
 #[derive(Debug)]
 pub(crate) enum EditorMsg {
-    HostChanged,
-    PasswordEdited,
+    /// Something that decides whether the connection can be saved.
+    Changed,
+    PasswordEdited(Secret),
     Save,
     Cancel,
 }
 
 #[derive(Debug)]
 pub(crate) enum EditorOutput {
-    /// `password` is `None` when it wasn't touched, and empty to forget it.
+    /// `passwords` holds the ones changed; an empty one is forgotten.
     Saved {
         connection: Box<Connection>,
-        password: Option<String>,
+        passwords: Vec<(Secret, String)>,
     },
     Closed,
 }
 
 #[derive(Debug)]
 pub(crate) enum EditorCmd {
-    PasswordLoaded(Result<Option<String>, String>),
+    PasswordLoaded(Secret, Result<Option<String>, String>),
 }
 
 #[relm4::component(pub(crate))]
@@ -124,7 +134,16 @@ impl Component for Editor {
             group: entry(&i18n("Group"), &c.group),
             username: entry(&i18n("User Name"), &c.username),
             domain: entry(&i18n("Domain"), &c.domain),
-            password: adw::PasswordEntryRow::new(),
+            password: password_entry(&i18n("Password")),
+            mac: entry(&i18n("Wake-on-LAN MAC Address"), &c.mac_address),
+            ssh: adw::ExpanderRow::new(),
+            ssh_host: entry(&i18n("Address"), &c.ssh_host),
+            ssh_username: entry(&i18n("User Name"), &c.ssh_username),
+            ssh_password: password_entry(&i18n("Password")),
+            gateway: adw::ExpanderRow::new(),
+            gateway_host: entry(&i18n("Address"), &c.gateway_host),
+            gateway_username: entry(&i18n("User Name"), &c.gateway_username),
+            gateway_password: password_entry(&i18n("Password")),
             scaling: adw::ComboRow::new(),
             quality: adw::ComboRow::new(),
             network: adw::ComboRow::new(),
@@ -188,19 +207,73 @@ impl Component for Editor {
         rows.microphone.set_active(c.microphone);
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
-        rows.password.set_title(&i18n("Password"));
-        rows.password.set_activates_default(true);
-
-        let input = sender.input_sender().clone();
-        rows.host
-            .connect_changed(move |_| input.emit(EditorMsg::HostChanged));
-        let filling = Rc::new(Cell::new(false));
-        let (input, quiet) = (sender.input_sender().clone(), filling.clone());
-        rows.password.connect_changed(move |_| {
-            if !quiet.get() {
-                input.emit(EditorMsg::PasswordEdited);
+        rows.ssh.set_title(&i18n("SSH Tunnel"));
+        rows.ssh
+            .set_subtitle(&i18n("Tries the SSH agent’s keys before the password"));
+        rows.ssh.set_show_enable_switch(true);
+        rows.ssh.set_enable_expansion(c.ssh_tunnel);
+        rows.ssh.set_expanded(false);
+        for row in [
+            rows.ssh_host.upcast_ref::<gtk::Widget>(),
+            rows.ssh_username.upcast_ref(),
+            rows.ssh_password.upcast_ref(),
+        ] {
+            rows.ssh.add_row(row);
+        }
+        rows.gateway.set_title(&i18n("RD Gateway"));
+        rows.gateway.set_subtitle(&i18n(
+            "Without an account here, signs in with the one above",
+        ));
+        rows.gateway.set_show_enable_switch(true);
+        rows.gateway.set_enable_expansion(c.gateway);
+        rows.gateway.set_expanded(false);
+        for row in [
+            rows.gateway_host.upcast_ref::<gtk::Widget>(),
+            rows.gateway_username.upcast_ref(),
+            rows.gateway_password.upcast_ref(),
+        ] {
+            rows.gateway.add_row(row);
+        }
+        // One or the other: a gateway can't be reached through the tunnel.
+        let other = rows.gateway.clone();
+        let username = rows.ssh_username.clone();
+        rows.ssh.connect_enable_expansion_notify(move |ssh| {
+            if ssh.enables_expansion() {
+                other.set_enable_expansion(false);
+                if username.text().trim().is_empty() {
+                    username.set_text(&gtk::glib::user_name().to_string_lossy());
+                }
             }
         });
+        let other = rows.ssh.clone();
+        rows.gateway
+            .connect_enable_expansion_notify(move |gateway| {
+                if gateway.enables_expansion() {
+                    other.set_enable_expansion(false);
+                }
+            });
+
+        for row in [&rows.host, &rows.ssh_host, &rows.gateway_host, &rows.mac] {
+            let input = sender.input_sender().clone();
+            row.connect_changed(move |_| input.emit(EditorMsg::Changed));
+        }
+        for row in [&rows.ssh, &rows.gateway] {
+            let input = sender.input_sender().clone();
+            row.connect_enable_expansion_notify(move |_| input.emit(EditorMsg::Changed));
+        }
+        let filling = Rc::new(Cell::new(false));
+        for (row, kind) in [
+            (&rows.password, Secret::Account),
+            (&rows.ssh_password, Secret::Ssh),
+            (&rows.gateway_password, Secret::Gateway),
+        ] {
+            let (input, quiet) = (sender.input_sender().clone(), filling.clone());
+            row.connect_changed(move |_| {
+                if !quiet.get() {
+                    input.emit(EditorMsg::PasswordEdited(kind));
+                }
+            });
+        }
 
         let page = adw::PreferencesPage::new();
         let target = adw::PreferencesGroup::new();
@@ -234,6 +307,9 @@ impl Component for Editor {
         let network = adw::PreferencesGroup::new();
         network.set_title(&i18n("Network"));
         network.add(&rows.network);
+        network.add(&rows.mac);
+        network.add(&rows.ssh);
+        network.add(&rows.gateway);
         page.add(&network);
         let sharing = adw::PreferencesGroup::new();
         sharing.set_title(&i18n("Sharing"));
@@ -244,19 +320,22 @@ impl Component for Editor {
         page.add(&sharing);
 
         if !init.is_new {
-            let id = c.id.clone();
-            sender.oneshot_command(async move {
-                EditorCmd::PasswordLoaded(secrets::password(id).await)
-            });
+            for kind in Secret::ALL {
+                let id = c.id.clone();
+                sender.oneshot_command(async move {
+                    EditorCmd::PasswordLoaded(kind, secrets::password(id, kind).await)
+                });
+            }
         }
 
-        let model = Editor {
-            valid: split_address(&c.host).is_some(),
+        let mut model = Editor {
+            valid: false,
             base: init.connection,
             rows,
-            password_edited: false,
+            edited: Vec::new(),
             filling,
         };
+        model.check();
         let widgets = view_output!();
         root.set_default_widget(Some(&widgets.save));
         if init.is_new && !model.base.host.is_empty() {
@@ -269,10 +348,12 @@ impl Component for Editor {
 
     fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>, root: &Self::Root) {
         match msg {
-            EditorMsg::HostChanged => {
-                self.valid = split_address(&self.rows.host.text()).is_some();
+            EditorMsg::Changed => self.check(),
+            EditorMsg::PasswordEdited(kind) => {
+                if !self.edited.contains(&kind) {
+                    self.edited.push(kind);
+                }
             }
-            EditorMsg::PasswordEdited => self.password_edited = true,
             EditorMsg::Cancel => {
                 root.close();
             }
@@ -306,13 +387,24 @@ impl Component for Editor {
                     sound: r.sound.is_active(),
                     microphone: r.microphone.is_active(),
                     folder: r.folder_path.borrow().clone(),
+                    ssh_tunnel: r.ssh.enables_expansion(),
+                    ssh_host: r.ssh_host.text().into(),
+                    ssh_username: r.ssh_username.text().into(),
+                    gateway: r.gateway.enables_expansion(),
+                    gateway_host: r.gateway_host.text().into(),
+                    gateway_username: r.gateway_username.text().into(),
+                    mac_address: r.mac.text().into(),
                     ..self.base.clone()
                 }
                 .normalized();
-                let password = self.password_edited.then(|| r.password.text().to_string());
+                let passwords = self
+                    .edited
+                    .iter()
+                    .map(|&kind| (kind, self.password_row(kind).text().to_string()))
+                    .collect();
                 let _ = sender.output(EditorOutput::Saved {
                     connection: Box::new(connection),
-                    password,
+                    passwords,
                 });
                 root.close();
             }
@@ -321,17 +413,65 @@ impl Component for Editor {
 
     fn update_cmd(&mut self, msg: Self::CommandOutput, _: ComponentSender<Self>, _: &Self::Root) {
         match msg {
-            EditorCmd::PasswordLoaded(Ok(Some(password))) if !self.password_edited => {
+            EditorCmd::PasswordLoaded(kind, Ok(Some(password))) if !self.edited.contains(&kind) => {
                 self.filling.set(true);
-                self.rows.password.set_text(&password);
+                self.password_row(kind).set_text(&password);
                 self.filling.set(false);
             }
-            EditorCmd::PasswordLoaded(Err(e)) => {
+            EditorCmd::PasswordLoaded(_, Err(e)) => {
                 tracing::warn!("reading the saved password: {e}");
             }
-            EditorCmd::PasswordLoaded(_) => {}
+            EditorCmd::PasswordLoaded(..) => {}
         }
     }
+}
+
+impl Editor {
+    fn password_row(&self, kind: Secret) -> &adw::PasswordEntryRow {
+        match kind {
+            Secret::Account => &self.rows.password,
+            Secret::Ssh => &self.rows.ssh_password,
+            Secret::Gateway => &self.rows.gateway_password,
+        }
+    }
+
+    /// Whether what the rows hold can be saved, marking the rows that
+    /// can't be.
+    fn check(&mut self) {
+        let r = &self.rows;
+        let address = |row: &adw::EntryRow| split_address(&row.text()).is_some();
+        let mac = r.mac.text();
+        let checks = [
+            (&r.host, address(&r.host) || r.host.text().trim().is_empty()),
+            (
+                &r.ssh_host,
+                !r.ssh.enables_expansion() || address(&r.ssh_host),
+            ),
+            (
+                &r.gateway_host,
+                !r.gateway.enables_expansion() || address(&r.gateway_host),
+            ),
+            (&r.mac, mac.trim().is_empty() || parse_mac(&mac).is_some()),
+        ];
+        let mut valid = address(&r.host);
+        for (row, ok) in checks {
+            // An empty row is still being filled in, not wrong.
+            if ok || row.text().trim().is_empty() {
+                row.remove_css_class("error");
+            } else {
+                row.add_css_class("error");
+            }
+            valid &= ok;
+        }
+        self.valid = valid;
+    }
+}
+
+fn password_entry(title: &str) -> adw::PasswordEntryRow {
+    let row = adw::PasswordEntryRow::new();
+    row.set_title(title);
+    row.set_activates_default(true);
+    row
 }
 
 fn entry(title: &str, text: &str) -> adw::EntryRow {

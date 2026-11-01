@@ -21,10 +21,11 @@ use relm4::prelude::*;
 use crate::config::{self, ColorScheme, Settings};
 use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
+use crate::secrets::{self, Secret};
 use crate::ui::editor::{Editor, EditorInit, EditorOutput};
 use crate::ui::preferences::{PrefChange, Preferences};
 use crate::ui::session::{Session, SessionOutput};
-use crate::{APP_ID, APP_NAME, secrets};
+use crate::{APP_ID, APP_NAME};
 
 pub(crate) struct AppModel {
     settings: Settings,
@@ -72,8 +73,9 @@ pub(crate) enum AppMsg {
     DeleteSelected,
     Delete(String),
     Saved {
-        connection: Connection,
-        password: Option<String>,
+        connection: Box<Connection>,
+        /// The passwords changed in the editor; an empty one is forgotten.
+        passwords: Vec<(Secret, String)>,
     },
     EditorClosed,
     ImportRdp,
@@ -390,15 +392,15 @@ impl Component for AppModel {
                 self.connections.retain(|c| c.id != id);
                 config::save_connections(&self.connections);
                 sender.oneshot_command(async move {
-                    AppCmd::Keyring(secrets::delete_password(id).await)
+                    AppCmd::Keyring(secrets::delete_passwords(id).await)
                 });
                 self.select(None);
                 self.rebuild_list();
             }
             AppMsg::Saved {
                 connection,
-                password,
-            } => self.save_connection(connection, password, &sender),
+                passwords,
+            } => self.save_connection(*connection, passwords, &sender),
             AppMsg::EditorClosed => self.editor = None,
             AppMsg::ImportRdp => files::choose_rdp_files(root, &sender),
             AppMsg::ImportRdpFiles(paths) => self.import_rdp_files(paths),
@@ -502,10 +504,10 @@ impl AppModel {
             .forward(sender.input_sender(), |out| match out {
                 EditorOutput::Saved {
                     connection,
-                    password,
+                    passwords,
                 } => AppMsg::Saved {
-                    connection: *connection,
-                    password,
+                    connection,
+                    passwords,
                 },
                 EditorOutput::Closed => AppMsg::EditorClosed,
             });
@@ -516,20 +518,20 @@ impl AppModel {
     fn save_connection(
         &mut self,
         connection: Connection,
-        password: Option<String>,
+        passwords: Vec<(Secret, String)>,
         sender: &ComponentSender<Self>,
     ) {
         let id = connection.id.clone();
-        let label = secrets::label(connection.title());
+        let title = connection.title().to_owned();
         match self.connections.iter_mut().find(|c| c.id == id) {
             Some(existing) => *existing = connection,
             None => self.connections.push(connection),
         }
         config::save_connections(&self.connections);
-        if let Some(password) = password {
-            let id = id.clone();
+        for (kind, password) in passwords {
+            let (id, title) = (id.clone(), title.clone());
             sender.oneshot_command(async move {
-                AppCmd::Keyring(secrets::set_password(id, label, password).await)
+                AppCmd::Keyring(secrets::set_password(id, kind, title, password).await)
             });
         }
         self.select(Some(id));
@@ -546,18 +548,9 @@ impl AppModel {
             last_used: 0,
             ..original.clone()
         };
-        let (from, to, label) = (
-            original.id.clone(),
-            copy.id.clone(),
-            secrets::label(&copy.name),
-        );
+        let (from, to, title) = (original.id.clone(), copy.id.clone(), copy.name.clone());
         sender.oneshot_command(async move {
-            let copied = match secrets::password(from).await {
-                Ok(Some(password)) => secrets::set_password(to, label, password).await,
-                Ok(None) => Ok(()),
-                Err(e) => Err(e),
-            };
-            AppCmd::Keyring(copied)
+            AppCmd::Keyring(secrets::copy_passwords(from, to, title).await)
         });
         let id = copy.id.clone();
         self.connections.push(copy);

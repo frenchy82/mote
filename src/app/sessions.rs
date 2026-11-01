@@ -157,11 +157,13 @@ impl AppModel {
         };
         connection.username = username;
         connection.domain = domain;
-        let label = secrets::label(connection.title());
+        let title = connection.title().to_owned();
         config::save_connections(&self.connections);
         let saved = id.to_owned();
         sender.oneshot_command(async move {
-            AppCmd::Keyring(secrets::set_password(saved, label, password).await)
+            AppCmd::Keyring(
+                secrets::set_password(saved, secrets::Secret::Account, title, password).await,
+            )
         });
         self.rebuild_list();
         self.refresh_details();

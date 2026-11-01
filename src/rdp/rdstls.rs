@@ -13,8 +13,8 @@ use ironrdp_pdu::rdp::server_redirection::{ServerRedirectionFlags, ServerRedirec
 use ironrdp_pdu::x224::X224;
 use ironrdp_tokio::{FramedWrite as _, TokioFramed};
 use tokio::io::{AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _};
-use tokio::net::TcpStream;
 
+use super::connect::Stream;
 use super::{Failure, describe};
 
 const VERSION_1: u16 = 0x0001;
@@ -47,7 +47,7 @@ pub(super) fn routing_token(pdu: &ServerRedirectionPdu) -> Option<String> {
 /// The connector reads the server's confirm, so that it learns what else
 /// the server supports.
 pub(super) async fn send_request(
-    framed: &mut TokioFramed<TcpStream>,
+    framed: &mut TokioFramed<Box<dyn Stream>>,
     pdu: &ServerRedirectionPdu,
 ) -> Result<(), Failure> {
     let request = ConnectionRequestWithOpaqueRoutingToken {

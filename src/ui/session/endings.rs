@@ -1,8 +1,9 @@
 //! What the window says when a session ends: a title and a sentence that
 //! names the likely cause on a Linux server and where to fix it.
 
+use crate::connection::Connection;
 use crate::i18n::{i18n, i18n_f};
-use crate::rdp::{Disconnect, Ending, Failure, Security, Unreachable};
+use crate::rdp::{Disconnect, Ending, Failure, Security, Tunnel, Unreachable};
 
 pub(super) enum Shown {
     /// Nothing: the window is closing.
@@ -15,7 +16,8 @@ pub(super) enum Shown {
     },
 }
 
-pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
+pub(super) fn shown(ending: Ending, connection: &Connection, was_connected: bool) -> Shown {
+    let host = connection.host.as_str();
     let page = |title: String, description: String| Shown::Page { title, description };
     let could_not = || i18n("Could Not Connect");
     let named = |text: &str| i18n_f(text, &[("host", &host)]);
@@ -77,6 +79,14 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
                     "{host} ended the connection as it began, without saying why. KRdp does this when the user name or password is wrong.",
                 ),
             ),
+            Failure::Ssh(why) => {
+                let server = connection.ssh_server().unwrap_or_default().0;
+                page(could_not(), ssh(why, &server, host))
+            }
+            Failure::Gateway(why) => {
+                let gateway = connection.gateway_server().unwrap_or_default().0;
+                page(could_not(), gateway_said(why, &gateway, host))
+            }
             Failure::Lost(error) => {
                 tracing::warn!("connection lost: {error}");
                 page(
@@ -123,5 +133,55 @@ pub(super) fn shown(ending: Ending, host: &str, was_connected: bool) -> Shown {
                 }
             },
         ),
+    }
+}
+
+/// Why the SSH server didn't lead on to the computer.
+fn ssh(why: Tunnel, server: &str, host: &str) -> String {
+    let named = |text: &str| i18n_f(text, &[("server", &server), ("host", &host)]);
+    match why {
+        Tunnel::Unreachable(Unreachable::NotFound) => named("{server} could not be found."),
+        Tunnel::Unreachable(Unreachable::Refused) => {
+            named("{server} is not accepting SSH connections.")
+        }
+        Tunnel::Unreachable(Unreachable::NoAnswer) => named("{server} did not answer."),
+        Tunnel::Unreachable(_) => named("{server} could not be reached."),
+        Tunnel::Refused => named(
+            "{server} did not accept the SSH agent’s keys, the keys in ~/.ssh, or the tunnel’s password.",
+        ),
+        Tunnel::KeyChanged => named(
+            "{server} presented a different key from the one in ~/.ssh/known_hosts. Someone may be intercepting the connection. If the server was set up again, remove its old key with ssh-keygen -R.",
+        ),
+        Tunnel::Denied => named("{server} could not reach {host}."),
+        Tunnel::NoRoute(error) => {
+            tracing::warn!("SSH tunnel: {error}");
+            named("{server} could not reach {host}.")
+        }
+        Tunnel::Other(error) => {
+            tracing::warn!("SSH tunnel: {error}");
+            named("The SSH tunnel through {server} could not be opened.")
+        }
+    }
+}
+
+/// Why the RD Gateway didn't lead on to the computer.
+fn gateway_said(why: Tunnel, gateway: &str, host: &str) -> String {
+    let named = |text: &str| i18n_f(text, &[("gateway", &gateway), ("host", &host)]);
+    match why {
+        Tunnel::Unreachable(Unreachable::NotFound) => named("{gateway} could not be found."),
+        Tunnel::Unreachable(Unreachable::NoAnswer) => named("{gateway} did not answer."),
+        Tunnel::Unreachable(_) => named("{gateway} could not be reached."),
+        Tunnel::Refused | Tunnel::KeyChanged => {
+            named("The RD Gateway {gateway} did not accept the user name or password.")
+        }
+        Tunnel::Denied => named("The RD Gateway {gateway} does not allow connections to {host}."),
+        Tunnel::NoRoute(error) => {
+            tracing::warn!("RD Gateway: {error}");
+            named("The RD Gateway {gateway} could not reach {host}.")
+        }
+        Tunnel::Other(error) => {
+            tracing::warn!("RD Gateway: {error}");
+            named("The connection through the RD Gateway {gateway} failed.")
+        }
     }
 }

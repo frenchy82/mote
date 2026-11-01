@@ -7,6 +7,7 @@ use relm4::prelude::*;
 use super::{Session, SessionInput};
 use crate::connection::{Connection, Scaling};
 use crate::i18n::{i18n, i18n_f};
+use crate::rdp::Identity;
 
 /// What the sign-in page holds.
 pub(super) struct Account {
@@ -144,14 +145,9 @@ pub(crate) fn scaling_label(mode: Scaling) -> String {
     }
 }
 
-pub(super) fn connecting(connection: &Connection) -> adw::StatusPage {
-    let page = adw::StatusPage::new();
-    page.set_paintable(Some(&adw::SpinnerPaintable::new(Some(&page))));
-    page.set_title(&i18n_f(
-        "Connecting to {name}…",
-        &[("name", &connection.title())],
-    ));
-    page
+/// The page shown while connecting; its title says to what, and how.
+pub(super) fn connecting(page: &adw::StatusPage) {
+    page.set_paintable(Some(&adw::SpinnerPaintable::new(Some(page))));
 }
 
 /// Shown when a session ends without the window closing; the reason goes
@@ -169,25 +165,54 @@ pub(super) fn ended(sender: &ComponentSender<Session>) -> adw::StatusPage {
     page
 }
 
-/// Ask whether to trust a server's certificate: one never seen before, or
-/// one that differs from the certificate trusted last time. The answer is
-/// the response "trust" or "cancel".
-pub(super) fn certificate_dialog(name: &str, fingerprint: &str, changed: bool) -> adw::AlertDialog {
-    let (heading, body) = if changed {
-        (
+/// Ask whether to trust a server's certificate, an SSH server's key or a
+/// gateway's certificate: one never seen before, or one that differs from
+/// the one trusted last time. The answer is the response "trust" or
+/// "cancel".
+pub(super) fn certificate_dialog(
+    name: &str,
+    of: Identity,
+    fingerprint: &str,
+    changed: bool,
+) -> adw::AlertDialog {
+    let named = |text: &str| i18n_f(text, &[("name", &name)]);
+    let (heading, body) = match (of, changed) {
+        (Identity::Server, true) => (
             i18n("The Computer’s Identity Has Changed"),
-            i18n_f(
+            named(
                 "{name} presented a different certificate from the one trusted before. Someone may be intercepting the connection, or the computer was set up again.",
-                &[("name", &name)],
             ),
-        )
-    } else {
-        (
-            i18n_f("Trust {name}?", &[("name", &name)]),
+        ),
+        (Identity::Server, false) => (
+            named("Trust {name}?"),
             i18n(
                 "Check that this fingerprint matches the one in the computer’s Remote Desktop settings.",
             ),
-        )
+        ),
+        (Identity::Ssh, true) => (
+            i18n("The SSH Server’s Identity Has Changed"),
+            named(
+                "{name} presented a different key from the one trusted before. Someone may be intercepting the connection, or the server was set up again.",
+            ),
+        ),
+        (Identity::Ssh, false) => (
+            named("Trust {name}?"),
+            i18n(
+                "This SSH server is new to this computer. Check that this fingerprint matches its host key.",
+            ),
+        ),
+        (Identity::Gateway, true) => (
+            i18n("The Gateway’s Identity Has Changed"),
+            named(
+                "{name} presented a different certificate from the one trusted before. Someone may be intercepting the connection, or the gateway was set up again.",
+            ),
+        ),
+        (Identity::Gateway, false) => (
+            named("Trust {name}?"),
+            i18n(
+                "No authority this computer knows vouches for this gateway’s certificate. Check that this fingerprint matches it.",
+            ),
+        ),
     };
     let dialog = adw::AlertDialog::new(Some(&heading), None);
     dialog.set_body_use_markup(true);

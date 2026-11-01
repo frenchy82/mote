@@ -19,10 +19,11 @@ use gtk::{gio, glib};
 use relm4::prelude::*;
 use tokio::sync::oneshot;
 
+use crate::config;
 use crate::connection::{Connection, Scaling};
-use crate::i18n::i18n;
-use crate::rdp::{self, Ending, Event, Trust};
-use crate::{config, secrets};
+use crate::i18n::{i18n, i18n_f};
+use crate::rdp::{self, Ending, Event, Identity, Trust};
+use crate::secrets::{self, Secret};
 use display::Display;
 
 pub(crate) struct Session {
@@ -32,6 +33,9 @@ pub(crate) struct Session {
     username: String,
     domain: String,
     password: String,
+    /// The passwords of the SSH server and the RD Gateway, if saved.
+    ssh_password: String,
+    gateway_password: String,
     /// Save the typed account once a session starts.
     remember: bool,
     handle: Option<rdp::Handle>,
@@ -49,6 +53,7 @@ pub(crate) struct Session {
     /// Counts size changes, so only the last of a quick run is sent.
     resizes: u32,
     display: Display,
+    connecting: adw::StatusPage,
     sign_in: pages::SignIn,
     ended: adw::StatusPage,
     stack: gtk::Stack,
@@ -119,14 +124,15 @@ pub(crate) enum SessionOutput {
 }
 
 pub(crate) enum SessionCmd {
-    Password(Result<Option<String>, String>),
+    /// The saved passwords, the account's first, `None` where there is none.
+    Passwords(Result<[Option<String>; 3], String>),
     Event(u32, Event),
 }
 
 impl std::fmt::Debug for SessionCmd {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Self::Password(_) => "Password",
+            Self::Passwords(_) => "Passwords",
             Self::Event(..) => "Event",
         })
     }
@@ -196,7 +202,7 @@ impl Component for Session {
                 set_child = stack -> gtk::Stack {
                     set_transition_type: gtk::StackTransitionType::Crossfade,
                     add_named: (sign_in_page, Some("sign-in")),
-                    add_named: (&pages::connecting(&model.connection), Some("connecting")),
+                    add_named: (connecting, Some("connecting")),
                     // Scrolls only at Actual Size, when the desktop is larger
                     // than the window.
                     add_named: (&gtk::ScrolledWindow::builder().child(display).build(), Some("desktop")),
@@ -219,6 +225,8 @@ impl Component for Session {
             username: connection.username.clone(),
             domain: connection.domain.clone(),
             password: String::new(),
+            ssh_password: String::new(),
+            gateway_password: String::new(),
             remember: false,
             page: Page::Connecting,
             handle: None,
@@ -230,6 +238,7 @@ impl Component for Session {
             scaling: connection.scaling,
             resizes: 0,
             display: Display::default(),
+            connecting: adw::StatusPage::new(),
             sign_in,
             ended,
             stack: gtk::Stack::new(),
@@ -244,23 +253,28 @@ impl Component for Session {
             .display
             .set_on_size(move || input.emit(SessionInput::Resized));
         reveal_at_top_edge(&root, &model.fullscreen);
-        let (stack, toasts, display, ended) = (
+        pages::connecting(&model.connecting);
+        let (stack, toasts, display, ended, connecting) = (
             &model.stack.clone(),
             &model.toasts.clone(),
             &model.display.clone(),
             &model.ended.clone(),
+            &model.connecting.clone(),
         );
         let sign_in_page = &model.sign_in.page.clone();
         let widgets = view_output!();
 
-        if model.connection.username.trim().is_empty() {
-            let mut model = model;
-            model.page = Page::SignIn;
-            model.sign_in.focus();
-            return ComponentParts { model, widgets };
-        }
         let id = model.connection.id.clone();
-        sender.oneshot_command(async move { SessionCmd::Password(secrets::password(id).await) });
+        sender.oneshot_command(async move {
+            let mut saved = [None, None, None];
+            for (slot, kind) in saved.iter_mut().zip(Secret::ALL) {
+                match secrets::password(id.clone(), kind).await {
+                    Ok(password) => *slot = password,
+                    Err(e) => return SessionCmd::Passwords(Err(e)),
+                }
+            }
+            SessionCmd::Passwords(Ok(saved))
+        });
         ComponentParts { model, widgets }
     }
 
@@ -366,14 +380,22 @@ impl Component for Session {
         root: &Self::Root,
     ) {
         match msg {
-            SessionCmd::Password(Ok(Some(password))) => {
-                self.password = password;
-                self.connect(&sender);
-            }
-            SessionCmd::Password(result) => {
-                if let Err(e) = result {
-                    tracing::warn!("reading the saved password: {e}");
+            SessionCmd::Passwords(Ok([account, ssh, gateway])) => {
+                self.ssh_password = ssh.unwrap_or_default();
+                self.gateway_password = gateway.unwrap_or_default();
+                match account {
+                    Some(password) if !self.connection.username.trim().is_empty() => {
+                        self.password = password;
+                        self.connect(&sender);
+                    }
+                    _ => {
+                        self.page = Page::SignIn;
+                        self.sign_in.focus();
+                    }
                 }
+            }
+            SessionCmd::Passwords(Err(e)) => {
+                tracing::warn!("reading the saved passwords: {e}");
                 self.page = Page::SignIn;
                 self.sign_in.focus();
             }
@@ -417,6 +439,10 @@ impl Session {
             handle.send(rdp::Command::Close);
         }
         self.page = Page::Connecting;
+        self.connecting.set_title(&i18n_f(
+            "Connecting to {name}…",
+            &[("name", &self.connection.title())],
+        ));
         // The desktop is asked for at the page's size, so wait for there to
         // be one.
         let Some((width, height, scale)) = self.desktop_size() else {
@@ -452,6 +478,8 @@ impl Session {
             sound: self.connection.sound,
             microphone: self.connection.microphone,
             folder: self.connection.shared_folder(),
+            via: self.via(),
+            wake: self.connection.wake_address(),
         };
         let (handle, mut events) = rdp::start(target);
         let input = handle.clone();
@@ -474,6 +502,46 @@ impl Session {
                 })
                 .drop_on_shutdown()
         });
+    }
+
+    /// The way to the computer: through the SSH server or the gateway, if
+    /// the connection has one.
+    fn via(&self) -> rdp::Via {
+        let c = &self.connection;
+        if let Some((host, port)) = c.ssh_server() {
+            let username = if c.ssh_username.is_empty() {
+                glib::user_name().to_string_lossy().into_owned()
+            } else {
+                c.ssh_username.clone()
+            };
+            return rdp::Via::Ssh(rdp::Hop {
+                host,
+                port,
+                username,
+                password: self.ssh_password.clone(),
+            });
+        }
+        if let Some((host, port)) = c.gateway_server() {
+            // Without an account of its own, the gateway takes the one
+            // signing in to the computer, as Windows' client does.
+            let (username, password) = if c.gateway_username.is_empty() {
+                let account = if self.domain.is_empty() {
+                    self.username.clone()
+                } else {
+                    format!("{}\\{}", self.domain, self.username)
+                };
+                (account, self.password.clone())
+            } else {
+                (c.gateway_username.clone(), self.gateway_password.clone())
+            };
+            return rdp::Via::Gateway(rdp::Hop {
+                host,
+                port,
+                username,
+                password,
+            });
+        }
+        rdp::Via::Direct
     }
 
     /// The size to ask the server for, in the screen's own pixels, and the
@@ -505,14 +573,29 @@ impl Session {
                 host,
                 port,
                 fingerprint,
+                of,
                 reply,
-            } => self.check_certificate(&host, port, fingerprint, reply, root),
+            } => self.check_certificate(&host, port, fingerprint, of, reply, root),
+            Event::Waking => self.connecting.set_title(&i18n_f(
+                "Waking {name}…",
+                &[("name", &self.connection.title())],
+            )),
+            Event::Reconnecting => {
+                self.connecting.set_title(&i18n_f(
+                    "Reconnecting to {name}…",
+                    &[("name", &self.connection.title())],
+                ));
+                self.page = Page::Connecting;
+            }
             Event::Connected { width, height } => {
                 tracing::info!("connected, {width}×{height}");
                 // A reactivation reports the desktop again; only a new
                 // connection counts.
                 if self.page != Page::Desktop {
                     let _ = sender.output(SessionOutput::Connected(self.connection.id.clone()));
+                    // The window may have changed size while the session
+                    // was away.
+                    sender.input(SessionInput::Resized);
                 }
                 self.page = Page::Desktop;
                 self.display.grab_focus();
@@ -553,6 +636,7 @@ impl Session {
         host: &str,
         port: u16,
         fingerprint: String,
+        of: Identity,
         reply: oneshot::Sender<Trust>,
         root: &adw::ToolbarView,
     ) {
@@ -562,8 +646,11 @@ impl Session {
             return;
         }
         let reply = Rc::new(RefCell::new(Some(reply)));
-        let dialog =
-            pages::certificate_dialog(self.connection.title(), &fingerprint, known.is_some());
+        let name = match of {
+            Identity::Server => self.connection.title(),
+            Identity::Ssh | Identity::Gateway => host,
+        };
+        let dialog = pages::certificate_dialog(name, of, &fingerprint, known.is_some());
         let (host, port) = (host.to_owned(), port);
         dialog.connect_response(None, move |_, response| {
             let Some(reply) = reply.borrow_mut().take() else {
@@ -584,7 +671,7 @@ impl Session {
         if !matches!(ending, Ending::Closed) {
             let _ = sender.output(SessionOutput::Stopped(self.connection.id.clone()));
         }
-        match endings::shown(ending, &self.connection.host, was_connected) {
+        match endings::shown(ending, &self.connection, was_connected) {
             endings::Shown::Nothing => {}
             endings::Shown::SignIn(message) => {
                 self.page = Page::SignIn;

@@ -56,7 +56,7 @@ pub(super) async fn run(
     result: ConnectionResult,
     events: &mpsc::Sender<Event>,
     commands: &mut mpsc::UnboundedReceiver<Command>,
-    opened: (u32, u32, u32),
+    asked: &mut (u32, u32, u32),
     clipboard: &mut super::clipboard::Clipboard,
     audio: &mut super::audio::Audio,
 ) -> Result<Outcome, Failure> {
@@ -88,8 +88,6 @@ pub(super) async fn run(
     let mut reason = None;
     // A resize asked for before Display Control is up, sent once it is.
     let mut resize = None;
-    // The size last asked for, so a repeat isn't sent again.
-    let mut asked = opened;
     let mut stats = crate::stats::Stats::new("engine");
     let mut received = 0;
     // Lets go of clipboard locks and transfers the server stopped answering.
@@ -222,7 +220,7 @@ pub(super) async fn run(
         }
 
         if let Some(size) = resize.take() {
-            resize = send_resize(&mut stage, &mut writer, &mut asked, size).await?;
+            resize = send_resize(&mut stage, &mut writer, asked, size).await?;
         }
 
         if !desktop.damage.is_empty() && !desktop.in_flight {
