@@ -67,6 +67,7 @@ pub(super) fn install(window: &adw::ApplicationWindow, sender: &ComponentSender<
     // A sidebar row's buttons, which name their connection.
     for (name, message) in [
         ("connect-to", AppMsg::Connect as fn(String) -> AppMsg),
+        ("disconnect-from", AppMsg::CloseSession),
         ("edit-connection", AppMsg::Edit),
     ] {
         let input = sender.input_sender().clone();

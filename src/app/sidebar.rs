@@ -205,17 +205,27 @@ fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBo
     // name keeps its room.
     let actions = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     actions.set_valign(gtk::Align::Center);
+    // Connect, or Disconnect while a session to it is up.
+    let session = if open {
+        (
+            "media-playback-stop-symbolic",
+            i18n("Disconnect"),
+            "win.disconnect-from",
+        )
+    } else {
+        (
+            "media-playback-start-symbolic",
+            i18n("Connect"),
+            "win.connect-to",
+        )
+    };
     for (icon, label, action) in [
         (
             "document-edit-symbolic",
             i18n("Edit Connection"),
             "win.edit-connection",
         ),
-        (
-            "media-playback-start-symbolic",
-            i18n("Connect"),
-            "win.connect-to",
-        ),
+        session,
     ] {
         let button = gtk::Button::builder()
             .icon_name(icon)
