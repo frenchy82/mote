@@ -15,12 +15,15 @@ use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
 use crate::ui::preferences::PrefChange;
 
+mod row_menu;
+
 const ROW_PREFIX: &str = "conn:";
 
 /// Selecting a row shows its connection, a double click connects to it,
 /// and Delete asks to delete it.
 pub(super) fn connect_list(
     list: &gtk::ListBox,
+    line: &gtk::Box,
     quiet: &Rc<Cell<bool>>,
     sender: &ComponentSender<AppModel>,
 ) {
@@ -42,6 +45,7 @@ pub(super) fn connect_list(
         }
     });
     list.add_controller(clicks);
+    row_menu::connect(list);
     let keys = gtk::EventControllerKey::new();
     let input = sender.input_sender().clone();
     keys.connect_key_pressed(glib::clone!(
@@ -84,75 +88,124 @@ pub(super) fn connect_list(
         }
     ));
     list.add_controller(keys);
-    connect_reorder(list, sender);
+    connect_reorder(list, line, sender);
+}
+
+/// The space between two connection cards (`row.connection-card` in
+/// styles.css), where the line showing a drop's place is drawn.
+const GAP: f32 = 8.0;
+
+/// The line showing where a dragged connection would land: a dot and a
+/// rule, laid over the list and moved to the gap between two cards.
+pub(super) fn drop_line() -> gtk::Box {
+    let line = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    line.add_css_class("drop-line");
+    line.set_valign(gtk::Align::Start);
+    line.set_can_target(false);
+    line.set_visible(false);
+    let dot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    dot.add_css_class("drop-dot");
+    dot.set_valign(gtk::Align::Center);
+    let rule = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    rule.add_css_class("drop-rule");
+    rule.set_valign(gtk::Align::Center);
+    rule.set_hexpand(true);
+    line.append(&dot);
+    line.append(&rule);
+    line
 }
 
 /// Rows drag to another place in the list, the connection's id their
-/// content. A line above or below a row shows where one would land.
-fn connect_reorder(list: &gtk::ListBox, sender: &ComponentSender<AppModel>) {
+/// content, its picture following the pointer. `line` shows where one
+/// would land.
+fn connect_reorder(list: &gtk::ListBox, line: &gtk::Box, sender: &ComponentSender<AppModel>) {
     use gtk::gdk;
 
+    let dragged: Rc<RefCell<Option<gtk::ListBoxRow>>> = Rc::default();
     let source = gtk::DragSource::new();
     source.set_actions(gdk::DragAction::MOVE);
     source.connect_prepare(glib::clone!(
         #[weak]
         list,
+        #[strong]
+        dragged,
         #[upgrade_or]
         None,
-        move |source, x, y| {
+        move |source, _, y| {
             let row = list.row_at_y(y as i32)?;
             let id = row_id(&row)?;
-            // The row itself follows the pointer, held where it was picked up.
-            let at = list.compute_point(&row, &gtk::graphene::Point::new(x as f32, y as f32))?;
-            let picture = gtk::WidgetPaintable::new(Some(&row));
-            source.set_icon(Some(&picture), at.x() as i32, at.y() as i32);
+            if let Some(picture) = row.child().and_then(|line| line.first_child()) {
+                let size = picture.width() / 2;
+                source.set_icon(Some(&gtk::WidgetPaintable::new(Some(&picture))), size, size);
+            }
+            *dragged.borrow_mut() = Some(row);
             Some(gdk::ContentProvider::for_value(&id.to_value()))
+        }
+    ));
+    // The card being moved fades while it is away.
+    source.connect_drag_begin(glib::clone!(
+        #[strong]
+        dragged,
+        move |_, _| {
+            if let Some(row) = dragged.borrow().as_ref() {
+                row.add_css_class("dragged");
+            }
+        }
+    ));
+    source.connect_drag_end(glib::clone!(
+        #[strong]
+        dragged,
+        move |_, _, _| {
+            if let Some(row) = dragged.borrow_mut().take() {
+                row.remove_css_class("dragged");
+            }
         }
     ));
     list.add_controller(source);
 
-    let marked: Rc<RefCell<Option<gtk::ListBoxRow>>> = Rc::default();
-    let unmark = {
-        let marked = marked.clone();
-        move || {
-            if let Some(row) = marked.borrow_mut().take() {
-                row.remove_css_class("drop-before");
-                row.remove_css_class("drop-after");
-            }
-        }
-    };
     let target = gtk::DropTarget::new(String::static_type(), gdk::DragAction::MOVE);
     target.connect_motion(glib::clone!(
         #[weak]
         list,
-        #[strong]
-        marked,
-        #[strong]
-        unmark,
+        #[weak]
+        line,
         #[upgrade_or]
         gdk::DragAction::empty(),
         move |_, _, y| {
-            unmark();
-            let Some((row, after)) = landing(&list, y) else {
+            let place = landing(&list, y).and_then(|(row, after)| {
+                let overlay = line.parent()?;
+                let bounds = row.compute_bounds(&overlay)?;
+                Some(if after {
+                    bounds.y() + bounds.height() + GAP / 2.0
+                } else {
+                    bounds.y() - GAP / 2.0
+                })
+            });
+            let Some(at) = place else {
+                line.set_visible(false);
                 return gdk::DragAction::empty();
             };
-            row.add_css_class(if after { "drop-after" } else { "drop-before" });
-            *marked.borrow_mut() = Some(row);
+            // The line's middle on the gap's.
+            line.set_margin_top((at - line.height().max(8) as f32 / 2.0).round() as i32);
+            line.set_visible(true);
             gdk::DragAction::MOVE
         }
     ));
-    target.connect_leave({
-        let unmark = unmark.clone();
-        move |_| unmark()
-    });
+    target.connect_leave(glib::clone!(
+        #[weak]
+        line,
+        move |_| line.set_visible(false)
+    ));
     let input = sender.input_sender().clone();
     target.connect_drop(glib::clone!(
         #[weak]
         list,
+        #[weak]
+        line,
         #[upgrade_or]
         false,
         move |_, value, _, y| {
-            unmark();
+            line.set_visible(false);
             let (Ok(id), Some((row, after))) = (value.get::<String>(), landing(&list, y)) else {
                 return false;
             };
@@ -166,34 +219,30 @@ fn connect_reorder(list: &gtk::ListBox, sender: &ComponentSender<AppModel>) {
     list.add_controller(target);
 }
 
-/// The connection row a drop at `y` lands beside, and whether after it. A
-/// group's heading stands for its first connection; below the last row is
+/// The connection row a drop at `y` lands beside, and whether after it:
+/// the card under it, or beside the gap it is in, by which half; above a
+/// group's heading, before that group's first connection; past the end,
 /// after the last.
 fn landing(list: &gtk::ListBox, y: f64) -> Option<(gtk::ListBoxRow, bool)> {
-    let Some(row) = list.row_at_y(y as i32) else {
-        let mut i = 0;
-        let mut last = None;
-        while let Some(row) = list.row_at_index(i) {
-            if row_id(&row).is_some() {
-                last = Some(row);
-            }
-            i += 1;
+    let y = y as f32;
+    let mut last = None;
+    let mut i = 0;
+    while let Some(row) = list.row_at_index(i) {
+        i += 1;
+        if row_id(&row).is_none() {
+            continue;
         }
-        return last.map(|row| (row, true));
-    };
-    if row_id(&row).is_none() {
-        let mut i = row.index() + 1;
-        while let Some(next) = list.row_at_index(i) {
-            if row_id(&next).is_some() {
-                return Some((next, false));
-            }
-            i += 1;
+        let bounds = row.compute_bounds(list)?;
+        let (top, bottom) = (bounds.y(), bounds.y() + bounds.height());
+        if y < top - GAP / 2.0 {
+            return Some((row, false));
         }
-        return None;
+        if y <= bottom + GAP / 2.0 {
+            return Some((row, y > top + bounds.height() / 2.0));
+        }
+        last = Some(row);
     }
-    let bounds = row.compute_bounds(list)?;
-    let after = y > f64::from(bounds.y() + bounds.height() / 2.0);
-    Some((row, after))
+    last.map(|row| (row, true))
 }
 
 fn row_id(row: &gtk::ListBoxRow) -> Option<String> {
@@ -308,9 +357,7 @@ impl AppModel {
 
     pub(super) fn rebuild_list(&self) {
         self.quiet.set(true);
-        while let Some(child) = self.list.first_child() {
-            self.list.remove(&child);
-        }
+        self.list.remove_all();
 
         let shown: Vec<&Connection> = self
             .ordered()
@@ -367,6 +414,11 @@ fn heading(text: &str) -> gtk::ListBoxRow {
 /// A connection's row; `open` when a session to it is connected.
 fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
+    row.add_css_class("connection-card");
+    // For the row's menu, which offers Disconnect then.
+    if open {
+        row.add_css_class("connected");
+    }
     row.set_widget_name(&format!("{ROW_PREFIX}{}", conn.id));
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     line.add_css_class("nav-row");

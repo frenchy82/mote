@@ -66,9 +66,13 @@ pub(crate) enum AppMsg {
     FocusSearch,
     EditSelected,
     ConnectSelected,
-    /// From a sidebar row's own buttons: that connection, selected or not.
+    /// From a sidebar row's own buttons and menu: that connection, selected
+    /// or not.
     Edit(String),
     Connect(String),
+    Duplicate(String),
+    Export(String),
+    ConfirmDelete(String),
     Session(SessionOutput),
     /// End a session, as closing its window does.
     CloseSession(String),
@@ -198,12 +202,16 @@ impl Component for AppModel {
                                 set_hscrollbar_policy: gtk::PolicyType::Never,
 
                                 #[wrap(Some)]
-                                set_child = &gtk::Box {
-                                    set_orientation: gtk::Orientation::Vertical,
-                                    #[local_ref]
-                                    list -> gtk::ListBox {},
-                                    #[local_ref]
-                                    hint -> gtk::Label {},
+                                set_child = &gtk::Overlay {
+                                    #[wrap(Some)]
+                                    set_child = &gtk::Box {
+                                        set_orientation: gtk::Orientation::Vertical,
+                                        #[local_ref]
+                                        list -> gtk::ListBox {},
+                                        #[local_ref]
+                                        hint -> gtk::Label {},
+                                    },
+                                    add_overlay: drop_line,
                                 },
                             },
                         },
@@ -305,7 +313,8 @@ impl Component for AppModel {
         hint.add_css_class("dim-label");
         hint.add_css_class("sidebar-hint");
         let quiet = Rc::new(Cell::new(false));
-        sidebar::connect_list(list, &quiet, &sender);
+        let drop_line = &sidebar::drop_line();
+        sidebar::connect_list(list, drop_line, &quiet, &sender);
 
         let model = AppModel {
             settings,
@@ -413,10 +422,25 @@ impl Component for AppModel {
             }
             AppMsg::Session(output) => self.session_output(output, &sender),
             AppMsg::CloseSession(id) => self.end_session(&id),
-            AppMsg::DuplicateSelected => self.duplicate_selected(&sender),
+            AppMsg::DuplicateSelected => {
+                if let Some(id) = self.selected.clone() {
+                    self.duplicate(&id, &sender);
+                }
+            }
+            AppMsg::Duplicate(id) => self.duplicate(&id, &sender),
             AppMsg::DeleteSelected => {
                 if let Some(conn) = self.selected_connection() {
                     files::confirm_delete(conn, root, &sender);
+                }
+            }
+            AppMsg::ConfirmDelete(id) => {
+                if let Some(conn) = self.connections.iter().find(|c| c.id == id) {
+                    files::confirm_delete(conn, root, &sender);
+                }
+            }
+            AppMsg::Export(id) => {
+                if let Some(conn) = self.connections.iter().find(|c| c.id == id) {
+                    files::choose_export_path(conn, root, &sender);
                 }
             }
             AppMsg::Delete(id) => {
@@ -574,8 +598,8 @@ impl AppModel {
         self.rebuild_list();
     }
 
-    fn duplicate_selected(&mut self, sender: &ComponentSender<Self>) {
-        let Some(original) = self.selected_connection() else {
+    fn duplicate(&mut self, id: &str, sender: &ComponentSender<Self>) {
+        let Some(original) = self.connections.iter().find(|c| c.id == id) else {
             return;
         };
         let copy = Connection {

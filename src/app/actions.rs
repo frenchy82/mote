@@ -70,11 +70,14 @@ pub(super) fn install(
             add(accel, &format!("win.{name}"));
         }
     }
-    // A sidebar row's buttons, which name their connection.
+    // A sidebar row's buttons and menu, which name their connection.
     for (name, message) in [
         ("connect-to", AppMsg::Connect as fn(String) -> AppMsg),
         ("disconnect-from", AppMsg::CloseSession),
         ("edit-connection", AppMsg::Edit),
+        ("duplicate-connection", AppMsg::Duplicate),
+        ("export-connection", AppMsg::Export),
+        ("delete-connection", AppMsg::ConfirmDelete),
     ] {
         let input = sender.input_sender().clone();
         let action = gio::ActionEntry::builder(name)
@@ -220,6 +223,7 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
                 (i18n("Import .rdp Files…"), "<Control>o"),
                 (i18n("Move Connection Up"), "<Alt>Up"),
                 (i18n("Move Connection Down"), "<Alt>Down"),
+                (i18n("Connection Menu"), "<Shift>F10"),
             ],
         ),
         (
