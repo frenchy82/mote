@@ -490,12 +490,26 @@ Built, as Hylki's are (the steps are in [BUILDING.md](BUILDING.md#flatpak)):
   API, Opus, FFmpeg, OpenH264) are recommended, as rpm can't see them
   linked.
 
+- An AppImage (`tools/build-appimage.sh`) and a Debian package
+  (`tools/build-packages.sh deb`), as Hylki builds them. The AppImage
+  bundles every library but FFmpeg, whose H.264 decoder isn't Mote's to
+  hand out; it uses the system's where there is one, and Cisco's OpenH264
+  otherwise. The deb is built on Debian 13, for it and Ubuntu 25.04 on.
+  The shortcuts dialog went back to libadwaita 1.7 for it.
+- `.github/workflows/build-packages.yml`, which builds all of them for
+  x86_64 and ARM64, the ARM64 ones on GitHub's arm64 runners, checks the
+  RPM and the deb install, and drafts a release from a tag.
+
 Tried: the Flatpak, installed for the user and run in a headless GNOME,
 signed in to a private GNOME Remote Desktop and showed it, found FFmpeg
 through codecs-extra, and found libopus and libpulse-simple in the runtime.
-The RPM installed into a clean Fedora 44 with every library it links found
-and its recommendations pulled in. Not tried yet: either one on a real
-desktop, H.264 from xrdp in the Flatpak, and a release build from a tag.
+The RPM installed into a clean Fedora 44 and the deb into a clean Debian
+13, with every library they link found and their recommendations pulled
+in. The AppImage connected to a private GNOME Remote Desktop, and to xrdp,
+whose H.264 it decoded through the system's FFmpeg. The workflow passes
+actionlint. Not tried yet: any of them on a real desktop, H.264 from xrdp
+in the Flatpak, the ARM64 builds, which need the workflow to run on
+GitHub, and a release from a tag.
 
 ## Remmina parity
 

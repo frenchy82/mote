@@ -112,12 +112,39 @@ installs it. H.264 comes from the runtime's codecs-extra extension, which
 Flatpak installs with the runtime from Flathub; elsewhere it is
 `org.freedesktop.Platform.codecs-extra//25.08-extra`.
 
-## RPM
+## RPM and Debian packages
 
-`tools/build-packages.sh` builds the release binary on this machine and
-wraps it, with the launcher, metainfo, icons and translations, into
-`packaging/out/mote-<version>-1.<dist>.<arch>.rpm`, for the Fedora release
-it was built on. It needs `rpm-build` and gettext.
+`tools/build-packages.sh rpm` and `tools/build-packages.sh deb` build
+`packaging/out/mote-<version>-1.<dist>.<arch>.rpm` and
+`packaging/out/mote_<version>-1_<arch>.deb`; with no argument it builds
+both. Each wraps a release binary with the launcher, metainfo, icons and
+translations. The RPM's is built on this machine, for the Fedora release it
+runs, and needs `rpm-build` and gettext. The Debian package's is built in
+Debian 13 under podman (on a Debian host, in place), the oldest release
+with the libadwaita 1.7 Mote needs, so it installs there and on Ubuntu
+25.04 and later. The libraries Mote opens itself (PulseAudio's simple API,
+Opus, FFmpeg, OpenH264) are recommended by both, as neither format can see
+them linked.
+
+## AppImage
+
+`tools/build-appimage.sh` builds `packaging/out/Mote-<arch>.AppImage` and
+its `.zsync` in an Arch container under podman, with pkgforge's
+[quick-sharun](https://github.com/pkgforge-dev/Anylinux-AppImages), which
+bundles every library down to glibc so one file runs on any distribution.
+FFmpeg is left out, for H.264 comes from whoever holds its patent license:
+the AppImage uses the system's FFmpeg where there is one, and Cisco's
+OpenH264 from Settings otherwise. It updates from the GitHub releases, through
+the `.zsync` beside each bundle.
+
+## ARM64, and releases
+
+`.github/workflows/build-packages.yml` builds every package above, the
+Flatpak as a single-file bundle, for x86_64 and for ARM64 on GitHub's arm64
+runners, then installs the RPM and the Debian package on clean Fedora 44
+and Debian 13 to check that what they need resolves. It runs on a `v*` tag,
+or by hand for any ref. A tag also gathers every package into a draft
+release, to be read over and published by hand.
 
 ## Pictures of the interface
 
