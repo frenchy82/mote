@@ -546,6 +546,8 @@ fn folder_row(row: &adw::ActionRow, path: &Rc<RefCell<String>>) {
         .valign(gtk::Align::Center)
         .css_classes(["flat"])
         .build();
+    choose.update_property(&[gtk::accessible::Property::Label(&i18n("Choose Folder"))]);
+    clear.update_property(&[gtk::accessible::Property::Label(&i18n("Stop Sharing"))]);
     row.add_suffix(&clear);
     row.add_suffix(&choose);
     row.set_activatable_widget(Some(&choose));

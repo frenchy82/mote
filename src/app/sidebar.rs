@@ -163,6 +163,7 @@ fn heading(text: &str) -> gtk::ListBoxRow {
     label.add_css_class("caption-heading");
     label.add_css_class("dim-label");
     row.set_child(Some(&label));
+    row.update_property(&[gtk::accessible::Property::Label(text)]);
     row
 }
 
@@ -200,5 +201,15 @@ fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBo
     }
     row.set_child(Some(&line));
     row.set_tooltip_text(Some(&conn.address()));
+    // Named for the connection, not by the tooltip, which GTK would take.
+    let description = if open {
+        i18n_f("{address}, connected", &[("address", &conn.address())])
+    } else {
+        conn.address()
+    };
+    row.update_property(&[
+        gtk::accessible::Property::Label(conn.title()),
+        gtk::accessible::Property::Description(&description),
+    ]);
     row
 }

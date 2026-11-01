@@ -182,6 +182,7 @@ impl SimpleComponent for Preferences {
             label.add_css_class("caption-heading");
             label.add_css_class("dim-label");
             heading.set_child(Some(&label));
+            heading.update_property(&[gtk::accessible::Property::Label(&i18n(section))]);
             side_list.append(&heading);
             for page in pages.iter() {
                 let row = gtk::ListBoxRow::new();
@@ -192,6 +193,7 @@ impl SimpleComponent for Preferences {
                 label.set_xalign(0.0);
                 line.append(&label);
                 row.set_child(Some(&line));
+                row.update_property(&[gtk::accessible::Property::Label(&i18n(page.title))]);
                 side_list.append(&row);
             }
         }
