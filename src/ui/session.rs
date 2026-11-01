@@ -191,6 +191,13 @@ impl Component for Session {
             connect_map => SessionInput::Mapped,
 
             add_top_bar = &adw::HeaderBar {
+                // Not in fullscreen, where the header is the session's alone:
+                // its close button would look like the session's own, and
+                // close the window instead.
+                #[watch]
+                set_show_end_title_buttons: !model.fullscreen.get(),
+                #[watch]
+                set_show_start_title_buttons: !model.fullscreen.get(),
                 #[wrap(Some)]
                 set_title_widget = &adw::WindowTitle {
                     set_title: model.connection.title(),
