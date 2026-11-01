@@ -47,8 +47,18 @@ switch > image {
 .navigation-sidebar > row.connection-card:hover {
   background-image: linear-gradient(alpha(currentColor, 0.04), alpha(currentColor, 0.04));
 }
+/* The connection being viewed, in the accent color so it stands out from
+   the cards around it. */
 .navigation-sidebar > row.connection-card:selected {
-  background-image: linear-gradient(alpha(currentColor, 0.1), alpha(currentColor, 0.1));
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+}
+.navigation-sidebar > row.connection-card:selected:hover {
+  background-image: linear-gradient(alpha(currentColor, 0.08), alpha(currentColor, 0.08));
+}
+/* An accent dot would vanish on the accent card. */
+.navigation-sidebar > row.connection-card:selected .session-dot {
+  color: @accent_fg_color;
 }
 .navigation-sidebar > row.connection-card.dragged {
   opacity: 0.4;
