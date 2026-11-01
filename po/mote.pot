@@ -13,6 +13,9 @@ msgstr ""
 msgid "Settings"
 msgstr ""
 
+msgid "Keyboard Shortcuts"
+msgstr ""
+
 msgid "About Mote"
 msgstr ""
 
@@ -34,7 +37,34 @@ msgstr ""
 msgid "Delete…"
 msgstr ""
 
+msgid "Connections"
+msgstr ""
+
+msgid "New Connection"
+msgstr ""
+
 msgid "Connect"
+msgstr ""
+
+msgid "Edit Connection"
+msgstr ""
+
+msgid "Search"
+msgstr ""
+
+msgid "Sessions"
+msgstr ""
+
+msgid "Let Go of the Keyboard"
+msgstr ""
+
+msgid "Give the Shortcuts Back"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Close Window"
 msgstr ""
 
 msgid "Connection"
@@ -102,13 +132,10 @@ msgstr ""
 msgid "Connected"
 msgstr ""
 
-msgid "New Connection"
+msgid "{address}, connected"
 msgstr ""
 
 msgid "Main Menu"
-msgstr ""
-
-msgid "Search"
 msgstr ""
 
 msgid "Search or Enter an Address"
@@ -118,9 +145,6 @@ msgid "Toggle Sidebar"
 msgstr ""
 
 msgid "Connection Menu"
-msgstr ""
-
-msgid "Edit Connection"
 msgstr ""
 
 msgid "No Connections"
@@ -186,7 +210,7 @@ msgstr ""
 msgid "Text only with KRdp; xrdp leaves out folders"
 msgstr ""
 
-#. Both depend on the server the same way.
+#. The same rows, and the same limits, as in the connection editor.
 msgid "Not with KRdp; xrdp needs its PipeWire module"
 msgstr ""
 
@@ -285,6 +309,24 @@ msgstr ""
 msgid "What a connection starts with when it is added."
 msgstr ""
 
+msgid "Keyboard"
+msgstr ""
+
+msgid "Keyboard Layout"
+msgstr ""
+
+msgid "Grab Keyboard"
+msgstr ""
+
+msgid "Right Ctrl lets go of the keyboard"
+msgstr ""
+
+msgid "Reconnect Automatically"
+msgstr ""
+
+msgid "For two minutes after the network drops"
+msgstr ""
+
 msgid "Style"
 msgstr ""
 
@@ -295,9 +337,6 @@ msgid "Light"
 msgstr ""
 
 msgid "Dark"
-msgstr ""
-
-msgid "Connections"
 msgstr ""
 
 msgid "Sort By"
@@ -378,9 +417,6 @@ msgstr ""
 msgid "Fullscreen on All Monitors"
 msgstr ""
 
-msgid "Grab Keyboard"
-msgstr ""
-
 msgid "Ctrl+Alt+Delete"
 msgstr ""
 
@@ -443,6 +479,102 @@ msgstr ""
 msgid "The computer ended the session."
 msgstr ""
 
+msgid "English (US)"
+msgstr ""
+
+msgid "English (US, intl., with dead keys)"
+msgstr ""
+
+msgid "English (Dvorak)"
+msgstr ""
+
+msgid "English (UK)"
+msgstr ""
+
+msgid "Belgian"
+msgstr ""
+
+msgid "Czech"
+msgstr ""
+
+msgid "Danish"
+msgstr ""
+
+msgid "Dutch"
+msgstr ""
+
+msgid "Finnish"
+msgstr ""
+
+msgid "French"
+msgstr ""
+
+msgid "French (Canada)"
+msgstr ""
+
+msgid "French (Switzerland)"
+msgstr ""
+
+msgid "German"
+msgstr ""
+
+msgid "German (Austria)"
+msgstr ""
+
+msgid "German (Switzerland)"
+msgstr ""
+
+msgid "Greek"
+msgstr ""
+
+msgid "Hungarian"
+msgstr ""
+
+msgid "Italian"
+msgstr ""
+
+msgid "Japanese"
+msgstr ""
+
+msgid "Korean"
+msgstr ""
+
+msgid "Latvian"
+msgstr ""
+
+msgid "Norwegian"
+msgstr ""
+
+msgid "Polish"
+msgstr ""
+
+msgid "Portuguese"
+msgstr ""
+
+msgid "Portuguese (Brazil)"
+msgstr ""
+
+msgid "Russian"
+msgstr ""
+
+msgid "Slovenian"
+msgstr ""
+
+msgid "Spanish"
+msgstr ""
+
+msgid "Spanish (Latin American)"
+msgstr ""
+
+msgid "Swedish"
+msgstr ""
+
+msgid "Turkish"
+msgstr ""
+
+msgid "Ukrainian"
+msgstr ""
+
 msgid "Sign In"
 msgstr ""
 
@@ -500,7 +632,11 @@ msgstr ""
 msgid "Fullscreen"
 msgstr ""
 
-msgid "Shortcuts go to the remote desktop. Super+Esc gives them back."
+msgid "Desktop of {name}"
+msgstr ""
+
+msgid ""
+"Keys and shortcuts go to the remote desktop. Right Ctrl lets go of them."
 msgstr ""
 
 msgid "The command before connecting failed: {error}"
