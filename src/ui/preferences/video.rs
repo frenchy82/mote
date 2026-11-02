@@ -62,8 +62,8 @@ pub(super) fn page(
 fn label(source: Source) -> String {
     match source {
         Source::Ffmpeg => i18n("FFmpeg"),
-        Source::SystemOpenH264 => i18n("OpenH264, from this system"),
-        Source::CiscoOpenH264 => i18n("OpenH264, from Cisco"),
+        Source::SystemOpenH264 => i18n("System OpenH264"),
+        Source::CiscoOpenH264 => i18n("Cisco’s OpenH264"),
     }
 }
 
@@ -72,7 +72,8 @@ struct Rows {
     decoder: adw::ComboRow,
     download: adw::ActionRow,
     button: gtk::Button,
-    /// The sources the decoder row offers after No Preference.
+    /// The sources the decoder row offers, in the order they are tried
+    /// when none is chosen.
     offered: Rc<RefCell<Vec<Source>>>,
     chosen: Rc<Cell<Option<Source>>>,
     /// Set while the row's choices are replaced, which changes its selection.
@@ -107,14 +108,12 @@ impl Rows {
             if have.is_empty() && !downloaded {
                 rows.button.add_css_class("suggested-action");
             }
-            let mut labels = vec![i18n("No Preference")];
-            labels.extend(have.iter().map(|s| label(*s)));
+            let labels: Vec<String> = have.iter().map(|s| label(*s)).collect();
             let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
+            // None chosen, or the one chosen gone: the first, which is
+            // what sessions then use.
             let chosen = rows.chosen.get();
-            let selected = have
-                .iter()
-                .position(|s| Some(*s) == chosen)
-                .map_or(0, |i| i + 1);
+            let selected = have.iter().position(|s| Some(*s) == chosen).unwrap_or(0);
             rows.quiet.set(true);
             rows.decoder.set_model(Some(&gtk::StringList::new(&labels)));
             rows.decoder.set_selected(selected as u32);
@@ -125,13 +124,12 @@ impl Rows {
         });
     }
 
-    /// With no preference, say which decoder that is; with one, that it
-    /// isn't the only one.
+    /// Without a decoder, what that costs; with more than one, that the
+    /// chosen one isn't the only one.
     fn describe(&self) {
-        let offered = self.offered.borrow();
-        let subtitle = match (self.decoder.selected(), offered.first()) {
-            (_, None) => i18n("None: servers send RemoteFX instead, which blurs small text"),
-            (0, Some(first)) => i18n_f("Uses {decoder}", &[("decoder", &label(*first))]),
+        let subtitle = match self.offered.borrow().len() {
+            0 => i18n("None: servers send RemoteFX instead, which blurs small text"),
+            1 => String::new(),
             _ => i18n("Another is used if it can’t be loaded"),
         };
         self.decoder.set_subtitle(&subtitle);
@@ -141,10 +139,11 @@ impl Rows {
         if self.quiet.get() {
             return;
         }
-        let source = match self.decoder.selected() as usize {
-            0 => None,
-            i => self.offered.borrow().get(i - 1).copied(),
-        };
+        let source = self
+            .offered
+            .borrow()
+            .get(self.decoder.selected() as usize)
+            .copied();
         self.choose(source);
         self.describe();
     }
