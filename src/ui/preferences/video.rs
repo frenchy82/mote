@@ -124,13 +124,12 @@ impl Rows {
         });
     }
 
-    /// Without a decoder, what that costs; with more than one, that the
-    /// chosen one isn't the only one.
+    /// Without a decoder, what that costs.
     fn describe(&self) {
-        let subtitle = match self.offered.borrow().len() {
-            0 => i18n("None: servers send RemoteFX instead, which blurs small text"),
-            1 => String::new(),
-            _ => i18n("Another is used if it can’t be loaded"),
+        let subtitle = if self.offered.borrow().is_empty() {
+            i18n("None: servers send RemoteFX instead, which blurs small text")
+        } else {
+            String::new()
         };
         self.decoder.set_subtitle(&subtitle);
     }
