@@ -263,7 +263,7 @@ only what changed, and a small change costs 0.01 ms. Every frame goes to
 GTK as it comes, replacing one not yet painted, so each refresh of the
 monitor shows the newest picture.
 
-Quality presets became a choice of codec per connection: automatic (AVC444
+Quality presets became a choice of codec per connection: Best Available (AVC444
 where the server has it), AVC420, or RemoteFX. Color depth applies only to
 the old bitmap updates, which none of these servers send once the pipeline
 is offered, and they ignore the visual effect flags (xrdp reads one, to

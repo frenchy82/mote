@@ -23,7 +23,7 @@ pub(super) fn page(
     group.set_description(Some(&i18n("Changes apply to the next connection.")));
 
     let decoder = adw::ComboRow::new();
-    decoder.set_title(&i18n("Decoder"));
+    decoder.set_title(&i18n("Preferred Decoder"));
     group.add(&decoder);
 
     let download = adw::ActionRow::new();
@@ -72,7 +72,7 @@ struct Rows {
     decoder: adw::ComboRow,
     download: adw::ActionRow,
     button: gtk::Button,
-    /// The sources the decoder row offers after Automatic.
+    /// The sources the decoder row offers after No Preference.
     offered: Rc<RefCell<Vec<Source>>>,
     chosen: Rc<Cell<Option<Source>>>,
     /// Set while the row's choices are replaced, which changes its selection.
@@ -107,7 +107,7 @@ impl Rows {
             if have.is_empty() && !downloaded {
                 rows.button.add_css_class("suggested-action");
             }
-            let mut labels = vec![i18n("Automatic")];
+            let mut labels = vec![i18n("No Preference")];
             labels.extend(have.iter().map(|s| label(*s)));
             let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
             let chosen = rows.chosen.get();
@@ -125,13 +125,14 @@ impl Rows {
         });
     }
 
-    /// Under Automatic, say which decoder that is.
+    /// With no preference, say which decoder that is; with one, that it
+    /// isn't the only one.
     fn describe(&self) {
         let offered = self.offered.borrow();
         let subtitle = match (self.decoder.selected(), offered.first()) {
             (_, None) => i18n("None: servers send RemoteFX instead, which blurs small text"),
-            (0, Some(first)) => label(*first),
-            _ => String::new(),
+            (0, Some(first)) => i18n_f("Uses {decoder}", &[("decoder", &label(*first))]),
+            _ => i18n("Another is used if it can’t be loaded"),
         };
         self.decoder.set_subtitle(&subtitle);
     }

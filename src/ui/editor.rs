@@ -543,7 +543,7 @@ fn entry(title: &str, text: &str) -> adw::EntryRow {
 
 pub(crate) fn quality_label(quality: Quality) -> String {
     match quality {
-        Quality::Best => i18n("Automatic"),
+        Quality::Best => i18n("Best Available"),
         Quality::Avc420 => i18n("H.264 (AVC420)"),
         Quality::RemoteFx => i18n("RemoteFX"),
     }
