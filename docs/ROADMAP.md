@@ -220,7 +220,10 @@ portal.
 Built so far: H.264, offered as AVC444 and AVC420, through FFmpeg, the
 system's OpenH264, or Cisco's OpenH264 downloaded on request from Settings,
 all loaded at run time; FFmpeg is what the Flatpak's GNOME runtime provides,
-and was tried inside it. Decoding runs on the session's own thread.
+and was tried inside it. Fedora's FFmpeg has no H.264 decoder of its own,
+only OpenH264 wrapped to hold each picture back for reordering, which left
+GNOME Remote Desktop's AVC444 blank; that FFmpeg is passed over for
+OpenH264 called directly. Decoding runs on the session's own thread.
 
 What each server sends, as measured: KRdp sends only AVC420, and turns down
 a client without H.264. xrdp sends AVC420 when it has an encoder (Fedora's
@@ -247,7 +250,7 @@ performance). Its first numbers, at 1920×1080 on the development machine:
 | Step | Time per frame |
 | --- | --- |
 | H.264, FFmpeg's own decoder (the Flatpak's) | 2.6 ms |
-| H.264, OpenH264 (and Fedora's FFmpeg, which uses it) | 4 ms |
+| H.264, OpenH264 | 4 ms |
 | IronRDP turning the picture into RGB and composing it | 1.5 to 3 ms |
 | Progressive RemoteFX, all of it | 4 ms |
 | Copying the whole desktop out for the interface | 0.8 ms |

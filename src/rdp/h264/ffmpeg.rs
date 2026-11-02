@@ -4,7 +4,7 @@
 //! structure read directly, the decoded frame, keeps the fields read here
 //! at the same places in FFmpeg 5 to 8.
 
-use std::ffi::{CString, c_char, c_int, c_void};
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::path::Path;
 
 use ironrdp_egfx::decode::{DecodedFrame, DecoderError, DecoderResult, H264Decoder, Yuv420Frame};
@@ -140,6 +140,16 @@ impl Ffmpeg {
             if codec.is_null() {
                 return Err("no H.264 decoder".into());
             }
+            // Fedora's FFmpeg has no H.264 decoder of its own, only
+            // OpenH264's, wrapped so that it holds each picture back to put
+            // frames in order: a still desktop then never shows, and
+            // AVC444's two streams come apart. The same OpenH264 called
+            // directly gives each picture as it comes. `name` is the first
+            // field of AVCodec in every FFmpeg.
+            let name = CStr::from_ptr(*codec.cast::<*const c_char>());
+            if name.to_bytes() == b"libopenh264" {
+                return Err("its H.264 decoder is OpenH264's, used directly instead".into());
+            }
             let context = (api.alloc_context)(codec);
             if context.is_null() {
                 return Err("no decoder context".into());
@@ -170,8 +180,6 @@ impl Ffmpeg {
                 return Err("out of memory".into());
             }
             if (decoder.api.open)(context, codec, std::ptr::null_mut()) < 0 {
-                // Fedora's FFmpeg decodes H.264 through OpenH264; with only
-                // its stand-in, the decoder doesn't open.
                 decoder.context = std::ptr::null_mut();
                 (decoder.api.free_context)(&mut { context });
                 return Err("the H.264 decoder doesn't open".into());
