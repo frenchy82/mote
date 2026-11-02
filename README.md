@@ -15,6 +15,9 @@ what each section holds is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Goals
 
+- Linux machines first: GNOME Remote Desktop (Desktop Sharing and Remote
+  Login), xrdp and KRdp are what Mote is built and tested against. Mote has
+  not been tested against a Windows machine.
 - Everything Remmina's RDP plugin does, in a GNOME-native interface.
 - Sharp on HiDPI displays: the remote desktop follows the local scale factor,
   fractional scaling included, and resizes with the window.
