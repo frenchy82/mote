@@ -157,3 +157,8 @@ button.robot-choice {
   border-radius: 10px;
 }
 
+
+/* A command to run on the server, in the advice on H.264. */
+.h264-command {
+  padding: 6px 6px 6px 12px;
+}

@@ -52,6 +52,12 @@ pub(super) async fn open(
         return Err(Failure::Ssh(Tunnel::Refused));
     }
     tracing::info!("SSH tunnel to {} open", hop.host);
+    if leads_to_itself(&hop.host, &target.host)
+        && let Some(system) = probe(&session).await
+    {
+        tracing::debug!("the computer runs {system:?}");
+        let _ = events.send(Event::System(system)).await;
+    }
     let channel = session
         .channel_open_direct_tcpip(
             target.host.as_str(),
@@ -69,6 +75,34 @@ pub(super) async fn open(
 }
 
 /// Try each way of signing in until one works.
+/// Whether the computer is the SSH server itself, so what SSH finds there
+/// is the computer's.
+fn leads_to_itself(ssh_host: &str, host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1") || host.eq_ignore_ascii_case(ssh_host)
+}
+
+/// Which distribution and graphics card the SSH server has, for the advice
+/// given when it sends no H.264. Not worth holding the connection up for.
+async fn probe(session: &client::Handle<Checker>) -> Option<crate::rdp::server::System> {
+    let run = async {
+        let mut channel = session.channel_open_session().await.ok()?;
+        channel.exec(true, crate::rdp::server::PROBE).await.ok()?;
+        let mut output = Vec::new();
+        while let Some(message) = channel.wait().await {
+            if let russh::ChannelMsg::Data { data } = message {
+                output.extend_from_slice(&data);
+            }
+        }
+        Some(crate::rdp::server::System::from_probe(
+            &String::from_utf8_lossy(&output),
+        ))
+    };
+    tokio::time::timeout(Duration::from_secs(3), run)
+        .await
+        .ok()
+        .flatten()
+}
+
 async fn sign_in(session: &mut client::Handle<Checker>, user: &str, password: &str) -> bool {
     let rsa_hash = session
         .best_supported_rsa_hash()

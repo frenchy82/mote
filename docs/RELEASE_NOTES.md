@@ -12,6 +12,7 @@ detail is in the commit history.
 - Sessions with xrdp and KRdp
 - A sharp picture at any scale, fractional ones included, resized with the window
 - H.264 from FFmpeg, the system's OpenH264 or Cisco's, chosen in Settings
+- Advice on what to install when a server sends no H.264
 - The clipboard both ways: text, rich text, images and files
 - Sound from the remote desktop, and the microphone to it
 - A shared folder, lent to the remote desktop

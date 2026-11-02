@@ -13,12 +13,25 @@ pub(super) enum Shown {
     Page {
         title: String,
         description: String,
+        /// Offer the advice on H.264.
+        help: bool,
     },
 }
 
-pub(super) fn shown(ending: Ending, connection: &Connection, was_connected: bool) -> Shown {
+/// `offered_h264`: the session offered the server H.264, so a server that
+/// needs it and ends the session lacks it itself.
+pub(super) fn shown(
+    ending: Ending,
+    connection: &Connection,
+    was_connected: bool,
+    offered_h264: bool,
+) -> Shown {
     let host = connection.host.as_str();
-    let page = |title: String, description: String| Shown::Page { title, description };
+    let page = |title: String, description: String| Shown::Page {
+        title,
+        description,
+        help: false,
+    };
     let could_not = || i18n("Could Not Connect");
     let named = |text: &str| i18n_f(text, &[("host", &host)]);
     match ending {
@@ -104,6 +117,13 @@ pub(super) fn shown(ending: Ending, connection: &Connection, was_connected: bool
                 page(title, error)
             }
         },
+        Ending::ServerClosed(Some(Disconnect::Graphics)) if offered_h264 => Shown::Page {
+            title: could_not(),
+            description: named(
+                "{host} can only send its picture as H.264 video, and has no H.264 encoder installed.",
+            ),
+            help: true,
+        },
         Ending::ServerClosed(Some(Disconnect::Graphics)) => page(
             could_not(),
             named(
@@ -183,5 +203,25 @@ fn gateway_said(why: Tunnel, gateway: &str, host: &str) -> String {
             tracing::warn!("RD Gateway: {error}");
             named("The connection through the RD Gateway {gateway} failed.")
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_server_needing_h264_points_to_the_advice_only_when_offered_it() {
+        let connection = Connection {
+            host: "kde".into(),
+            ..Connection::default()
+        };
+        let graphics = || Ending::ServerClosed(Some(Disconnect::Graphics));
+        let help = |offered| match shown(graphics(), &connection, false, offered) {
+            Shown::Page { help, .. } => help,
+            _ => panic!("a page"),
+        };
+        assert!(help(true), "the server has no encoder");
+        assert!(!help(false), "this computer has no decoder");
     }
 }

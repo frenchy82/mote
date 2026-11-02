@@ -63,6 +63,18 @@ impl AppModel {
                     config::save_connections(&self.connections);
                 }
             }
+            SessionOutput::System {
+                id,
+                server,
+                distro,
+                graphics,
+            } => {
+                if let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) {
+                    (connection.server, connection.distro, connection.graphics) =
+                        (server, distro, graphics);
+                    config::save_connections(&self.connections);
+                }
+            }
             SessionOutput::ViewOnly(id, view_only) => {
                 if let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) {
                     connection.view_only = view_only;

@@ -125,18 +125,27 @@ pub(super) fn connecting(page: &adw::StatusPage) {
 }
 
 /// Shown when a session ends without the window closing; the reason goes
-/// in its title and description.
-pub(super) fn ended(sender: &ComponentSender<Session>) -> adw::StatusPage {
+/// in its title and description. With it, How to Fix, shown when the
+/// server ended it for want of H.264.
+pub(super) fn ended(sender: &ComponentSender<Session>) -> (adw::StatusPage, gtk::Button) {
     let page = adw::StatusPage::new();
     page.set_icon_name(Some("network-offline-symbolic"));
+    let buttons = gtk::Box::new(gtk::Orientation::Vertical, 12);
+    buttons.set_halign(gtk::Align::Center);
     let reconnect = gtk::Button::with_label(&i18n("Reconnect"));
     reconnect.add_css_class("pill");
     reconnect.add_css_class("suggested-action");
-    reconnect.set_halign(gtk::Align::Center);
     let input = sender.input_sender().clone();
     reconnect.connect_clicked(move |_| input.emit(SessionInput::Reconnect));
-    page.set_child(Some(&reconnect));
-    page
+    buttons.append(&reconnect);
+    let help = gtk::Button::with_label(&i18n("How to Fix"));
+    help.add_css_class("pill");
+    help.set_visible(false);
+    let input = sender.input_sender().clone();
+    help.connect_clicked(move |_| input.emit(SessionInput::H264Help));
+    buttons.append(&help);
+    page.set_child(Some(&buttons));
+    (page, help)
 }
 
 /// Ask whether to trust a server's certificate, an SSH server's key or a

@@ -281,6 +281,30 @@ mod tests {
     }
 
     #[test]
+    fn what_a_computer_runs_round_trips() {
+        use crate::rdp::server::{Distro, Graphics, Server};
+        let file = ConnectionsFile {
+            connections: vec![Connection {
+                host: "box".into(),
+                server: Some(Server::GnomeLogin),
+                distro: Some(Distro::Opensuse),
+                graphics: Some(Graphics::Amd),
+                ..Connection::default()
+            }],
+        };
+        let text = toml::to_string_pretty(&file).unwrap();
+        assert!(text.contains("server = \"gnome-remote-login\""), "{text}");
+        let back: ConnectionsFile = toml::from_str(&text).unwrap();
+        assert_eq!(back.connections, file.connections);
+        // Unknown, it isn't written at all.
+        let text = toml::to_string_pretty(&ConnectionsFile {
+            connections: vec![Connection::default()],
+        })
+        .unwrap();
+        assert!(!text.contains("distro"), "{text}");
+    }
+
+    #[test]
     fn missing_settings_take_defaults() {
         let s: Settings = toml::from_str("sort = \"recently-used\"").unwrap();
         assert_eq!(s.sort, SortOrder::RecentlyUsed);

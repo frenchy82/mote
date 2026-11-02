@@ -230,6 +230,17 @@ Desktop sends AVC444 or AVC420 only where it can encode on the GPU; Carbon
 and the headless test server can't, and get progressive RemoteFX whatever
 the client offers.
 
+When a server offered H.264 sends none within its first 3 seconds of
+picture, or ends the session for want of an encoder, a toast or the ended
+page offers How to Fix: what to install on the server, by server,
+distribution and, for GNOME Remote Desktop, graphics card. The server is
+guessed from its certificate (GNOME's settings name it GNOME, Fedora's xrdp
+XRDP, KRdp keeps OpenSSL's defaults) and from Remote Login's redirection;
+an SSH tunnel that ends on the computer reads its `/etc/os-release` and
+graphics vendor. What is not found is chosen in the dialog, and kept with
+the connection. The advice was checked against each distribution's packages
+in November 2026 and lives in `src/ui/session/h264_help/advice.rs`.
+
 The measurement harness is in place (BUILDING.md, under Measuring
 performance). Its first numbers, at 1920×1080 on the development machine:
 

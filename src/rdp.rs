@@ -14,6 +14,7 @@ pub(crate) mod h264;
 pub(crate) mod keymap;
 mod rdstls;
 mod route;
+pub(crate) mod server;
 mod session;
 mod tap;
 
@@ -105,6 +106,16 @@ pub(crate) enum Event {
     OneMonitor,
     /// The server keeps the desktop's size: it has no Display Control.
     KeepsSize,
+    /// Which server it is, guessed from its certificate.
+    Server(server::Server),
+    /// What the computer runs, found through an SSH tunnel that ends on it.
+    System(server::System),
+    /// The graphics channel opened, offering H.264 or not.
+    Graphics {
+        h264: bool,
+    },
+    /// The server was offered H.264 and sends its picture another way.
+    NoH264,
     /// The last event of a session.
     Ended(Ending),
 }
@@ -312,6 +323,14 @@ async fn drive(
                     return Err(Failure::Protocol("too many redirections".into()));
                 }
                 tracing::info!("the server redirected the session");
+                // Only GNOME's Remote Login does, among Linux servers.
+                if events
+                    .send(Event::Server(server::Server::GnomeLogin))
+                    .await
+                    .is_err()
+                {
+                    return Ok(Ending::Closed);
+                }
                 connect::follow(target, &pdu)?;
                 redirect = Some(pdu);
             }
@@ -642,6 +661,10 @@ mod tests {
                 Event::Waking => eprintln!("waking"),
                 Event::OneMonitor => eprintln!("one monitor only"),
                 Event::KeepsSize => eprintln!("keeps its size"),
+                Event::Server(server) => eprintln!("server {server:?}"),
+                Event::System(system) => eprintln!("system {system:?}"),
+                Event::Graphics { h264 } => eprintln!("graphics, H.264 offered: {h264}"),
+                Event::NoH264 => eprintln!("no H.264"),
                 Event::Reconnecting => eprintln!("reconnecting"),
                 Event::Connected { width, height } => {
                     eprintln!("connected {width}x{height}");

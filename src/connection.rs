@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::rdp::server::{Distro, Graphics, Server};
+
 /// The port RDP listens on unless told otherwise.
 pub(crate) const DEFAULT_PORT: u16 = 3389;
 
@@ -60,6 +62,14 @@ pub(crate) struct Connection {
     /// The computer's MAC address, to wake it with before connecting; empty
     /// for none.
     pub(crate) mac_address: String,
+    /// What the computer runs, as last chosen in the advice on H.264; none
+    /// until then.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) server: Option<Server>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) distro: Option<Distro>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) graphics: Option<Graphics>,
 }
 
 /// How the remote desktop meets the window.
@@ -206,6 +216,9 @@ impl Default for Connection {
             gateway_host: String::new(),
             gateway_username: String::new(),
             mac_address: String::new(),
+            server: None,
+            distro: None,
+            graphics: None,
         }
     }
 }

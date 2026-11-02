@@ -8,6 +8,7 @@ mod commands;
 mod controls;
 mod display;
 mod endings;
+mod h264_help;
 pub(crate) mod keyboard;
 mod monitors;
 mod pages;
@@ -77,6 +78,10 @@ pub(crate) struct Session {
     connecting: adw::StatusPage,
     sign_in: pages::SignIn,
     ended: adw::StatusPage,
+    /// The ended page's How to Fix, for a server without H.264.
+    help: gtk::Button,
+    /// What the session learns of the computer, for that advice.
+    findings: h264_help::Findings,
     stack: gtk::Stack,
     toasts: adw::ToastOverlay,
     menu: gio::Menu,
@@ -137,6 +142,10 @@ pub(crate) enum SessionInput {
     Resized,
     /// Send the size, unless a newer change came since.
     SendSize(u32),
+    /// Show what to install for the server to send H.264.
+    H264Help,
+    /// What the computer runs, as chosen there.
+    Chosen(h264_help::Choice),
 }
 
 #[derive(Debug)]
@@ -158,6 +167,13 @@ pub(crate) enum SessionOutput {
     Scaling(String, Scaling),
     /// View-only was turned on or off, to be kept.
     ViewOnly(String, bool),
+    /// What the computer runs was chosen, to be kept.
+    System {
+        id: String,
+        server: Option<rdp::server::Server>,
+        distro: Option<rdp::server::Distro>,
+        graphics: Option<rdp::server::Graphics>,
+    },
     Detach(String),
     Attach(String),
 }
@@ -286,7 +302,7 @@ impl Component for Session {
     ) -> ComponentParts<Self> {
         let connection = init.connection;
         let sign_in = pages::SignIn::new(&connection, &sender);
-        let ended = pages::ended(&sender);
+        let (ended, help) = pages::ended(&sender);
         let model = Session {
             reconnect: init.reconnect,
             keyboard_layout: init.keyboard_layout,
@@ -311,6 +327,8 @@ impl Component for Session {
             connecting: adw::StatusPage::new(),
             sign_in,
             ended,
+            help,
+            findings: h264_help::Findings::default(),
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
             menu: controls::menu(false),
@@ -488,6 +506,31 @@ impl Component for Session {
             SessionInput::SendKeys(name) => {
                 if let Some(codes) = controls::keys(&name) {
                     self.display.send_keys(&codes);
+                }
+            }
+            SessionInput::H264Help => {
+                let input = sender.input_sender().clone();
+                h264_help::present(
+                    root,
+                    self.connection.title(),
+                    self.page == Page::Ended,
+                    self.findings.choice(&self.connection),
+                    move |choice| input.emit(SessionInput::Chosen(choice)),
+                );
+            }
+            SessionInput::Chosen(choice) => {
+                let c = &mut self.connection;
+                if (c.server, c.distro, c.graphics)
+                    != (choice.server, choice.distro, choice.graphics)
+                {
+                    (c.server, c.distro, c.graphics) =
+                        (choice.server, choice.distro, choice.graphics);
+                    let _ = sender.output(SessionOutput::System {
+                        id: c.id.clone(),
+                        server: choice.server,
+                        distro: choice.distro,
+                        graphics: choice.graphics,
+                    });
                 }
             }
             SessionInput::Screenshot => {
@@ -829,6 +872,20 @@ impl Session {
                 self.display.set_remote_cursor(cursor);
             }
             Event::KeepsSize => self.display.set_keeps_size(),
+            event @ (Event::Server(_)
+            | Event::System(_)
+            | Event::Graphics { .. }
+            | Event::NoH264) => {
+                if self.findings.learn(event) {
+                    let toast =
+                        adw::Toast::new(&i18n("The remote computer is not sending H.264 video"));
+                    toast.set_button_label(Some(&i18n("How to Fix")));
+                    toast.set_timeout(10);
+                    let input = sender.input_sender().clone();
+                    toast.connect_button_clicked(move |_| input.emit(SessionInput::H264Help));
+                    self.toasts.add_toast(toast);
+                }
+            }
             Event::OneMonitor => {
                 if self.spread.is_some() {
                     self.gather(sender);
@@ -896,13 +953,23 @@ impl Session {
         if !matches!(ending, Ending::Closed) {
             let _ = sender.output(SessionOutput::Stopped(self.connection.id.clone()));
         }
-        match endings::shown(ending, &self.connection, was_connected) {
+        match endings::shown(
+            ending,
+            &self.connection,
+            was_connected,
+            self.findings.offered,
+        ) {
             endings::Shown::Nothing => {}
             endings::Shown::SignIn(message) => {
                 self.page = Page::SignIn;
                 self.sign_in.refused(&message);
             }
-            endings::Shown::Page { title, description } => {
+            endings::Shown::Page {
+                title,
+                description,
+                help,
+            } => {
+                self.help.set_visible(help);
                 self.ended.set_title(&title);
                 self.ended
                     .set_description(Some(&gtk::glib::markup_escape_text(&description)));

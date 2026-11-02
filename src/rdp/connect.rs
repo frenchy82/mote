@@ -129,7 +129,7 @@ async fn attempt(
     let mut framed = TokioFramed::new(stream);
 
     let mut connector = ClientConnector::new(config(target, audio), client_addr)
-        .with_static_channel(channels(target.quality, audio));
+        .with_static_channel(channels(target.quality, audio, events));
     if let Some(channel) = clipboard.channel() {
         connector = connector.with_static_channel(channel);
     }
@@ -192,6 +192,10 @@ async fn attempt(
     let mut asked = false;
     if !vouched {
         asked = ask_trust(target, &der, events).await?;
+    }
+    if let Some(server) = super::server::Server::from_certificate(&der) {
+        tracing::debug!("by its certificate, the server is {server:?}");
+        let _ = events.send(Event::Server(server)).await;
     }
     let fail = |failure: Failure| match failure {
         Failure::Refused | Failure::Untrusted => Attempt::Failed(failure),
@@ -309,27 +313,57 @@ async fn credssp(
     Ok(())
 }
 
+/// How long into its picture a server offered H.264 has to send some
+/// before it counts as not sending it: what comes first may be in
+/// another codec.
+const NO_H264_AFTER: std::time::Duration = std::time::Duration::from_secs(3);
+
 /// The dynamic channels: the Graphics Pipeline, with H.264 where the system
 /// has OpenH264, whose output lands in the session's image by way of the
 /// session itself, and Display Control. Each
 /// is made afresh whenever the server opens it: xrdp opens both again after
 /// a resize.
-fn channels(quality: Quality, audio: &super::audio::Audio) -> ironrdp_dvc::DrdynvcClient {
-    /// What the server chose, logged for measurements.
-    #[derive(Default)]
-    struct Pictures(Option<ironrdp_egfx::pdu::Codec1Type>);
+fn channels(
+    quality: Quality,
+    audio: &super::audio::Audio,
+    events: &mpsc::Sender<Event>,
+) -> ironrdp_dvc::DrdynvcClient {
+    use ironrdp_egfx::pdu::Codec1Type;
+    /// What the server chose, logged for measurements; and, when it was
+    /// offered H.264, whether it sends it.
+    struct Pictures {
+        codec: Option<Codec1Type>,
+        /// Until the server's first H.264, or until it has had long enough
+        /// to send some: when its picture began.
+        watch: Option<(Option<std::time::Instant>, mpsc::Sender<Event>)>,
+    }
     impl ironrdp_egfx::client::GraphicsPipelineHandler for Pictures {
         fn on_capabilities_confirmed(&mut self, caps: &ironrdp_egfx::pdu::CapabilitySet) {
             tracing::info!(target: "mote::stats", "graphics pipeline {caps:?}");
         }
 
         fn on_bitmap_updated(&mut self, update: &ironrdp_egfx::client::BitmapUpdate) {
-            if self.0 != Some(update.codec_id) {
-                self.0 = Some(update.codec_id);
+            if self.codec != Some(update.codec_id) {
+                self.codec = Some(update.codec_id);
                 tracing::info!(target: "mote::stats", "codec {:?}", update.codec_id);
+            }
+            let avc = matches!(
+                update.codec_id,
+                Codec1Type::Avc420 | Codec1Type::Avc444 | Codec1Type::Avc444v2
+            );
+            let Some((began, events)) = &mut self.watch else {
+                return;
+            };
+            if avc {
+                self.watch = None;
+            } else if began.get_or_insert_with(std::time::Instant::now).elapsed() >= NO_H264_AFTER {
+                // Called on the session's task, which mustn't wait here.
+                let _ = events.try_send(Event::NoH264);
+                self.watch = None;
             }
         }
     }
+    let events = events.clone();
     let mut channels = ironrdp_dvc::DrdynvcClient::new()
         .with_dynamic_channel_factory(ironrdp_egfx::CHANNEL_NAME, move || {
             let h264 = match quality {
@@ -339,7 +373,14 @@ fn channels(quality: Quality, audio: &super::audio::Audio) -> ironrdp_dvc::Drdyn
                     Box::new(super::h264::Decoder::new(d, avc444)) as Box<_>
                 }),
             };
-            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::<Pictures>::default(), h264)
+            let _ = events.try_send(Event::Graphics {
+                h264: h264.is_some(),
+            });
+            let pictures = Pictures {
+                codec: None,
+                watch: h264.is_some().then(|| (None, events.clone())),
+            };
+            ironrdp_egfx::client::GraphicsPipelineClient::new(Box::new(pictures), h264)
         })
         .with_dynamic_channel_factory(ironrdp_displaycontrol::CHANNEL_NAME, || {
             ironrdp_displaycontrol::client::DisplayControlClient::new(|_| Ok(Vec::new()))
