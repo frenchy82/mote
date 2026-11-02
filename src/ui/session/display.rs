@@ -383,6 +383,11 @@ impl Display {
             .set(Some((i32::from(width), i32::from(height))));
     }
 
+    /// The server answered the size asked for with another.
+    pub(crate) fn keeps_size(&self) -> bool {
+        self.imp().keeps_size.get()
+    }
+
     /// The server can't change the desktop's size at all.
     pub(crate) fn set_keeps_size(&self) {
         if !self.imp().keeps_size.replace(true) {

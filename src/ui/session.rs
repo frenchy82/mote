@@ -5,6 +5,7 @@
 
 mod clipboard;
 mod commands;
+mod connecting;
 mod controls;
 mod display;
 mod endings;
@@ -12,6 +13,7 @@ mod h264_help;
 pub(crate) mod keyboard;
 mod monitors;
 mod pages;
+mod resize_help;
 
 pub(crate) use clipboard::fetched_files;
 pub(crate) use pages::scaling_label;
@@ -90,6 +92,10 @@ pub(crate) struct Session {
     /// What the session learns of the computer, for that advice.
     findings: h264_help::Findings,
     h264_warning: bool,
+    /// The toast about Desktop Sharing keeping its size: waiting to see
+    /// whether the size sticks, and shown.
+    size_checking: bool,
+    size_told: bool,
     stack: gtk::Stack,
     toasts: adw::ToastOverlay,
     menu: gio::Menu,
@@ -154,6 +160,10 @@ pub(crate) enum SessionInput {
     H264Help,
     /// What the computer runs, as chosen there.
     Chosen(h264_help::Choice),
+    /// The server still keeps its size, a while after it first did.
+    SizeKept,
+    /// Show how to make Desktop Sharing resize with the window.
+    ResizeHelp,
 }
 
 #[derive(Debug)]
@@ -339,6 +349,8 @@ impl Component for Session {
             help,
             findings: h264_help::Findings::default(),
             h264_warning: init.h264_warning,
+            size_checking: false,
+            size_told: false,
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
             menu: controls::menu(false),
@@ -544,6 +556,19 @@ impl Component for Session {
                     move |choice| input.emit(SessionInput::Chosen(choice)),
                 );
             }
+            SessionInput::SizeKept => {
+                self.size_checking = false;
+                if self.display.keeps_size()
+                    && resize_help::applies(self.findings.choice(&self.connection).server)
+                    && !std::mem::replace(&mut self.size_told, true)
+                {
+                    let input = sender.input_sender().clone();
+                    self.toasts.add_toast(resize_help::toast(move || {
+                        input.emit(SessionInput::ResizeHelp);
+                    }));
+                }
+            }
+            SessionInput::ResizeHelp => resize_help::present(root, self.connection.title()),
             SessionInput::Chosen(choice) => {
                 let c = &mut self.connection;
                 if (c.server, c.distro, c.graphics)
@@ -696,120 +721,17 @@ impl Session {
         }
     }
 
-    fn connect(&mut self, sender: &ComponentSender<Self>) {
-        self.clipboard = None;
-        if let Some(handle) = self.handle.take() {
-            handle.send(rdp::Command::Close);
-            self.finished();
-        }
-        self.page = Page::Connecting;
-        self.connecting.set_title(&i18n_f(
-            "Connecting to {name}…",
-            &[("name", &self.connection.title())],
-        ));
-        // The desktop is asked for at the page's size, so wait for there to
-        // be one.
-        let Some((width, height, scale)) = self.desktop_size() else {
-            // Polled rather than tied to the page's frame clock, which
-            // doesn't run while another connection is showing.
+    /// A server that answers a resize with a desktop of another size may
+    /// just be slow, so it counts as keeping its size only if it still
+    /// does a few seconds later.
+    fn check_size_kept(&mut self, sender: &ComponentSender<Self>) {
+        if self.display.keeps_size() && !self.size_told && !self.size_checking {
+            self.size_checking = true;
             let input = sender.input_sender().clone();
-            let stack = self.stack.downgrade();
-            glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-                let Some(stack) = stack.upgrade() else {
-                    return glib::ControlFlow::Break;
-                };
-                let sized = stack.width() > 0 || window_of(&stack).is_some_and(|w| w.width() > 0);
-                if !sized {
-                    return glib::ControlFlow::Continue;
-                }
-                input.emit(SessionInput::Connect);
-                glib::ControlFlow::Break
-            });
-            return;
-        };
-        self.display.set_asked(width, height);
-        let target = rdp::Target {
-            host: self.connection.host.clone(),
-            port: self.connection.port,
-            username: self.username.clone(),
-            password: self.password.clone(),
-            domain: self.domain.clone(),
-            width,
-            height,
-            scale,
-            quality: self.connection.quality,
-            network: self.connection.network,
-            clipboard: self.connection.clipboard,
-            sound: self.connection.sound,
-            microphone: self.connection.microphone,
-            folder: self.connection.shared_folder(),
-            via: self.via(),
-            wake: self.connection.wake_address(),
-            reconnect: self.reconnect,
-            keyboard_layout: keyboard::layout_id(self.keyboard_layout, &self.display),
-        };
-        let (handle, mut events) = rdp::start(target);
-        self.begun = true;
-        let input = handle.clone();
-        self.display
-            .set_input(move |events| input.send(rdp::Command::Input(events)));
-        if self.connection.clipboard {
-            self.clipboard = Some(clipboard::Sharing::new(&self.display, handle.clone()));
-        }
-        self.handle = Some(handle);
-        self.attempt += 1;
-        let attempt = self.attempt;
-        sender.command(move |out, shutdown| {
-            shutdown
-                .register(async move {
-                    while let Some(event) = events.recv().await {
-                        if out.send(SessionCmd::Event(attempt, event)).is_err() {
-                            break;
-                        }
-                    }
-                })
-                .drop_on_shutdown()
-        });
-    }
-
-    /// The way to the computer: through the SSH server or the gateway, if
-    /// the connection has one.
-    fn via(&self) -> rdp::Via {
-        let c = &self.connection;
-        if let Some((host, port)) = c.ssh_server() {
-            let username = if c.ssh_username.is_empty() {
-                glib::user_name().to_string_lossy().into_owned()
-            } else {
-                c.ssh_username.clone()
-            };
-            return rdp::Via::Ssh(rdp::Hop {
-                host,
-                port,
-                username,
-                password: self.ssh_password.clone(),
+            glib::timeout_add_local_once(std::time::Duration::from_secs(3), move || {
+                input.emit(SessionInput::SizeKept);
             });
         }
-        if let Some((host, port)) = c.gateway_server() {
-            // Without an account of its own, the gateway takes the one
-            // signing in to the computer, as Windows' client does.
-            let (username, password) = if c.gateway_username.is_empty() {
-                let account = if self.domain.is_empty() {
-                    self.username.clone()
-                } else {
-                    format!("{}\\{}", self.domain, self.username)
-                };
-                (account, self.password.clone())
-            } else {
-                (c.gateway_username.clone(), self.gateway_password.clone())
-            };
-            return rdp::Via::Gateway(rdp::Hop {
-                host,
-                port,
-                username,
-                password,
-            });
-        }
-        rdp::Via::Direct
     }
 
     /// The size to ask the server for, in the screen's own pixels, and the
@@ -881,6 +803,7 @@ impl Session {
             }
             Event::Frame(frame) => {
                 self.display.show_frame(frame);
+                self.check_size_kept(sender);
                 if let (Some(spread), Some(texture)) = (&self.spread, self.display.texture()) {
                     for display in spread.displays() {
                         display.show_texture(texture.clone());
@@ -898,7 +821,10 @@ impl Session {
                 }
                 self.display.set_remote_cursor(cursor);
             }
-            Event::KeepsSize => self.display.set_keeps_size(),
+            Event::KeepsSize => {
+                self.display.set_keeps_size();
+                self.check_size_kept(sender);
+            }
             event @ (Event::Server(_)
             | Event::System(_)
             | Event::Graphics { .. }

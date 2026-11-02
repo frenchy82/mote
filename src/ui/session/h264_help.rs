@@ -231,7 +231,7 @@ fn show_steps(body: &gtk::Box, choice: Choice, gnome: bool) {
     }
 }
 
-fn paragraph(text: &str) -> gtk::Label {
+pub(super) fn paragraph(text: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(text));
     label.set_wrap(true);
     label.set_xalign(0.0);
@@ -239,7 +239,7 @@ fn paragraph(text: &str) -> gtk::Label {
 }
 
 /// A command to type on the server, with a button that copies it.
-fn command_box(command: &'static str) -> gtk::Box {
+pub(super) fn command_box(command: &'static str) -> gtk::Box {
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     line.add_css_class("card");
     line.add_css_class("h264-command");
