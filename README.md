@@ -8,6 +8,13 @@ A remote desktop client for GNOME, written in Rust with GTK 4 and libadwaita,
 for connecting to Linux machines that run an RDP server: GNOME Remote
 Desktop, xrdp or KRdp.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="data/repo/screenshot-dark.png">
+    <img src="data/repo/screenshot.png" width="900" alt="Mote showing a session beside the saved connections">
+  </picture>
+</p>
+
 Mote 1.0 is the first stable release. It was built in sections, each one
 finished and tested against a real server before the next started; what each
 section holds is in [docs/ROADMAP.md](docs/ROADMAP.md).
