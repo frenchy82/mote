@@ -738,6 +738,10 @@ impl AppModel {
                 s.h264_warning = on;
                 false
             }
+            PrefChange::SizeNotice(on) => {
+                s.size_notice = on;
+                false
+            }
             PrefChange::Decoder(source) => {
                 s.decoder = source;
                 crate::rdp::h264::choose(source);

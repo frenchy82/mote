@@ -91,6 +91,9 @@ pub(crate) struct Settings {
     pub(crate) grab_notice: bool,
     /// A session says when a server sends no H.264, and how to fix it.
     pub(crate) h264_warning: bool,
+    /// A session says when GNOME Desktop Sharing keeps its screen's size,
+    /// and how to make it resize.
+    pub(crate) size_notice: bool,
     /// The H.264 decoder to try first; none tries them in their own order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) decoder: Option<Source>,
@@ -119,6 +122,7 @@ impl Default for Settings {
             reconnect: true,
             grab_notice: true,
             h264_warning: true,
+            size_notice: true,
             decoder: None,
             about_height: 740,
             window: WindowState::default(),
@@ -313,9 +317,11 @@ mod tests {
     #[test]
     fn notices_are_on_unless_turned_off() {
         let s: Settings = toml::from_str("reconnect = true").unwrap();
-        assert!(s.grab_notice && s.h264_warning);
+        assert!(s.grab_notice && s.h264_warning && s.size_notice);
         let s: Settings = toml::from_str("h264_warning = false").unwrap();
-        assert!(s.grab_notice && !s.h264_warning);
+        assert!(s.grab_notice && !s.h264_warning && s.size_notice);
+        let s: Settings = toml::from_str("size_notice = false").unwrap();
+        assert!(s.grab_notice && s.h264_warning && !s.size_notice);
     }
 
     #[test]

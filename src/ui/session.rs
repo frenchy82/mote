@@ -45,6 +45,8 @@ pub(crate) struct SessionInit {
     pub(crate) grab_notice: bool,
     /// Say when the server sends no H.264.
     pub(crate) h264_warning: bool,
+    /// Say when Desktop Sharing keeps its screen's size.
+    pub(crate) size_notice: bool,
 }
 
 pub(crate) struct Session {
@@ -350,7 +352,8 @@ impl Component for Session {
             findings: h264_help::Findings::default(),
             h264_warning: init.h264_warning,
             size_checking: false,
-            size_told: false,
+            // Turned off in Settings: as if already shown.
+            size_told: !init.size_notice,
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
             menu: controls::menu(false),

@@ -86,6 +86,7 @@ pub(crate) enum PrefChange {
     Reconnect(bool),
     GrabNotice(bool),
     H264Warning(bool),
+    SizeNotice(bool),
     Decoder(Option<crate::rdp::h264::Source>),
 }
 

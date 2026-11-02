@@ -183,6 +183,11 @@ fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
             settings.h264_warning,
             PrefChange::H264Warning,
         ),
+        (
+            i18n("Desktop Sharing Size Notice"),
+            settings.size_notice,
+            PrefChange::SizeNotice,
+        ),
     ] {
         let row = adw::SwitchRow::new();
         row.set_title(&title);
