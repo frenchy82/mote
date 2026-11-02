@@ -315,6 +315,12 @@ impl Component for AppModel {
         std::thread::spawn(|| {
             let _ = std::fs::remove_dir_all(crate::ui::session::fetched_files());
         });
+        // Passwords an earlier Flatpak version kept in its sandbox.
+        relm4::spawn(async {
+            if let Err(e) = crate::secrets::move_from_sandbox().await {
+                tracing::warn!("moving the sandbox's passwords: {e}");
+            }
+        });
         // Only X11 reads a window's own icon; Wayland goes by the app ID.
         gtk::Window::set_default_icon_name(crate::APP_ID);
         let settings = config::load_settings();

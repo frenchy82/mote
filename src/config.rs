@@ -1,5 +1,6 @@
-//! What Mote keeps on disk: `settings.toml` and `connections.toml` in
-//! `$XDG_CONFIG_HOME/mote`. Passwords are never here; see `secrets`.
+//! What Mote keeps on disk: `settings.toml`, `connections.toml` and
+//! `certificates.toml` in the directory `paths::config_dir` names, the same
+//! for every kind of install. Passwords are never here; see `secrets`.
 
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
@@ -154,7 +155,41 @@ struct ConnectionsFile {
 }
 
 fn dir() -> PathBuf {
-    gtk::glib::user_config_dir().join("mote")
+    crate::paths::config_dir()
+}
+
+/// Add to the list at `to` what the one at `from` has and it lacks: the
+/// connections by id, the trusted certificates by address. `false` for a
+/// file that isn't one of these lists.
+pub(crate) fn merge_list(from: &Path, to: &Path) -> bool {
+    match from.file_name().and_then(|n| n.to_str()) {
+        Some("connections.toml") => {
+            let mut into = load::<ConnectionsFile>(to).unwrap_or_default();
+            let extra = load::<ConnectionsFile>(from).unwrap_or_default();
+            for connection in extra.connections {
+                if !into.connections.iter().any(|c| c.id == connection.id) {
+                    into.connections.push(connection);
+                }
+            }
+            save(to, &into);
+        }
+        Some("certificates.toml") => {
+            let mut into = load::<CertificatesFile>(to).unwrap_or_default();
+            let extra = load::<CertificatesFile>(from).unwrap_or_default();
+            for server in extra.servers {
+                if !into
+                    .servers
+                    .iter()
+                    .any(|s| s.port == server.port && s.host.eq_ignore_ascii_case(&server.host))
+                {
+                    into.servers.push(server);
+                }
+            }
+            save(to, &into);
+        }
+        _ => return false,
+    }
+    true
 }
 
 pub(crate) fn load_settings() -> Settings {
@@ -275,6 +310,43 @@ fn save<T: Serialize>(path: &Path, value: &T) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn merging_lists_adds_only_what_is_missing() {
+        let root = std::env::temp_dir().join(format!("mote-merge-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let (from, to) = (
+            root.join("a/connections.toml"),
+            root.join("connections.toml"),
+        );
+        let connection = |id: &str, host: &str| Connection {
+            id: id.into(),
+            host: host.into(),
+            ..Connection::default()
+        };
+        save(
+            &from,
+            &ConnectionsFile {
+                connections: vec![connection("1", "sandbox"), connection("2", "only-sandbox")],
+            },
+        );
+        save(
+            &to,
+            &ConnectionsFile {
+                connections: vec![connection("1", "host"), connection("3", "only-host")],
+            },
+        );
+        assert!(merge_list(&from, &to));
+        let hosts: Vec<String> = load::<ConnectionsFile>(&to)
+            .unwrap()
+            .connections
+            .into_iter()
+            .map(|c| c.host)
+            .collect();
+        assert_eq!(hosts, ["host", "only-host", "only-sandbox"]);
+        assert!(!merge_list(&root.join("settings.toml"), &to));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
 
     #[test]
     fn connections_round_trip() {

@@ -35,10 +35,7 @@ pub(crate) fn path() -> PathBuf {
     let name = build().map_or("libopenh264.so".to_owned(), |(platform, _)| {
         format!("libopenh264-{VERSION}-{platform}.8.so")
     });
-    gtk::glib::user_data_dir()
-        .join("mote")
-        .join("openh264")
-        .join(name)
+    crate::paths::data_dir().join("openh264").join(name)
 }
 
 pub(crate) fn downloaded() -> bool {

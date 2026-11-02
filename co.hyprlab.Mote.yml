@@ -38,8 +38,17 @@ finish-args:
   - --filesystem=xdg-data/remmina:ro
   - --filesystem=~/.var/app/org.remmina.Remmina/data/remmina:ro
   - --filesystem=~/.remmina:ro
-  # Passwords go through the secret portal, and a shared folder through the
-  # file chooser's, so neither needs a permission here.
+  # The settings, connections and pictures every kind of install shares,
+  # in place of a tree of the Flatpak's own under ~/.var/app; :create makes
+  # them on a first install, as Flatpak skips a directory that is missing.
+  # Home paths, not xdg-config/mote: that form also mounts them over the
+  # sandbox's own, hiding what an earlier version saved there.
+  - --filesystem=~/.config/mote:create
+  - --filesystem=~/.local/share/mote:create
+  # Passwords, in the desktop's keyring, where a package keeps them too.
+  - --talk-name=org.freedesktop.secrets
+  # A shared folder goes through the file chooser's portal, so it needs no
+  # permission here.
 
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin

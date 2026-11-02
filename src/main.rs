@@ -9,6 +9,7 @@ mod config;
 mod connection;
 mod i18n;
 mod import;
+mod paths;
 mod rdp;
 mod secrets;
 mod stats;
@@ -33,6 +34,7 @@ fn main() {
         .init();
     tracing::info!("{APP_NAME} {VERSION}");
     register_resources();
+    paths::move_from_sandbox();
 
     let app = relm4::RelmApp::new(APP_ID);
     // relm4 sets the ID on an application it has already built, too late

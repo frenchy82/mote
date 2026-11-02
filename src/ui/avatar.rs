@@ -231,7 +231,7 @@ pub(crate) fn robot_seed(connection: &Connection) -> String {
 
 /// Where the images chosen for connections are kept.
 fn pictures_dir() -> PathBuf {
-    glib::user_data_dir().join("mote").join("pictures")
+    crate::paths::data_dir().join("pictures")
 }
 
 thread_local! {

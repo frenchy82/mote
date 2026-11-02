@@ -84,10 +84,10 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 ### 2. Connections
 
 - The connection profile: host, port, user name, domain, and every
-  per-connection setting the later sections add, stored as TOML in the user's
-  config directory.
-- Passwords in the Secret Service (the GNOME keyring, or the secret portal
-  inside Flatpak), never in the profile.
+  per-connection setting the later sections add, stored as TOML in
+  `~/.config/mote`, which the Flatpak, the packages and the AppImage share.
+- Passwords in the desktop's Secret Service (the GNOME keyring), from the
+  Flatpak too, never in the profile.
 - The connection list: search, groups, last-used order, and a search field
   that takes `host[:port]`: Enter on an address nothing matches starts a new
   connection to it. Connecting straight from it comes with section 3.
