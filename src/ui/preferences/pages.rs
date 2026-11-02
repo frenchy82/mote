@@ -170,7 +170,30 @@ fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
     reconnect.connect_active_notify(move |r| out.emit(PrefChange::Reconnect(r.is_active())));
     network.add(&reconnect);
 
-    page_with(&[&keyboard, &network])
+    let notices = adw::PreferencesGroup::new();
+    notices.set_title(&i18n("Notifications"));
+    for (title, on, change) in [
+        (
+            i18n("Keyboard Grab Notice"),
+            settings.grab_notice,
+            PrefChange::GrabNotice as fn(bool) -> PrefChange,
+        ),
+        (
+            i18n("Missing H.264 Warning"),
+            settings.h264_warning,
+            PrefChange::H264Warning,
+        ),
+    ] {
+        let row = adw::SwitchRow::new();
+        row.set_title(&title);
+        row.set_subtitle(&i18n("Once a session"));
+        row.set_active(on);
+        let out = sender.output_sender().clone();
+        row.connect_active_notify(move |r| out.emit(change(r.is_active())));
+        notices.add(&row);
+    }
+
+    page_with(&[&keyboard, &network, &notices])
 }
 
 fn combo(title: &str, labels: &[String]) -> adw::ComboRow {

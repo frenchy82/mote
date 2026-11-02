@@ -31,6 +31,8 @@ impl AppModel {
                     grab: self.settings.grab_keyboard,
                     reconnect: self.settings.reconnect,
                     keyboard_layout: self.settings.keyboard_layout,
+                    grab_notice: self.settings.grab_notice,
+                    h264_warning: self.settings.h264_warning,
                 })
                 .forward(sender.input_sender(), AppMsg::Session);
             self.panes.add_named(session.widget(), Some(&page_name(id)));

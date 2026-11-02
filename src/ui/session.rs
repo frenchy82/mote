@@ -39,6 +39,10 @@ pub(crate) struct SessionInit {
     pub(crate) reconnect: bool,
     /// 0 follows this computer's layout.
     pub(crate) keyboard_layout: u32,
+    /// Say, the first time, that the shortcuts are held back.
+    pub(crate) grab_notice: bool,
+    /// Say when the server sends no H.264.
+    pub(crate) h264_warning: bool,
 }
 
 pub(crate) struct Session {
@@ -82,6 +86,7 @@ pub(crate) struct Session {
     help: gtk::Button,
     /// What the session learns of the computer, for that advice.
     findings: h264_help::Findings,
+    h264_warning: bool,
     stack: gtk::Stack,
     toasts: adw::ToastOverlay,
     menu: gio::Menu,
@@ -329,6 +334,7 @@ impl Component for Session {
             ended,
             help,
             findings: h264_help::Findings::default(),
+            h264_warning: init.h264_warning,
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
             menu: controls::menu(false),
@@ -354,7 +360,7 @@ impl Component for Session {
                 "Desktop of {name}",
                 &[("name", &model.connection.title())],
             ))]);
-        let (toasts, told) = (model.toasts.clone(), Cell::new(false));
+        let (toasts, told) = (model.toasts.clone(), Cell::new(!init.grab_notice));
         model.display.set_on_grabbed(move || {
             if !told.replace(true) {
                 toasts.add_toast(adw::Toast::new(&i18n(
@@ -876,7 +882,7 @@ impl Session {
             | Event::System(_)
             | Event::Graphics { .. }
             | Event::NoH264) => {
-                if self.findings.learn(event) {
+                if self.findings.learn(event) && self.h264_warning {
                     let toast =
                         adw::Toast::new(&i18n("The remote computer is not sending H.264 video"));
                     toast.set_button_label(Some(&i18n("How to Fix")));

@@ -238,7 +238,7 @@ guessed from its certificate (GNOME's settings name it GNOME, Fedora's xrdp
 XRDP, KRdp keeps OpenSSL's defaults) and from Remote Login's redirection;
 an SSH tunnel that ends on the computer reads its `/etc/os-release` and
 graphics vendor. What is not found is chosen in the dialog, and kept with
-the connection. The advice was checked against each distribution's packages
+the connection. Missing H.264 Warning in Settings turns the toast off. The advice was checked against each distribution's packages
 in November 2026 and lives in `src/ui/session/h264_help/advice.rs`.
 
 The measurement harness is in place (BUILDING.md, under Measuring
@@ -408,7 +408,7 @@ Built, in the session menu and the editor:
   pointer leaves it (at the end of a drag that leaves it) or the window or
   the keyboard goes elsewhere. GNOME asks once whether
   to allow it, and gives the shortcuts back on Super+Esc; a toast says so
-  the first time. Grab Keyboard in the menu turns it off for the session.
+  the first time, unless Keyboard Grab Notice is off in Settings. Grab Keyboard in the menu turns it off for the session.
 - Send Keys: Ctrl+Alt+Delete, Super, Alt+Tab, Print Screen and Ctrl+Alt+F1
   to F12, for when the grab is off.
 - View Only, in the menu and the editor (Remmina's `viewonly`): keys and

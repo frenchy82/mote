@@ -730,6 +730,14 @@ impl AppModel {
                 s.reconnect = on;
                 false
             }
+            PrefChange::GrabNotice(on) => {
+                s.grab_notice = on;
+                false
+            }
+            PrefChange::H264Warning(on) => {
+                s.h264_warning = on;
+                false
+            }
             PrefChange::Decoder(source) => {
                 s.decoder = source;
                 crate::rdp::h264::choose(source);
