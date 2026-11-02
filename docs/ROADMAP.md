@@ -465,7 +465,10 @@ Built:
   has 1.7; the same list is in [KEYBOARD_SHORTCUTS.md](KEYBOARD_SHORTCUTS.md).
 - Right Ctrl, alone, lets go of the keyboard, as Remmina's host key does:
   without it a keyboard alone couldn't leave a session, which takes every
-  key. With another key it goes to the server.
+  key. With another key it goes to the server. In fullscreen it shows the
+  header, which stays until the desktop has the keyboard again: a click on
+  it, or the pointer leaving it and coming back. Resting on it doesn't take
+  the keyboard back.
 - The accessibility review, through the AT-SPI tree in a headless GNOME:
   every icon-only button has a name, the sidebars' rows are named for
   their connection or category rather than by their tooltip, group

@@ -247,7 +247,7 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
         (
             i18n("Sessions"),
             vec![
-                (i18n("Let Go of the Keyboard"), "Control_R"),
+                (i18n("Let Go of the Keyboard and Show the Header"), "Control_R"),
                 (i18n("Give the Shortcuts Back"), "<Super>Escape"),
             ],
         ),

@@ -71,6 +71,9 @@ pub(crate) struct Session {
     /// Whether the window holding it is fullscreen, shared with the
     /// pointer watch that shows the header at the screen's top edge.
     fullscreen: Rc<Cell<bool>>,
+    /// Fullscreen, the header was shown for the keyboard: it stays until
+    /// the desktop has the keyboard again.
+    pinned: Rc<Cell<bool>>,
     /// The window whose fullscreen state is followed.
     watched: Option<gtk::Window>,
     scaling: Scaling,
@@ -324,6 +327,7 @@ impl Component for Session {
             begun: false,
             detached: false,
             fullscreen: Rc::new(Cell::new(false)),
+            pinned: Rc::new(Cell::new(false)),
             watched: None,
             scaling: connection.scaling,
             resizes: 0,
@@ -372,7 +376,22 @@ impl Component for Session {
         model
             .display
             .set_on_size(move || input.emit(SessionInput::Resized));
-        reveal_at_top_edge(&root, &model.fullscreen);
+        reveal_at_top_edge(&root, &model.fullscreen, &model.pinned);
+        // A header shown for the keyboard hides once the desktop has it
+        // again.
+        model.display.connect_has_focus_notify(glib::clone!(
+            #[weak]
+            root,
+            #[strong(rename_to = pinned)]
+            model.pinned,
+            #[strong(rename_to = fullscreen)]
+            model.fullscreen,
+            move |display| {
+                if display.has_focus() && pinned.replace(false) && fullscreen.get() {
+                    root.set_reveal_top_bars(false);
+                }
+            }
+        ));
         pages::connecting(&model.connecting);
         let (stack, toasts, display, ended, connecting) = (
             &model.stack.clone(),
@@ -494,6 +513,7 @@ impl Component for Session {
                 // Fullscreen, the header shows, so the keyboard has somewhere
                 // to be.
                 if self.fullscreen.get() {
+                    self.pinned.set(true);
                     root.set_reveal_top_bars(true);
                 }
                 if let Some(button) = session_menu(root) {
@@ -579,6 +599,7 @@ impl Component for Session {
             }
             SessionInput::FullscreenChanged(fullscreen) => {
                 self.fullscreen.set(fullscreen);
+                self.pinned.set(false);
                 if !fullscreen {
                     self.gather(&sender);
                 }
@@ -1011,11 +1032,16 @@ fn window_of(widget: &impl IsA<gtk::Widget>) -> Option<gtk::Window> {
 
 /// Fullscreen, the header hides; the pointer at the top edge brings it back
 /// until the pointer moves well clear of it.
-fn reveal_at_top_edge(root: &adw::ToolbarView, fullscreen: &Rc<Cell<bool>>) {
+/// `pinned`: shown for the keyboard, it stays whatever the pointer does.
+fn reveal_at_top_edge(
+    root: &adw::ToolbarView,
+    fullscreen: &Rc<Cell<bool>>,
+    pinned: &Rc<Cell<bool>>,
+) {
     let motion = gtk::EventControllerMotion::new();
     // Before the desktop sees the pointer, so the header shows over it.
     motion.set_propagation_phase(gtk::PropagationPhase::Capture);
-    let fullscreen = fullscreen.clone();
+    let (fullscreen, pinned) = (fullscreen.clone(), pinned.clone());
     motion.connect_motion(glib::clone!(
         #[weak]
         root,
@@ -1025,7 +1051,10 @@ fn reveal_at_top_edge(root: &adw::ToolbarView, fullscreen: &Rc<Cell<bool>>) {
             }
             if y <= 2.0 {
                 root.set_reveal_top_bars(true);
-            } else if root.reveals_top_bars() && y > f64::from(root.top_bar_height()) + 48.0 {
+            } else if !pinned.get()
+                && root.reveals_top_bars()
+                && y > f64::from(root.top_bar_height()) + 48.0
+            {
                 root.set_reveal_top_bars(false);
             }
         }

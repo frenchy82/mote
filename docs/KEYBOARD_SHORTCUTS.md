@@ -29,7 +29,7 @@ leaves the desktop keeps the keyboard until its button is let go.
 
 | Key | |
 | --- | --- |
-| <kbd>Right Ctrl</kbd>, alone | Let go of the keyboard: it moves to the session's menu, and the desktop's shortcuts work again. With another key, Right Ctrl goes to the remote desktop as usual. |
+| <kbd>Right Ctrl</kbd>, alone | Let go of the keyboard: it moves to the session's menu, and the desktop's shortcuts work again. In fullscreen, the header shows until a click on the remote desktop takes the keyboard back. With another key, Right Ctrl goes to the remote desktop as usual. |
 | <kbd>Super</kbd>+<kbd>Esc</kbd> | GNOME's own: gives the desktop's shortcuts back, leaving the other keys with the session. |
 
 Keys the desktop would keep even then go from the session menu's

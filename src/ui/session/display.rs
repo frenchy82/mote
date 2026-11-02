@@ -68,6 +68,10 @@ mod imp {
         pub(super) host_key: Cell<bool>,
         /// Told when Right Ctrl, alone, lets go of the keyboard.
         pub(super) on_let_go: RefCell<Option<GrabSink>>,
+        /// Right Ctrl let go of the keyboard with the pointer here: it takes
+        /// the keyboard back on a click, or once it leaves and comes back,
+        /// not by being here.
+        pub(super) let_go: Cell<bool>,
         /// The window's surface, and the handler watching its shortcuts.
         pub(super) inhibit: RefCell<Option<(gdk::Surface, glib::SignalHandlerId)>>,
     }
@@ -636,6 +640,7 @@ fn connect_input(display: &Display) {
         display,
         move |_, _, keycode, _| {
             if keycode == RIGHT_CTRL && display.imp().host_key.replace(false) {
+                display.imp().let_go.set(true);
                 let sink = display.imp().on_let_go.borrow().clone();
                 if let Some(sink) = sink {
                     sink();
@@ -684,7 +689,7 @@ fn connect_input(display: &Display) {
                 .root()
                 .and_downcast::<gtk::Window>()
                 .is_some_and(|window| window.is_active());
-            if active && !display.has_focus() {
+            if active && !display.has_focus() && !display.imp().let_go.get() {
                 display.grab_focus();
             }
         }
@@ -696,6 +701,7 @@ fn connect_input(display: &Display) {
         #[weak]
         display,
         move |motion| {
+            display.imp().let_go.set(false);
             let held = motion
                 .current_event()
                 .is_some_and(|event| holds_button(&event));
@@ -739,6 +745,7 @@ fn connect_input(display: &Display) {
                 return glib::Propagation::Proceed;
             };
             if pressed {
+                display.imp().let_go.set(false);
                 display.grab_focus();
                 // Right Ctrl and a click: Ctrl+click on the server.
                 display.send_host_key();
