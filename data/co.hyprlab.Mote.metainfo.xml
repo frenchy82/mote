@@ -60,9 +60,9 @@
   </supports>
 
   <releases>
-    <release version="0.1.0" date="2026-11-01" type="development">
+    <release version="1.0.0" date="2026-11-01" type="stable">
       <description>
-        <p>The first build: every section of the roadmap, for testing.</p>
+        <p>The first stable release, for Linux machines that run GNOME Remote Desktop, xrdp or KRdp.</p>
       </description>
     </release>
   </releases>

@@ -4,7 +4,7 @@ A remote desktop client for GNOME, for Linux machines that run GNOME Remote
 Desktop, xrdp or KRdp. Each section below is what a release brought; the
 detail is in the commit history.
 
-## What's new in 0.1.0
+## What's new in 1.0.0
 
 ### New features:
 
@@ -20,6 +20,8 @@ detail is in the commit history.
 - Reconnecting by itself when the network drops
 - Every monitor, or one, in fullscreen
 - The desktop's shortcuts held back while a session has focus
+- The keyboard back to this computer once the pointer leaves the remote desktop
+- Right Ctrl, alone, lets go of the keyboard and shows the header in fullscreen
 - Connections imported from .rdp files and Remmina, and exported as .rdp files
 - Groups, sorting and a custom order in the sidebar, each connection with a robot
 - Flatpak, AppImage, RPM and Debian packages for x86_64 and ARM64

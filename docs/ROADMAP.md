@@ -66,15 +66,15 @@ on something a section needs, that section adds it upstream.
 | 1 | Foundation | Done |
 | 2 | Connections | Done |
 | 3 | First session | Done |
-| 4 | HiDPI and resizing | Testing |
-| 5 | Clipboard | Testing |
-| 6 | Graphics pipeline | Testing |
-| 7 | Audio | Testing |
-| 8 | Device redirection | Testing |
-| 9 | Network | Testing |
-| 10 | Session controls | Testing |
-| 11 | Settings and polish | Testing |
-| 12 | Packaging | Testing |
+| 4 | HiDPI and resizing | Done |
+| 5 | Clipboard | Done |
+| 6 | Graphics pipeline | Done |
+| 7 | Audio | Done |
+| 8 | Device redirection | Done |
+| 9 | Network | Done |
+| 10 | Session controls | Done |
+| 11 | Settings and polish | Done |
+| 12 | Packaging | Done |
 
 ### 1. Foundation
 

@@ -4,7 +4,7 @@
 %global debug_package %{nil}
 
 Name:           mote
-Version:        0.1.0
+Version:        1.0.0
 Release:        1%{?dist}
 Summary:        Connect to Linux desktops over RDP
 License:        AGPL-3.0-or-later
@@ -71,5 +71,5 @@ done
 %{_datadir}/icons/hicolor/symbolic/apps/%{appid}-symbolic.svg
 
 %changelog
-* Sun Nov 01 2026 Hyprlab <hyprlab@proton.me> - 0.1.0-1
-- First package
+* Sun Nov 01 2026 Hyprlab <hyprlab@proton.me> - 1.0.0-1
+- First stable release
