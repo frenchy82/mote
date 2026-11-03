@@ -976,46 +976,47 @@ msgstr ""
 msgid "Remote Desktop Client"
 msgstr ""
 
-msgid "Connect to Linux machines over RDP"
+msgid "Connect to Linux desktops over RDP"
 msgstr ""
 
 msgid "RDP;Remote Desktop;xrdp;"
 msgstr ""
 
-msgid "Connect to Linux desktops over RDP"
+msgid ""
+"Mote is a remote desktop client for GNOME specifically designed to connect "
+"to Linux desktops over RDP. Supported implementations include GNOME Remote "
+"Desktop (including Remote Login), xrdp and KRdp."
 msgstr ""
 
 msgid ""
-"Mote is a remote desktop client for GNOME, for Linux machines that run an "
-"RDP server: GNOME Remote Desktop, including its Remote Login, xrdp and KRdp."
+"Designed and tested for full compatibility with GNOME Remote Desktop (and "
+"Remote Login), xrdp and KRdp"
 msgstr ""
 
 msgid ""
-"Connections kept in groups, with their passwords in the keyring, and brought "
-"in from .rdp files and Remmina"
+"Dynamic resolution resizing for supported sessions including seamless HiDPI "
+"support"
 msgstr ""
 
-msgid ""
-"The remote desktop at the screen's own scale, fractional scales included, "
-"resized with the window, on one monitor or on all of them"
+msgid "H.264 video encoding with RemoteFX fallback"
 msgstr ""
 
-msgid "H.264 and RemoteFX through the graphics pipeline"
+msgid "Multi-monitor support"
 msgstr ""
 
-msgid "The clipboard in both directions, with text, pictures and files"
+msgid "Full clipboard sharing between host and remote machines"
 msgstr ""
 
-msgid "Sound, the microphone and a shared folder"
+msgid "SSH tunnels and RD gateway support"
 msgstr ""
 
-msgid ""
-"SSH tunnels, RD Gateway, Wake-on-LAN, and reconnecting after the network "
-"drops"
+msgid "Wake-on-LAN support with built-in fault tolerance"
 msgstr ""
 
-msgid ""
-"The keyboard's shortcuts going to the session, view-only mode and screenshots"
+msgid "Sound, microphone and folder sharing with supported remote sessions"
+msgstr ""
+
+msgid "Import existing RDP files directly into the app or import from Remmina"
 msgstr ""
 
 msgid "A session beside the saved connections"

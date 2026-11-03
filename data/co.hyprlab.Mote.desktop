@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Mote
 GenericName=Remote Desktop Client
-Comment=Connect to Linux machines over RDP
+Comment=Connect to Linux desktops over RDP
 Exec=mote
 Icon=co.hyprlab.Mote
 Terminal=false
