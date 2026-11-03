@@ -595,6 +595,8 @@ impl AppModel {
                 connection,
                 is_new,
                 groups: crate::ui::group::list(&self.connections),
+                fullscreen_everywhere: self.settings.open_fullscreen,
+                new_window_everywhere: self.settings.open_new_window,
             })
             .forward(sender.input_sender(), |out| match out {
                 EditorOutput::Saved {
@@ -735,17 +737,17 @@ impl AppModel {
                 s.default_microphone = on;
                 false
             }
-            PrefChange::DefaultFullscreen(on) => {
-                s.default_fullscreen = on;
-                false
-            }
-            PrefChange::DefaultNewWindow(on) => {
-                s.default_new_window = on;
-                false
-            }
             // Sessions take these when they start.
             PrefChange::KeyboardLayout(id) => {
                 s.keyboard_layout = id;
+                false
+            }
+            PrefChange::OpenFullscreen(on) => {
+                s.open_fullscreen = on;
+                false
+            }
+            PrefChange::OpenNewWindow(on) => {
+                s.open_new_window = on;
                 false
             }
             PrefChange::GrabKeyboard(on) => {

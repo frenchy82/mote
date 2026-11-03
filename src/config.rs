@@ -86,8 +86,13 @@ pub(crate) struct Settings {
     pub(crate) default_clipboard: bool,
     pub(crate) default_sound: bool,
     pub(crate) default_microphone: bool,
-    pub(crate) default_fullscreen: bool,
-    pub(crate) default_new_window: bool,
+    /// Every session opens fullscreen, whatever its connection says.
+    #[serde(alias = "default_fullscreen")]
+    pub(crate) open_fullscreen: bool,
+    /// Every session opens in a window of its own, whatever its connection
+    /// says.
+    #[serde(alias = "default_new_window")]
+    pub(crate) open_new_window: bool,
     /// The keyboard layout sessions tell the server about, as a Windows
     /// layout ID; 0 follows this computer's.
     pub(crate) keyboard_layout: u32,
@@ -130,8 +135,8 @@ impl Default for Settings {
             default_clipboard: false,
             default_sound: true,
             default_microphone: false,
-            default_fullscreen: false,
-            default_new_window: false,
+            open_fullscreen: false,
+            open_new_window: false,
             keyboard_layout: 0,
             grab_keyboard: true,
             reconnect: true,
@@ -158,8 +163,6 @@ impl Settings {
             clipboard: self.default_clipboard,
             sound: self.default_sound,
             microphone: self.default_microphone,
-            fullscreen: self.default_fullscreen,
-            new_window: self.default_new_window,
             ..Connection::default()
         }
     }

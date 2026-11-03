@@ -315,6 +315,9 @@ msgstr ""
 msgid "Open in New Window"
 msgstr ""
 
+msgid "On for every connection in Settings"
+msgstr ""
+
 msgid "Clipboard"
 msgstr ""
 
@@ -427,6 +430,9 @@ msgid "New Connections"
 msgstr ""
 
 msgid "What a connection starts with when it is added."
+msgstr ""
+
+msgid "Windows"
 msgstr ""
 
 msgid "Keyboard"

@@ -25,6 +25,8 @@ impl AppModel {
             let Some(connection) = self.connections.iter().find(|c| c.id == id).cloned() else {
                 return;
             };
+            let fullscreen = connection.fullscreen || self.settings.open_fullscreen;
+            let new_window = connection.new_window || self.settings.open_new_window;
             let session = Session::builder()
                 .launch(SessionInit {
                     connection,
@@ -35,9 +37,9 @@ impl AppModel {
                     h264_warning: self.settings.h264_warning,
                     size_notice: self.settings.size_notice,
                     clipboard_notice: self.settings.clipboard_notice,
+                    fullscreen,
                 })
                 .forward(sender.input_sender(), AppMsg::Session);
-            let new_window = connection_new_window(&self.connections, id);
             self.panes.add_named(session.widget(), Some(&page_name(id)));
             self.sessions.insert(id.to_owned(), session);
             self.rebuild_list();
@@ -207,10 +209,6 @@ impl AppModel {
         self.rebuild_list();
         self.refresh_details();
     }
-}
-
-fn connection_new_window(connections: &[crate::connection::Connection], id: &str) -> bool {
-    connections.iter().any(|c| c.id == id && c.new_window)
 }
 
 fn widget_title(connections: &[crate::connection::Connection], id: &str) -> String {
