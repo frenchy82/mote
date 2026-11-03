@@ -204,7 +204,7 @@ impl Component for Editor {
         let labels: Vec<String> = Network::ALL.into_iter().map(network_label).collect();
         let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
         rows.network.set_title(&i18n("Connection Type"));
-        rows.network.set_subtitle(&i18n("Only xrdp acts on it"));
+        rows.network.set_subtitle(&i18n("Only supported by xrdp"));
         rows.network.set_model(Some(&gtk::StringList::new(&labels)));
         rows.network.set_selected(
             Network::ALL

@@ -303,7 +303,7 @@ msgstr ""
 msgid "Connection Type"
 msgstr ""
 
-msgid "Only xrdp acts on it"
+msgid "Only supported by xrdp"
 msgstr ""
 
 msgid "View Only"
@@ -430,9 +430,6 @@ msgid "Automatic"
 msgstr ""
 
 msgid "Keyboard Layout"
-msgstr ""
-
-msgid "Only supported by xrdp"
 msgstr ""
 
 msgid "Grab Keyboard"
