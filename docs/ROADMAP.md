@@ -171,8 +171,8 @@ The server reads the local clipboard whenever it asks, with nothing done
 here, so sharing is off for a new connection and is turned on in the editor
 or for every new connection in Settings. Files copied here have a switch of
 their own, off unless turned on, since offering them gives the server their
-paths and lets it read them; with it off, files never reach the server's
-side of the session, whatever the interface sends. A connection's first
+paths and lets it read them; with it off, a copy of files offers the
+server nothing, not even its paths as text, whatever the interface sends. A connection's first
 session that shares the clipboard says once that the server can read it,
 unless that notice is off in Settings.
 

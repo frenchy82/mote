@@ -294,11 +294,11 @@ impl Clipboard {
         }
     }
 
-    /// What the local clipboard holds now, less files when they aren't
-    /// shared.
+    /// What the local clipboard holds now. Files that aren't shared take
+    /// the rest with them, since a copy of files reads as their paths.
     fn copied(&mut self, mut kinds: Vec<Kind>, mut files: Vec<PathBuf>) {
-        if !self.share_files {
-            kinds.retain(|kind| *kind != Kind::Files);
+        if !self.share_files && (kinds.contains(&Kind::Files) || !files.is_empty()) {
+            kinds.clear();
             files.clear();
         }
         self.local = kinds;
@@ -744,8 +744,14 @@ mod tests {
         };
         let mut kept = Clipboard::new(true, false);
         kept.early(copied());
-        assert_eq!(kept.local, vec![Kind::Text]);
+        assert!(kept.local.is_empty());
         assert!(kept.files.is_empty());
+        // Text alone still goes.
+        kept.early(ClipboardCommand::Copied {
+            kinds: vec![Kind::Text],
+            files: Vec::new(),
+        });
+        assert_eq!(kept.local, vec![Kind::Text]);
 
         let mut shared = Clipboard::new(true, true);
         shared.early(copied());

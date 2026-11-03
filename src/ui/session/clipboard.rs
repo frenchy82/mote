@@ -123,8 +123,9 @@ fn ours(clipboard: &gdk::Clipboard, tag: u64) -> bool {
 }
 
 /// Tell the server what the local clipboard holds now. What another
-/// session put there is passed on like anything else. Files are left out
-/// unless `share_files` is set: their paths are never read then.
+/// session put there is passed on like anything else. Files go only when
+/// `share_files` is set; otherwise a copy of files is offered as nothing,
+/// since its text is their paths.
 fn announce(clipboard: &gdk::Clipboard, handle: &rdp::Handle, tag: u64, share_files: bool) {
     if ours(clipboard, tag) {
         return;
@@ -132,6 +133,7 @@ fn announce(clipboard: &gdk::Clipboard, handle: &rdp::Handle, tag: u64, share_fi
     // What another application offers is listed by mime type; this adds
     // what GDK can turn those into.
     let formats = clipboard.formats().union_deserialize_types();
+    let holds_files = formats.contains_type(gdk::FileList::static_type());
     let mut kinds = Vec::new();
     if formats.contains_type(glib::Type::STRING) {
         kinds.push(Kind::Text);
@@ -143,7 +145,11 @@ fn announce(clipboard: &gdk::Clipboard, handle: &rdp::Handle, tag: u64, share_fi
         kinds.push(Kind::Image);
     }
     tracing::debug!("the local clipboard holds {}", formats.to_str());
-    if !share_files || !formats.contains_type(gdk::FileList::static_type()) {
+    if holds_files && !share_files {
+        tracing::debug!("files are not shared: offering nothing");
+        kinds.clear();
+    }
+    if !share_files || !holds_files {
         handle.send(rdp::Command::Clipboard(ClipboardCommand::Copied {
             kinds,
             files: Vec::new(),
