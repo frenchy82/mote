@@ -486,6 +486,9 @@ msgstr ""
 msgid "Show Addresses"
 msgstr ""
 
+msgid "Show Pictures"
+msgstr ""
+
 msgid "Changes apply to the next connection."
 msgstr ""
 

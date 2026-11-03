@@ -277,6 +277,13 @@ fn sidebar(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::P
     hosts.connect_active_notify(move |r| out.emit(PrefChange::ShowHosts(r.is_active())));
     group.add(&hosts);
 
+    let avatars = adw::SwitchRow::new();
+    avatars.set_title(&i18n("Show Pictures"));
+    avatars.set_active(settings.show_avatars);
+    let out = sender.output_sender().clone();
+    avatars.connect_active_notify(move |r| out.emit(PrefChange::ShowAvatars(r.is_active())));
+    group.add(&avatars);
+
     page_with(&[&group])
 }
 

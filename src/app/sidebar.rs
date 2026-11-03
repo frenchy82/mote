@@ -10,7 +10,7 @@ use gtk::glib;
 use relm4::prelude::*;
 
 use super::{AppModel, AppMsg};
-use crate::config::{self, SortOrder};
+use crate::config::{self, Settings, SortOrder};
 use crate::connection::{Connection, split_address};
 use crate::i18n::{i18n, i18n_f};
 use crate::ui::preferences::PrefChange;
@@ -382,7 +382,7 @@ impl AppModel {
                 self.list.append(&heading(&conn.group));
             }
             let open = self.live.contains(&conn.id);
-            let row = connection_row(conn, self.settings.show_hosts, open);
+            let row = connection_row(conn, &self.settings, open);
             self.list.append(&row);
             if self.selected.as_deref() == Some(conn.id.as_str()) {
                 self.list.select_row(Some(&row));
@@ -423,7 +423,7 @@ fn heading(text: &str) -> gtk::ListBoxRow {
 }
 
 /// A connection's row; `open` when a session to it is connected.
-fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBoxRow {
+fn connection_row(conn: &Connection, settings: &Settings, open: bool) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     row.add_css_class("connection-card");
     // For the row's menu, which offers Disconnect then.
@@ -433,9 +433,11 @@ fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBo
     row.set_widget_name(&format!("{ROW_PREFIX}{}", conn.id));
     let line = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     line.add_css_class("nav-row");
-    let avatar = crate::ui::avatar::Avatar::new(32);
-    avatar.show_connection(conn);
-    line.append(&avatar);
+    if settings.show_avatars {
+        let avatar = crate::ui::avatar::Avatar::new(32);
+        avatar.show_connection(conn);
+        line.append(&avatar);
+    }
 
     let text = gtk::Box::new(gtk::Orientation::Vertical, 0);
     text.set_valign(gtk::Align::Center);
@@ -445,7 +447,7 @@ fn connection_row(conn: &Connection, show_host: bool, open: bool) -> gtk::ListBo
     name.set_ellipsize(gtk::pango::EllipsizeMode::End);
     name.add_css_class("row-name");
     text.append(&name);
-    if show_host && !conn.name.trim().is_empty() {
+    if settings.show_hosts && !conn.name.trim().is_empty() {
         let host = gtk::Label::new(Some(&conn.address()));
         host.set_xalign(0.0);
         host.set_ellipsize(gtk::pango::EllipsizeMode::End);

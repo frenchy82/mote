@@ -72,6 +72,8 @@ pub(crate) struct Settings {
     pub(crate) sort: SortOrder,
     pub(crate) show_groups: bool,
     pub(crate) show_hosts: bool,
+    /// Each connection in the sidebar shows its picture.
+    pub(crate) show_avatars: bool,
     /// What a new connection starts with.
     pub(crate) default_port: u16,
     pub(crate) default_username: String,
@@ -113,6 +115,7 @@ impl Default for Settings {
             sort: SortOrder::Name,
             show_groups: true,
             show_hosts: true,
+            show_avatars: true,
             default_port: DEFAULT_PORT,
             default_username: String::new(),
             default_domain: String::new(),
@@ -408,7 +411,7 @@ mod tests {
         let s: Settings = toml::from_str("sort = \"recently-used\"").unwrap();
         assert_eq!(s.sort, SortOrder::RecentlyUsed);
         assert_eq!(s.default_port, DEFAULT_PORT);
-        assert!(s.show_groups);
+        assert!(s.show_groups && s.show_avatars);
     }
 
     #[test]

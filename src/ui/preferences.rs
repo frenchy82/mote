@@ -72,6 +72,7 @@ pub(crate) enum PrefChange {
     Sort(SortOrder),
     ShowGroups(bool),
     ShowHosts(bool),
+    ShowAvatars(bool),
     DefaultPort(u16),
     DefaultUsername(String),
     DefaultDomain(String),

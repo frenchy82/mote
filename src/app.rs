@@ -691,6 +691,10 @@ impl AppModel {
                 s.show_hosts = on;
                 true
             }
+            PrefChange::ShowAvatars(on) => {
+                s.show_avatars = on;
+                true
+            }
             PrefChange::DefaultPort(port) => {
                 s.default_port = port;
                 false
