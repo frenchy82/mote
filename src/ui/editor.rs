@@ -53,6 +53,8 @@ struct Rows {
     scaling: adw::ComboRow,
     quality: adw::ComboRow,
     view_only: adw::SwitchRow,
+    fullscreen: adw::SwitchRow,
+    new_window: adw::SwitchRow,
     network: adw::ComboRow,
     clipboard: adw::SwitchRow,
     clipboard_files: adw::SwitchRow,
@@ -158,6 +160,8 @@ impl Component for Editor {
             scaling: adw::ComboRow::new(),
             quality: adw::ComboRow::new(),
             view_only: adw::SwitchRow::new(),
+            fullscreen: adw::SwitchRow::new(),
+            new_window: adw::SwitchRow::new(),
             network: adw::ComboRow::new(),
             clipboard: adw::SwitchRow::new(),
             clipboard_files: adw::SwitchRow::new(),
@@ -210,6 +214,10 @@ impl Component for Editor {
         );
         rows.view_only.set_title(&i18n("View Only"));
         rows.view_only.set_active(c.view_only);
+        rows.fullscreen.set_title(&i18n("Open Fullscreen"));
+        rows.fullscreen.set_active(c.fullscreen);
+        rows.new_window.set_title(&i18n("Open in New Window"));
+        rows.new_window.set_active(c.new_window);
         rows.clipboard.set_title(&i18n("Clipboard"));
         rows.clipboard
             .set_subtitle(&i18n("Text only with KRdp; xrdp leaves out folders"));
@@ -337,6 +345,8 @@ impl Component for Editor {
         display.add(&rows.scaling);
         display.add(&rows.quality);
         display.add(&rows.view_only);
+        display.add(&rows.fullscreen);
+        display.add(&rows.new_window);
         page.add(&display);
         let network = adw::PreferencesGroup::new();
         network.set_title(&i18n("Network"));
@@ -429,6 +439,8 @@ impl Component for Editor {
                         .copied()
                         .unwrap_or_default(),
                     view_only: r.view_only.is_active(),
+                    fullscreen: r.fullscreen.is_active(),
+                    new_window: r.new_window.is_active(),
                     command_before: r.command_before.text().into(),
                     command_after: r.command_after.text().into(),
                     clipboard: r.clipboard.is_active(),

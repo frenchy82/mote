@@ -425,6 +425,11 @@ Built, in the session menu and the editor:
   to F12, for when the grab is off.
 - View Only, in the menu and the editor (Remmina's `viewonly`): keys and
   the pointer stay here. What the menu sets is kept.
+- Open Fullscreen and Open in New Window, in the editor: a session to the
+  connection starts in a window of its own, fullscreen, or both. A session
+  opening fullscreen waits for the window to be so before it asks for the
+  desktop's size, so Fit and Actual Size get the screen's. Remmina's
+  fullscreen `viewmode` and the `.rdp` file's `screen mode id` come across.
 - Take Screenshot saves the desktop, at its full size, as a PNG in the
   Screenshots folder of Pictures, where GNOME's own go, named for the
   connection and the time.
@@ -462,8 +467,9 @@ accessibility review, and translations.
 
 Built:
 
-- New Connections in Settings sets the scaling, codec, clipboard, sound and
-  microphone a new connection starts with, beside its port and account.
+- New Connections in Settings sets the scaling, codec, fullscreen, new
+  window, clipboard, sound and microphone a new connection starts with,
+  beside its port and account.
 - A Sessions page holds the keyboard layout, the keyboard grab and
   reconnecting. The layout follows this computer's (the one GDK reports
   active) unless one is chosen, and goes to the server as a Windows layout

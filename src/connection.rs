@@ -48,6 +48,10 @@ pub(crate) struct Connection {
     pub(crate) folder: String,
     /// Show the desktop without sending it keys or the pointer.
     pub(crate) view_only: bool,
+    /// A session to it opens fullscreen.
+    pub(crate) fullscreen: bool,
+    /// A session to it opens in a window of its own.
+    pub(crate) new_window: bool,
     /// Run through `sh -c` before connecting; the connection waits for it,
     /// and doesn't go ahead when it fails. Empty for none.
     pub(crate) command_before: String,
@@ -217,6 +221,8 @@ impl Default for Connection {
             microphone: false,
             folder: String::new(),
             view_only: false,
+            fullscreen: false,
+            new_window: false,
             command_before: String::new(),
             command_after: String::new(),
             ssh_tunnel: false,

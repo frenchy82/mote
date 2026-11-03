@@ -37,9 +37,15 @@ impl AppModel {
                     clipboard_notice: self.settings.clipboard_notice,
                 })
                 .forward(sender.input_sender(), AppMsg::Session);
+            let new_window = connection_new_window(&self.connections, id);
             self.panes.add_named(session.widget(), Some(&page_name(id)));
             self.sessions.insert(id.to_owned(), session);
             self.rebuild_list();
+            // Moved before it is ever shown here, so the first window it
+            // maps in, and goes fullscreen in, is its own.
+            if new_window {
+                self.detach(id, sender);
+            }
         }
         self.select(Some(id.to_owned()));
     }
@@ -201,6 +207,10 @@ impl AppModel {
         self.rebuild_list();
         self.refresh_details();
     }
+}
+
+fn connection_new_window(connections: &[crate::connection::Connection], id: &str) -> bool {
+    connections.iter().any(|c| c.id == id && c.new_window)
 }
 
 fn widget_title(connections: &[crate::connection::Connection], id: &str) -> String {

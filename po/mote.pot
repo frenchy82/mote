@@ -309,6 +309,12 @@ msgstr ""
 msgid "View Only"
 msgstr ""
 
+msgid "Open Fullscreen"
+msgstr ""
+
+msgid "Open in New Window"
+msgstr ""
+
 msgid "Clipboard"
 msgstr ""
 
@@ -553,9 +559,6 @@ msgid "Connecting to {name}…"
 msgstr ""
 
 msgid "Return to Main Window"
-msgstr ""
-
-msgid "Open in New Window"
 msgstr ""
 
 msgid "Fullscreen on All Monitors"

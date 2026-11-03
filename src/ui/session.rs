@@ -82,6 +82,10 @@ pub(crate) struct Session {
     pinned: Rc<Cell<bool>>,
     /// The window whose fullscreen state is followed.
     watched: Option<gtk::Window>,
+    /// The connection opens fullscreen and its page doesn't fill the
+    /// monitor yet: the desktop is asked for at the fullscreen size, not the
+    /// window's.
+    fullscreen_pending: bool,
     scaling: Scaling,
     /// Counts size changes, so only the last of a quick run is sent.
     resizes: u32,
@@ -145,6 +149,9 @@ pub(crate) enum SessionInput {
     /// Its window was mapped, perhaps a different one than before.
     Mapped,
     FullscreenChanged(bool),
+    /// Stop waiting for the window to go fullscreen, which the compositor
+    /// may refuse.
+    FullscreenWaited,
     SetScaling(Scaling),
     SetGrab(bool),
     SetViewOnly(bool),
@@ -346,6 +353,7 @@ impl Component for Session {
             fullscreen: Rc::new(Cell::new(false)),
             pinned: Rc::new(Cell::new(false)),
             watched: None,
+            fullscreen_pending: connection.fullscreen,
             scaling: connection.scaling,
             resizes: 0,
             display: Display::default(),
@@ -631,6 +639,7 @@ impl Component for Session {
                     });
                 }
             }
+            SessionInput::FullscreenWaited => self.fullscreen_pending = false,
             SessionInput::FullscreenChanged(fullscreen) => {
                 self.fullscreen.set(fullscreen);
                 self.pinned.set(false);
@@ -719,6 +728,13 @@ impl Session {
             input.emit(SessionInput::FullscreenChanged(window.is_fullscreen()));
         });
         sender.input(SessionInput::FullscreenChanged(window.is_fullscreen()));
+        if self.fullscreen_pending && self.watched.is_none() {
+            window.fullscreen();
+            let input = sender.input_sender().clone();
+            glib::timeout_add_local_once(std::time::Duration::from_secs(2), move || {
+                input.emit(SessionInput::FullscreenWaited);
+            });
+        }
         self.watched = Some(window);
     }
 

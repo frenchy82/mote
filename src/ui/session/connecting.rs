@@ -10,6 +10,23 @@ use crate::i18n::i18n_f;
 use crate::rdp;
 
 impl Session {
+    /// Not waiting for the window to go fullscreen: it isn't to, or the page
+    /// has the monitor's size already. The window says it is fullscreen
+    /// before the page has grown, and in the main window the sidebar is
+    /// still sliding away then.
+    fn fullscreen_settled(&mut self) -> bool {
+        if self.fullscreen_pending
+            && self.fullscreen.get()
+            && let Some(surface) = window_of(&self.stack).and_then(|w| w.surface())
+            && let Some(monitor) = surface.display().monitor_at_surface(&surface)
+        {
+            let room = monitor.geometry();
+            self.fullscreen_pending =
+                (self.stack.width(), self.stack.height()) != (room.width(), room.height());
+        }
+        !self.fullscreen_pending
+    }
+
     pub(super) fn connect(&mut self, sender: &ComponentSender<Self>) {
         self.clipboard = None;
         if let Some(handle) = self.handle.take() {
@@ -22,8 +39,9 @@ impl Session {
             &[("name", &self.connection.title())],
         ));
         // The desktop is asked for at the page's size, so wait for there to
-        // be one.
-        let Some((width, height, scale)) = self.desktop_size() else {
+        // be one, and for the window to have gone fullscreen when it opens so.
+        let size = self.desktop_size().filter(|_| self.fullscreen_settled());
+        let Some((width, height, scale)) = size else {
             // Polled rather than tied to the page's frame clock, which
             // doesn't run while another connection is showing.
             let input = sender.input_sender().clone();

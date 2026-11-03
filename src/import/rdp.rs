@@ -34,6 +34,8 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
                     .parse()
                     .map_or_else(|_| Network::default(), Network::from_number);
             }
+            // 1 is a window, 2 fullscreen.
+            "screen mode id" => conn.fullscreen = value == "2",
             "redirectclipboard" => conn.clipboard = value != "0",
             // 0 plays here; 1 leaves the sound on the remote machine and 2
             // turns it off, which these servers treat alike.
@@ -65,6 +67,10 @@ pub(crate) fn export(conn: &Connection) -> Vec<u8> {
         lines.push(format!("username:s:{account}"));
     }
     lines.push("prompt for credentials:i:0".to_owned());
+    lines.push(format!(
+        "screen mode id:i:{}",
+        if conn.fullscreen { 2 } else { 1 }
+    ));
     lines.push(format!("connection type:i:{}", conn.network.number()));
     lines.push(format!("redirectclipboard:i:{}", u8::from(conn.clipboard)));
     lines.push(format!("audiomode:i:{}", u8::from(!conn.sound)));
@@ -126,6 +132,7 @@ mod tests {
             ("Office", "box.lan", 3390)
         );
         assert_eq!((c.domain.as_str(), c.username.as_str()), ("CORP", "jo"));
+        assert!(c.fullscreen);
     }
 
     #[test]
@@ -138,6 +145,7 @@ mod tests {
             clipboard: false,
             sound: false,
             microphone: true,
+            fullscreen: true,
             gateway: true,
             gateway_host: "gw.example.com".into(),
             gateway_username: "CORP\\jo".into(),
@@ -148,6 +156,7 @@ mod tests {
         assert_eq!(back.network, Network::Satellite);
         assert!(!back.clipboard);
         assert!(!back.sound && back.microphone);
+        assert!(back.fullscreen);
         assert_eq!(back.gateway_server(), Some(("gw.example.com".into(), 443)));
         assert_eq!(back.gateway_username, "CORP\\jo");
     }

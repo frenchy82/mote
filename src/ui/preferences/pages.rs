@@ -87,6 +87,26 @@ fn defaults(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
     codec.set_selected(position(&Quality::ALL, &settings.default_quality));
     codec.set_subtitle(&quality_cost(settings.default_quality));
     display.add(&codec);
+    // The same rows as in the connection editor.
+    for (title, on, change) in [
+        (
+            i18n("Open Fullscreen"),
+            settings.default_fullscreen,
+            PrefChange::DefaultFullscreen as fn(bool) -> PrefChange,
+        ),
+        (
+            i18n("Open in New Window"),
+            settings.default_new_window,
+            PrefChange::DefaultNewWindow,
+        ),
+    ] {
+        let row = adw::SwitchRow::new();
+        row.set_title(&title);
+        row.set_active(on);
+        let out = sender.output_sender().clone();
+        row.connect_active_notify(move |r| out.emit(change(r.is_active())));
+        display.add(&row);
+    }
 
     let sharing = adw::PreferencesGroup::new();
     sharing.set_title(&i18n("Sharing"));

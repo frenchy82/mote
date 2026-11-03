@@ -735,6 +735,14 @@ impl AppModel {
                 s.default_microphone = on;
                 false
             }
+            PrefChange::DefaultFullscreen(on) => {
+                s.default_fullscreen = on;
+                false
+            }
+            PrefChange::DefaultNewWindow(on) => {
+                s.default_new_window = on;
+                false
+            }
             // Sessions take these when they start.
             PrefChange::KeyboardLayout(id) => {
                 s.keyboard_layout = id;

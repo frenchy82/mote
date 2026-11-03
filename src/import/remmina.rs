@@ -92,6 +92,8 @@ pub(crate) fn parse(text: &str) -> Option<Connection> {
             "microphone" => conn.microphone = !value.is_empty(),
             "sharefolder" => conn.folder = value.to_owned(),
             "viewonly" => conn.view_only = value == "1",
+            // 1 is a window; 2, 3 and 4 are its kinds of fullscreen.
+            "viewmode" => conn.fullscreen = matches!(value, "2" | "3" | "4"),
             "precommand" => conn.command_before = from_placeholders(value),
             "postcommand" => conn.command_after = from_placeholders(value),
             "ssh_tunnel_enabled" => conn.ssh_tunnel = value == "1",
@@ -153,6 +155,17 @@ mod tests {
         assert!(!c.clipboard);
         assert!(!c.sound && c.microphone);
         assert_eq!(c.folder, "/home/jo/Shared");
+    }
+
+    #[test]
+    fn reads_fullscreen() {
+        let c = |mode: &str| {
+            parse(&format!(
+                "[remmina]\nprotocol=RDP\nserver=lab\nviewmode={mode}\n"
+            ))
+        };
+        assert!(!c("1").unwrap().fullscreen);
+        assert!(c("4").unwrap().fullscreen);
     }
 
     #[test]
