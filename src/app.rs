@@ -558,7 +558,9 @@ impl AppModel {
 
     fn refresh_details(&self) {
         match self.selected_connection() {
-            Some(conn) => self.details.set_child(Some(&details::page(conn))),
+            Some(conn) => self
+                .details
+                .set_child(Some(&details::page(conn, self.settings.show_large_avatars))),
             None => self.details.set_child(None::<&gtk::Widget>),
         }
     }
@@ -672,6 +674,7 @@ impl AppModel {
     }
 
     fn apply_pref(&mut self, change: PrefChange) {
+        let mut redetail = false;
         let s = &mut self.settings;
         let relist = match change {
             PrefChange::ColorScheme(scheme) => {
@@ -694,6 +697,11 @@ impl AppModel {
             PrefChange::ShowAvatars(on) => {
                 s.show_avatars = on;
                 true
+            }
+            PrefChange::ShowLargeAvatars(on) => {
+                s.show_large_avatars = on;
+                redetail = true;
+                false
             }
             PrefChange::DefaultPort(port) => {
                 s.default_port = port;
@@ -770,6 +778,9 @@ impl AppModel {
         config::save_settings(s);
         if relist {
             self.rebuild_list();
+        }
+        if redetail {
+            self.refresh_details();
         }
     }
 

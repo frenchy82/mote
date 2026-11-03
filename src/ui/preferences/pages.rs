@@ -255,6 +255,14 @@ fn appearance(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw
     });
     row.add_suffix(&toggles);
     group.add(&row);
+
+    let pictures = adw::SwitchRow::new();
+    pictures.set_title(&i18n("Show Large Pictures"));
+    pictures.set_subtitle(&i18n("Still shown when editing a connection"));
+    pictures.set_active(settings.show_large_avatars);
+    let out = sender.output_sender().clone();
+    pictures.connect_active_notify(move |r| out.emit(PrefChange::ShowLargeAvatars(r.is_active())));
+    group.add(&pictures);
     page_with(&[&group])
 }
 

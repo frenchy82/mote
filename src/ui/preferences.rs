@@ -73,6 +73,7 @@ pub(crate) enum PrefChange {
     ShowGroups(bool),
     ShowHosts(bool),
     ShowAvatars(bool),
+    ShowLargeAvatars(bool),
     DefaultPort(u16),
     DefaultUsername(String),
     DefaultDomain(String),

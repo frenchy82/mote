@@ -5,14 +5,17 @@ use adw::prelude::*;
 use crate::connection::Connection;
 use crate::i18n::i18n;
 
-pub(super) fn page(conn: &Connection) -> adw::PreferencesPage {
+/// `picture`: whether the header shows the connection's picture.
+pub(super) fn page(conn: &Connection, picture: bool) -> adw::PreferencesPage {
     let page = adw::PreferencesPage::new();
 
     let header = gtk::Box::new(gtk::Orientation::Vertical, 6);
     header.add_css_class("details-header");
-    let avatar = crate::ui::avatar::Avatar::new(96);
-    avatar.show_connection(conn);
-    header.append(&avatar);
+    if picture {
+        let avatar = crate::ui::avatar::Avatar::new(96);
+        avatar.show_connection(conn);
+        header.append(&avatar);
+    }
     let title = gtk::Label::new(Some(conn.title()));
     title.add_css_class("title-1");
     title.set_wrap(true);

@@ -477,6 +477,12 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
+msgid "Show Large Pictures"
+msgstr ""
+
+msgid "Still shown when editing a connection"
+msgstr ""
+
 msgid "Show Groups"
 msgstr ""
 
