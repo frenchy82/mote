@@ -7,7 +7,12 @@
 //! Everything here is async and runs on relm4's command runtime, never on
 //! the GTK main thread: an unlock prompt can take as long as the user does.
 
+use zeroize::Zeroizing;
+
 use crate::APP_ID;
+
+/// A password, wiped from memory when dropped.
+pub(crate) type Password = Zeroizing<String>;
 
 /// Which of a connection's passwords.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -103,7 +108,7 @@ fn attributes(id: &str, kind: Secret) -> [(&'static str, &str); 2] {
 }
 
 /// The saved password, or `None` when there is none.
-pub(crate) async fn password(id: String, kind: Secret) -> Result<Option<String>, String> {
+pub(crate) async fn password(id: String, kind: Secret) -> Result<Option<Password>, String> {
     let keyring = keyring().await?;
     let items = keyring
         .search_items(&attributes(&id, kind))
@@ -113,9 +118,14 @@ pub(crate) async fn password(id: String, kind: Secret) -> Result<Option<String>,
         return Ok(None);
     };
     let secret = item.secret().await.map_err(|e| e.to_string())?;
-    String::from_utf8(secret.to_vec())
-        .map(Some)
-        .map_err(|e| e.to_string())
+    // The bytes move into the string, or are wiped when they aren't text.
+    match String::from_utf8(secret.to_vec()) {
+        Ok(text) => Ok(Some(Zeroizing::new(text))),
+        Err(e) => {
+            drop(Zeroizing::new(e.into_bytes()));
+            Err("the saved password is not text".to_owned())
+        }
+    }
 }
 
 /// Save `password` for the connection, or forget it when it is empty.
@@ -123,7 +133,7 @@ pub(crate) async fn set_password(
     id: String,
     kind: Secret,
     title: String,
-    password: String,
+    password: Password,
 ) -> Result<(), String> {
     let keyring = keyring().await?;
     if password.is_empty() {

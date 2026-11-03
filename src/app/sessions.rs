@@ -182,7 +182,7 @@ impl AppModel {
         id: &str,
         username: String,
         domain: String,
-        password: String,
+        password: secrets::Password,
         sender: &ComponentSender<Self>,
     ) {
         let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) else {

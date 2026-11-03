@@ -30,7 +30,7 @@ use crate::config;
 use crate::connection::{Connection, Scaling};
 use crate::i18n::{i18n, i18n_f};
 use crate::rdp::{self, Ending, Event, Identity, Trust};
-use crate::secrets::{self, Secret};
+use crate::secrets::{self, Password, Secret};
 use display::Display;
 
 /// What a session starts with: its connection, and the app's settings
@@ -59,10 +59,10 @@ pub(crate) struct Session {
     /// The account to sign in with: the profile's, or what was typed.
     username: String,
     domain: String,
-    password: String,
+    password: Password,
     /// The passwords of the SSH server and the RD Gateway, if saved.
-    ssh_password: String,
-    gateway_password: String,
+    ssh_password: Password,
+    gateway_password: Password,
     /// Save the typed account once a session starts.
     remember: bool,
     handle: Option<rdp::Handle>,
@@ -180,7 +180,7 @@ pub(crate) enum SessionOutput {
         id: String,
         username: String,
         domain: String,
-        password: String,
+        password: Password,
     },
     /// The session ended without the window closing: not connected now.
     Stopped(String),
@@ -205,7 +205,7 @@ pub(crate) enum SessionOutput {
 
 pub(crate) enum SessionCmd {
     /// The saved passwords, the account's first, `None` where there is none.
-    Passwords(Result<[Option<String>; 3], String>),
+    Passwords(Result<[Option<Password>; 3], String>),
     Event(u32, Event),
     Screenshot(Result<std::path::PathBuf, String>),
 }
@@ -333,9 +333,9 @@ impl Component for Session {
             keyboard_layout: init.keyboard_layout,
             username: connection.username.clone(),
             domain: connection.domain.clone(),
-            password: String::new(),
-            ssh_password: String::new(),
-            gateway_password: String::new(),
+            password: Password::default(),
+            ssh_password: Password::default(),
+            gateway_password: Password::default(),
             remember: false,
             page: Page::Connecting,
             handle: None,

@@ -33,6 +33,11 @@ fn main() {
         )
         .init();
     tracing::info!("{APP_NAME} {VERSION}");
+    // The wire log holds every byte after TLS, the password among them; it
+    // never runs without saying so.
+    if tracing::enabled!(target: "mote::wire", tracing::Level::TRACE) {
+        tracing::warn!(target: "mote::wire", "MOTE_LOG logs the session's bytes, passwords included");
+    }
     register_resources();
     paths::move_from_sandbox();
 

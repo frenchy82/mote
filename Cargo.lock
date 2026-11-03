@@ -2566,6 +2566,7 @@ dependencies = [
  "tracing-subscriber",
  "ureq",
  "x509-cert",
+ "zeroize",
 ]
 
 [[package]]

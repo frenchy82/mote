@@ -106,7 +106,7 @@ pub(crate) enum AppMsg {
     Saved {
         connection: Box<Connection>,
         /// The passwords changed in the editor; an empty one is forgotten.
-        passwords: Vec<(Secret, String)>,
+        passwords: Vec<(Secret, crate::secrets::Password)>,
     },
     EditorClosed,
     ImportRdp,
@@ -611,7 +611,7 @@ impl AppModel {
     fn save_connection(
         &mut self,
         connection: Connection,
-        passwords: Vec<(Secret, String)>,
+        passwords: Vec<(Secret, crate::secrets::Password)>,
         sender: &ComponentSender<Self>,
     ) {
         let id = connection.id.clone();

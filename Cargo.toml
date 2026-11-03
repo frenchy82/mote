@@ -75,6 +75,8 @@ tokio = { version = "1", features = ["rt", "net", "io-util", "sync", "time", "ma
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 # The server certificate's DER, for its fingerprint.
 x509-cert = "0.3"
+# Passwords are wiped from memory once dropped.
+zeroize = "1"
 
 [build-dependencies]
 glib-build-tools = "0.22"

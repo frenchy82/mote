@@ -10,7 +10,7 @@ use relm4::prelude::*;
 
 use crate::connection::{Connection, Network, Quality, Scaling, parse_mac, split_address};
 use crate::i18n::i18n;
-use crate::secrets::{self, Secret};
+use crate::secrets::{self, Password, Secret};
 use crate::ui::avatar;
 
 pub(crate) struct EditorInit {
@@ -79,14 +79,14 @@ pub(crate) enum EditorOutput {
     /// `passwords` holds the ones changed; an empty one is forgotten.
     Saved {
         connection: Box<Connection>,
-        passwords: Vec<(Secret, String)>,
+        passwords: Vec<(Secret, Password)>,
     },
     Closed,
 }
 
 #[derive(Debug)]
 pub(crate) enum EditorCmd {
-    PasswordLoaded(Secret, Result<Option<String>, String>),
+    PasswordLoaded(Secret, Result<Option<Password>, String>),
 }
 
 #[relm4::component(pub(crate))]
@@ -462,7 +462,7 @@ impl Component for Editor {
                 let passwords = self
                     .edited
                     .iter()
-                    .map(|&kind| (kind, self.password_row(kind).text().to_string()))
+                    .map(|&kind| (kind, Password::new(self.password_row(kind).text().into())))
                     .collect();
                 let _ = sender.output(EditorOutput::Saved {
                     connection: Box::new(connection),

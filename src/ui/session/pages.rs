@@ -13,7 +13,7 @@ use crate::rdp::Identity;
 pub(super) struct Account {
     pub(super) username: String,
     pub(super) domain: String,
-    pub(super) password: String,
+    pub(super) password: crate::secrets::Password,
     pub(super) remember: bool,
 }
 
@@ -87,7 +87,7 @@ impl SignIn {
         Account {
             username: self.username.text().trim().to_owned(),
             domain: self.domain.text().trim().to_owned(),
-            password: self.password.text().to_string(),
+            password: crate::secrets::Password::new(self.password.text().into()),
             remember: self.remember.is_active(),
         }
     }

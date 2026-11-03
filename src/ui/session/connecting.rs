@@ -46,7 +46,7 @@ impl Session {
             host: self.connection.host.clone(),
             port: self.connection.port,
             username: self.username.clone(),
-            password: self.password.clone(),
+            password: self.password.to_string(),
             domain: self.domain.clone(),
             width,
             height,
@@ -105,7 +105,7 @@ impl Session {
                 host,
                 port,
                 username,
-                password: self.ssh_password.clone(),
+                password: self.ssh_password.to_string(),
             });
         }
         if let Some((host, port)) = c.gateway_server() {
@@ -117,9 +117,12 @@ impl Session {
                 } else {
                     format!("{}\\{}", self.domain, self.username)
                 };
-                (account, self.password.clone())
+                (account, self.password.to_string())
             } else {
-                (c.gateway_username.clone(), self.gateway_password.clone())
+                (
+                    c.gateway_username.clone(),
+                    self.gateway_password.to_string(),
+                )
             };
             return rdp::Via::Gateway(rdp::Hop {
                 host,
