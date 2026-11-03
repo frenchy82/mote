@@ -492,9 +492,6 @@ msgstr ""
 msgid "Show Groups"
 msgstr ""
 
-msgid "Connections in a group are listed under its name."
-msgstr ""
-
 msgid "Show Addresses"
 msgstr ""
 

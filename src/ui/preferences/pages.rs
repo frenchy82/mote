@@ -292,7 +292,6 @@ fn sidebar(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::P
 
     let groups = adw::SwitchRow::new();
     groups.set_title(&i18n("Show Groups"));
-    groups.set_subtitle(&i18n("Connections in a group are listed under its name."));
     groups.set_active(settings.show_groups);
     let out = sender.output_sender().clone();
     groups.connect_active_notify(move |r| out.emit(PrefChange::ShowGroups(r.is_active())));
