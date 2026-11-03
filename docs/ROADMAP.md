@@ -467,8 +467,8 @@ accessibility review, and translations.
 
 Built:
 
-- Connection Defaults in Settings sets the scaling, codec, fullscreen, new
-  window, clipboard, sound and microphone a new connection starts with,
+- New Connection Defaults in Settings sets the scaling, codec, fullscreen,
+  new window, clipboard, sound and microphone a new connection starts with,
   beside its port and account.
 - A Sessions page holds the keyboard layout, the keyboard grab and
   reconnecting. The layout follows this computer's (the one GDK reports

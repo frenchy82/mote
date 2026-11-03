@@ -27,7 +27,7 @@ const SIDE_PAGES: &[(&str, &[SidePage])] = &[
         i18n_noop("Connections"),
         &[SidePage {
             id: "defaults",
-            title: i18n_noop("Connection Defaults"),
+            title: i18n_noop("New Connection Defaults"),
             icon: "network-server-symbolic",
         }],
     ),

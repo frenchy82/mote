@@ -423,7 +423,7 @@ msgstr ""
 msgid "None"
 msgstr ""
 
-msgid "Connection Defaults"
+msgid "New Connection Defaults"
 msgstr ""
 
 msgid "Keyboard"
