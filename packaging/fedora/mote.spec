@@ -76,7 +76,8 @@ done
 - Switches to hide the account avatars
 
 * Mon Nov 02 2026 Hyprlab <hyprlab@proton.me> - 1.1.0-1
-- Clipboard sharing opt-in, file sharing on the clipboard opt-in
+- Clipboard sharing off by default
+- Copied files shared only when allowed
 - Advice on resizing GNOME Desktop Sharing
 - Flatpak data shared with the other installs
 

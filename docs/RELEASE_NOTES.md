@@ -8,45 +8,58 @@ detail is in the commit history.
 
 ### New features:
 
-- A connection opens fullscreen, in a new window, or both, as its editor sets
-- New connections' window choices in Settings, beside their other defaults
-- A switch in Settings to hide the account avatars in the sidebar
-- A switch in Settings to hide the large account avatar on the connection page
+- Open a connection fullscreen
+- Open a connection in a new window
+- Window defaults for new connections in Settings
+- Option to hide account avatars in the sidebar
+- Option to hide the large account avatar on the connection page
 
 ## What's new in 1.1.0
 
 ### New features:
 
 - Advice on making GNOME Desktop Sharing resize with the window
-- A switch in Settings for the Desktop Sharing size notice
-- The Flatpak shares connections, settings and passwords with the other installs
-- A notice, at a connection's first session, that the server reads the clipboard
-- Copied files offered to the server only when the connection allows it
-- The clipboard off for new connections until turned on
+- Option to turn off the Desktop Sharing size notice
+- Flatpak shares connections and settings with the other installs
+- Flatpak shares saved passwords with the other installs
+- Notice that the server can read the clipboard on a connection's first session
+- Copied files shared only when the connection allows it
+- Clipboard sharing off by default for new connections
 
 ### Fixes:
 
-- Passwords are wiped from memory once used
-- Logging the session's bytes, passwords included, warns at startup
+- Passwords wiped from memory once used
+- Startup warning when session logging can record passwords
 
 ## What's new in 1.0.0
 
 ### New features:
 
-- Sessions with GNOME Remote Desktop, both Desktop Sharing and Remote Login
-- Sessions with xrdp and KRdp
-- A sharp picture at any scale, fractional ones included, resized with the window
-- H.264 from FFmpeg, the system's OpenH264 or Cisco's, chosen in Settings
+- GNOME Remote Desktop support for Desktop Sharing and Remote Login
+- xrdp and KRdp support
+- Fractional scaling supported
+- Automatic window resizing
+- H.264 decoding through FFmpeg or OpenH264
+- H.264 decoder choice in Settings
 - Advice on what to install when a server sends no H.264
-- The clipboard both ways: text, rich text, images and files
-- Sound from the remote desktop, and the microphone to it
-- A shared folder, lent to the remote desktop
-- SSH tunnels, RD Gateways and Wake-on-LAN
-- Reconnecting by itself when the network drops
-- Every monitor, or one, in fullscreen
-- The desktop's shortcuts held back while a session has focus
-- The keyboard back to this computer once the pointer leaves the remote desktop
-- Right Ctrl, alone, lets go of the keyboard and shows the header in fullscreen
-- Connections imported from .rdp files and Remmina, and exported as .rdp files
-- Groups, sorting and a custom order in the sidebar, each connection with a robot
-- Flatpak, AppImage, RPM and Debian packages for x86_64 and ARM64
+- Two-way clipboard for text and rich text
+- Two-way clipboard for images and files
+- Remote desktop sound played on this computer
+- Microphone sent to the remote desktop
+- Shared folder for the remote desktop
+- SSH tunnels
+- RD Gateway support
+- Wake-on-LAN
+- Automatic reconnection when the network drops
+- Fullscreen on one monitor or on all of them
+- Desktop shortcuts held back while a session has focus
+- Keyboard returned to this computer when the pointer leaves the session
+- Right Ctrl on its own releases the keyboard and shows the header
+- Import from .rdp files and Remmina
+- Export to .rdp files
+- Connection groups in the sidebar
+- Sorting and custom ordering in the sidebar
+- Robot avatars for connections
+- Flatpak and AppImage builds
+- RPM and Debian packages
+- Builds for x86_64 and ARM64
