@@ -208,7 +208,9 @@ impl Default for Connection {
             scaling: Scaling::default(),
             quality: Quality::default(),
             network: Network::default(),
-            clipboard: true,
+            // The server reads the local clipboard whenever it likes, so it
+            // is shared only when asked for.
+            clipboard: false,
             clipboard_files: false,
             clipboard_told: false,
             sound: true,

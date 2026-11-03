@@ -118,7 +118,7 @@ impl Default for Settings {
             default_domain: String::new(),
             default_scaling: Scaling::default(),
             default_quality: Quality::default(),
-            default_clipboard: true,
+            default_clipboard: false,
             default_sound: true,
             default_microphone: false,
             keyboard_layout: 0,
@@ -409,6 +409,15 @@ mod tests {
         assert_eq!(s.sort, SortOrder::RecentlyUsed);
         assert_eq!(s.default_port, DEFAULT_PORT);
         assert!(s.show_groups);
+    }
+
+    #[test]
+    fn new_connections_keep_the_clipboard_to_themselves() {
+        let c = Settings::default().new_connection();
+        assert!(!c.clipboard && !c.clipboard_files);
+        // A connection saved before sharing became opt-in keeps its choice.
+        let c: Connection = toml::from_str("host = \"lab\"\nclipboard = true").unwrap();
+        assert!(c.clipboard && !c.clipboard_files);
     }
 
     #[test]
