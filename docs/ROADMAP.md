@@ -467,7 +467,7 @@ accessibility review, and translations.
 
 Built:
 
-- New Connections in Settings sets the scaling, codec, fullscreen, new
+- Connection Defaults in Settings sets the scaling, codec, fullscreen, new
   window, clipboard, sound and microphone a new connection starts with,
   beside its port and account.
 - A Sessions page holds the keyboard layout, the keyboard grab and
