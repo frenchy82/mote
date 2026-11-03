@@ -146,7 +146,7 @@ fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
     let mut labels = vec![i18n("Automatic")];
     labels.extend(LAYOUTS.iter().map(|l| i18n(l.name)));
     let layout = combo(&i18n("Keyboard Layout"), &labels);
-    layout.set_subtitle(&i18n("Only xrdp acts on it"));
+    layout.set_subtitle(&i18n("Only supported by xrdp"));
     layout.set_enable_search(true);
     layout.set_expression(Some(gtk::PropertyExpression::new(
         gtk::StringObject::static_type(),

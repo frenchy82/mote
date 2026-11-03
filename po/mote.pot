@@ -432,6 +432,9 @@ msgstr ""
 msgid "Keyboard Layout"
 msgstr ""
 
+msgid "Only supported by xrdp"
+msgstr ""
+
 msgid "Grab Keyboard"
 msgstr ""
 
