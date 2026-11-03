@@ -423,9 +423,6 @@ msgstr ""
 msgid "None"
 msgstr ""
 
-msgid "New Connection Defaults"
-msgstr ""
-
 msgid "Keyboard"
 msgstr ""
 
@@ -532,6 +529,9 @@ msgid "Downloading…"
 msgstr ""
 
 msgid "The download failed: {error}"
+msgstr ""
+
+msgid "New Connection Defaults"
 msgstr ""
 
 msgid "Appearance"

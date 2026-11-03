@@ -38,7 +38,6 @@ fn page_with(groups: &[&adw::PreferencesGroup]) -> adw::PreferencesPage {
 
 fn defaults(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::PreferencesPage {
     let group = adw::PreferencesGroup::new();
-    group.set_title(&i18n("New Connection Defaults"));
 
     let port = adw::SpinRow::with_range(1.0, 65535.0, 1.0);
     port.set_title(&i18n("Port"));
