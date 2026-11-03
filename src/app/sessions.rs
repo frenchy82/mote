@@ -34,6 +34,7 @@ impl AppModel {
                     grab_notice: self.settings.grab_notice,
                     h264_warning: self.settings.h264_warning,
                     size_notice: self.settings.size_notice,
+                    clipboard_notice: self.settings.clipboard_notice,
                 })
                 .forward(sender.input_sender(), AppMsg::Session);
             self.panes.add_named(session.widget(), Some(&page_name(id)));
@@ -81,6 +82,12 @@ impl AppModel {
             SessionOutput::ViewOnly(id, view_only) => {
                 if let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) {
                     connection.view_only = view_only;
+                    config::save_connections(&self.connections);
+                }
+            }
+            SessionOutput::ClipboardTold(id) => {
+                if let Some(connection) = self.connections.iter_mut().find(|c| c.id == id) {
+                    connection.clipboard_told = true;
                     config::save_connections(&self.connections);
                 }
             }

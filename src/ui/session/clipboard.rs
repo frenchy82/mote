@@ -12,6 +12,8 @@ use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
 use tokio::sync::oneshot;
 
+use super::{Session, SessionOutput};
+use crate::i18n::i18n;
 use crate::rdp::clipboard::{Content, Image, Kind};
 use crate::rdp::{self, ClipboardCommand, ClipboardEvent};
 
@@ -94,6 +96,21 @@ impl Drop for Sharing {
         if ours(&self.clipboard, self.tag) {
             let _ = self.clipboard.set_content(None::<&gdk::ContentProvider>);
         }
+    }
+}
+
+impl Session {
+    /// Say, at a connection's first session that shares the clipboard,
+    /// that the server reads what is copied here without asking.
+    pub(super) fn tell_clipboard(&mut self, sender: &relm4::ComponentSender<Self>) {
+        if !self.clipboard_notice || self.clipboard.is_none() || self.connection.clipboard_told {
+            return;
+        }
+        self.connection.clipboard_told = true;
+        let toast = adw::Toast::new(&i18n("The remote desktop can read what is copied here"));
+        toast.set_timeout(10);
+        self.toasts.add_toast(toast);
+        let _ = sender.output(SessionOutput::ClipboardTold(self.connection.id.clone()));
     }
 }
 

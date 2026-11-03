@@ -172,26 +172,36 @@ fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
 
     let notices = adw::PreferencesGroup::new();
     notices.set_title(&i18n("Notifications"));
-    for (title, on, change) in [
+    let once = i18n("Once a session");
+    for (title, subtitle, on, change) in [
         (
             i18n("Keyboard Grab Notice"),
+            once.clone(),
             settings.grab_notice,
             PrefChange::GrabNotice as fn(bool) -> PrefChange,
         ),
         (
             i18n("Missing H.264 Warning"),
+            once.clone(),
             settings.h264_warning,
             PrefChange::H264Warning,
         ),
         (
             i18n("Desktop Sharing Size Notice"),
+            once,
             settings.size_notice,
             PrefChange::SizeNotice,
+        ),
+        (
+            i18n("Clipboard Sharing Notice"),
+            i18n("Once a connection"),
+            settings.clipboard_notice,
+            PrefChange::ClipboardNotice,
         ),
     ] {
         let row = adw::SwitchRow::new();
         row.set_title(&title);
-        row.set_subtitle(&i18n("Once a session"));
+        row.set_subtitle(&subtitle);
         row.set_active(on);
         let out = sender.output_sender().clone();
         row.connect_active_notify(move |r| out.emit(change(r.is_active())));

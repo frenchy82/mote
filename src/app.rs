@@ -748,6 +748,10 @@ impl AppModel {
                 s.size_notice = on;
                 false
             }
+            PrefChange::ClipboardNotice(on) => {
+                s.clipboard_notice = on;
+                false
+            }
             PrefChange::Decoder(source) => {
                 s.decoder = source;
                 crate::rdp::h264::choose(source);

@@ -95,6 +95,9 @@ pub(crate) struct Settings {
     /// A session says when GNOME Desktop Sharing keeps its screen's size,
     /// and how to make it resize.
     pub(crate) size_notice: bool,
+    /// A connection's first session that shares the clipboard says the
+    /// server can read it.
+    pub(crate) clipboard_notice: bool,
     /// The H.264 decoder to try first; none tries them in their own order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) decoder: Option<Source>,
@@ -124,6 +127,7 @@ impl Default for Settings {
             grab_notice: true,
             h264_warning: true,
             size_notice: true,
+            clipboard_notice: true,
             decoder: None,
             about_height: 740,
             window: WindowState::default(),
@@ -394,6 +398,9 @@ mod tests {
         assert!(s.grab_notice && !s.h264_warning && s.size_notice);
         let s: Settings = toml::from_str("size_notice = false").unwrap();
         assert!(s.grab_notice && s.h264_warning && !s.size_notice);
+        assert!(s.clipboard_notice);
+        let s: Settings = toml::from_str("clipboard_notice = false").unwrap();
+        assert!(s.size_notice && !s.clipboard_notice);
     }
 
     #[test]

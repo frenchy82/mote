@@ -47,6 +47,8 @@ pub(crate) struct SessionInit {
     pub(crate) h264_warning: bool,
     /// Say when Desktop Sharing keeps its screen's size.
     pub(crate) size_notice: bool,
+    /// Say, the first time, that the server can read the clipboard.
+    pub(crate) clipboard_notice: bool,
 }
 
 pub(crate) struct Session {
@@ -98,6 +100,7 @@ pub(crate) struct Session {
     /// whether the size sticks, and shown.
     size_checking: bool,
     size_told: bool,
+    clipboard_notice: bool,
     stack: gtk::Stack,
     toasts: adw::ToastOverlay,
     menu: gio::Menu,
@@ -187,6 +190,8 @@ pub(crate) enum SessionOutput {
     Scaling(String, Scaling),
     /// View-only was turned on or off, to be kept.
     ViewOnly(String, bool),
+    /// The connection's clipboard notice was shown, not to show again.
+    ClipboardTold(String),
     /// What the computer runs was chosen, to be kept.
     System {
         id: String,
@@ -354,6 +359,7 @@ impl Component for Session {
             size_checking: false,
             // Turned off in Settings: as if already shown.
             size_told: !init.size_notice,
+            clipboard_notice: init.clipboard_notice,
             stack: gtk::Stack::new(),
             toasts: adw::ToastOverlay::new(),
             menu: controls::menu(false),
@@ -786,6 +792,7 @@ impl Session {
                 // connection counts.
                 if self.page != Page::Desktop {
                     let _ = sender.output(SessionOutput::Connected(self.connection.id.clone()));
+                    self.tell_clipboard(sender);
                     // The window may have changed size while the session
                     // was away, and a layout of several monitors is gone.
                     sender.input(SessionInput::Resized);
