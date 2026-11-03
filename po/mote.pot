@@ -10,6 +10,51 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+msgid "Release Notes"
+msgstr ""
+
+msgid "Full Release Notes on GitHub"
+msgstr ""
+
+msgid "GNOME-native RDP client"
+msgstr ""
+
+msgid "What’s new in {version}"
+msgstr ""
+
+msgid "Project"
+msgstr ""
+
+msgid "Website"
+msgstr ""
+
+msgid "Report an issue or feature request"
+msgstr ""
+
+msgid "Source Code"
+msgstr ""
+
+msgid "License (GNU AGPL v3)"
+msgstr ""
+
+msgid "Buy Me a Coffee"
+msgstr ""
+
+msgid "Special thanks to these contributors"
+msgstr ""
+
+msgid "Translated by"
+msgstr ""
+
+msgid "Pixelbot by DiceBear"
+msgstr ""
+
+msgid "© 2026 Hyprlab"
+msgstr ""
+
+msgid "About {name}"
+msgstr ""
+
 msgid "Settings"
 msgstr ""
 
@@ -20,6 +65,18 @@ msgid "About Mote"
 msgstr ""
 
 msgid "Quit"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Recently Used"
+msgstr ""
+
+msgid "Custom"
+msgstr ""
+
+msgid "Sort By"
 msgstr ""
 
 msgid "Import .rdp Files…"
@@ -52,10 +109,19 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
+msgid "Move Connection Up"
+msgstr ""
+
+msgid "Move Connection Down"
+msgstr ""
+
+msgid "Connection Menu"
+msgstr ""
+
 msgid "Sessions"
 msgstr ""
 
-msgid "Let Go of the Keyboard"
+msgid "Let Go of the Keyboard and Show the Header"
 msgstr ""
 
 msgid "Give the Shortcuts Back"
@@ -123,6 +189,36 @@ msgstr[1] ""
 msgid "{file} could not be saved"
 msgstr ""
 
+msgid "New Group"
+msgstr ""
+
+msgid "Add"
+msgstr ""
+
+msgid "Rename Group"
+msgstr ""
+
+msgid "Rename"
+msgstr ""
+
+msgid "Disconnect"
+msgstr ""
+
+msgid "No Group"
+msgstr ""
+
+msgid "New Group…"
+msgstr ""
+
+msgid "Move to Group"
+msgstr ""
+
+msgid "Rename Group…"
+msgstr ""
+
+msgid "Ungroup"
+msgstr ""
+
 msgid "Press Enter to add {address}"
 msgstr ""
 
@@ -144,9 +240,6 @@ msgstr ""
 msgid "Toggle Sidebar"
 msgstr ""
 
-msgid "Connection Menu"
-msgstr ""
-
 msgid "No Connections"
 msgstr ""
 
@@ -165,13 +258,25 @@ msgstr ""
 msgid "{b} then {a}"
 msgstr ""
 
-msgid "Add"
+msgid "Change Picture"
+msgstr ""
+
+msgid "Robot {number}"
+msgstr ""
+
+msgid "More Robots"
+msgstr ""
+
+msgid "Choose Image…"
+msgstr ""
+
+msgid "Images"
+msgstr ""
+
+msgid "Choose Image"
 msgstr ""
 
 msgid "Save"
-msgstr ""
-
-msgid "Name"
 msgstr ""
 
 msgid "Domain"
@@ -208,6 +313,12 @@ msgid "Clipboard"
 msgstr ""
 
 msgid "Text only with KRdp; xrdp leaves out folders"
+msgstr ""
+
+msgid "Share Copied Files"
+msgstr ""
+
+msgid "The server can read any file copied here"
 msgstr ""
 
 #. The same rows, and the same limits, as in the connection editor.
@@ -258,7 +369,7 @@ msgid ""
 "$MOTE_NAME. A failed command before connecting stops the connection."
 msgstr ""
 
-msgid "Automatic"
+msgid "Best Available"
 msgstr ""
 
 msgid "H.264 (AVC420)"
@@ -303,6 +414,9 @@ msgstr ""
 msgid "Only xrdp opens a shared folder"
 msgstr ""
 
+msgid "None"
+msgstr ""
+
 msgid "New Connections"
 msgstr ""
 
@@ -310,6 +424,9 @@ msgid "What a connection starts with when it is added."
 msgstr ""
 
 msgid "Keyboard"
+msgstr ""
+
+msgid "Automatic"
 msgstr ""
 
 msgid "Keyboard Layout"
@@ -327,6 +444,27 @@ msgstr ""
 msgid "For two minutes after the network drops"
 msgstr ""
 
+msgid "Notifications"
+msgstr ""
+
+msgid "Once a session"
+msgstr ""
+
+msgid "Keyboard Grab Notice"
+msgstr ""
+
+msgid "Missing H.264 Warning"
+msgstr ""
+
+msgid "Desktop Sharing Size Notice"
+msgstr ""
+
+msgid "Clipboard Sharing Notice"
+msgstr ""
+
+msgid "Once a connection"
+msgstr ""
+
 msgid "Style"
 msgstr ""
 
@@ -337,12 +475,6 @@ msgid "Light"
 msgstr ""
 
 msgid "Dark"
-msgstr ""
-
-msgid "Sort By"
-msgstr ""
-
-msgid "Recently Used"
 msgstr ""
 
 msgid "Show Groups"
@@ -357,10 +489,16 @@ msgstr ""
 msgid "Changes apply to the next connection."
 msgstr ""
 
-msgid "Decoder"
+msgid "Preferred Decoder"
 msgstr ""
 
 msgid "Cisco’s OpenH264"
+msgstr ""
+
+msgid "FFmpeg"
+msgstr ""
+
+msgid "System OpenH264"
 msgstr ""
 
 msgid "Checking…"
@@ -376,15 +514,6 @@ msgid "Remove"
 msgstr ""
 
 msgid "Download"
-msgstr ""
-
-msgid "FFmpeg"
-msgstr ""
-
-msgid "OpenH264, from this system"
-msgstr ""
-
-msgid "OpenH264, from Cisco"
 msgstr ""
 
 msgid "None: servers send RemoteFX instead, which blurs small text"
@@ -405,7 +534,13 @@ msgstr ""
 msgid "Video"
 msgstr ""
 
+msgid "The remote desktop can read what is copied here"
+msgstr ""
+
 msgid "Running the Command Before Connecting…"
+msgstr ""
+
+msgid "Connecting to {name}…"
 msgstr ""
 
 msgid "Return to Main Window"
@@ -436,9 +571,6 @@ msgid "Send Keys"
 msgstr ""
 
 msgid "Take Screenshot"
-msgstr ""
-
-msgid "Disconnect"
 msgstr ""
 
 msgid "Screenshots"
@@ -477,6 +609,147 @@ msgid "The login screen timed out before anyone signed in."
 msgstr ""
 
 msgid "The computer ended the session."
+msgstr ""
+
+msgid "GNOME Desktop Sharing"
+msgstr ""
+
+msgid "GNOME Remote Login"
+msgstr ""
+
+msgid "Virtual Machine or None"
+msgstr ""
+
+msgid ""
+"GNOME Remote Desktop sends H.264 only when the graphics card encodes it."
+msgstr ""
+
+msgid ""
+"Fedora’s xrdp encodes H.264 with OpenH264, which Fedora ships as an empty "
+"placeholder. Swap in Cisco’s build, and install the Xorg back end that H.264 "
+"needs:"
+msgstr ""
+
+msgid ""
+"Ubuntu’s xrdp is older than 0.10.2, the first version to send H.264, so no "
+"package adds it."
+msgstr ""
+
+msgid ""
+"Debian 13’s xrdp is older than 0.10.2, the first version to send H.264. The "
+"one in trixie-backports sends it:"
+msgstr ""
+
+msgid ""
+"The AUR’s xrdp sends H.264 to sessions that use its Xorg back end, from the "
+"AUR’s xorgxrdp package."
+msgstr ""
+
+msgid ""
+"openSUSE’s xrdp is built without an H.264 encoder, so no package adds it."
+msgstr ""
+
+msgid ""
+"Fedora’s FFmpeg encodes H.264 for KRdp with OpenH264, which Fedora ships as "
+"an empty placeholder. Swap in Cisco’s build:"
+msgstr ""
+
+msgid ""
+"{distro}’s FFmpeg has the x264 encoder KRdp uses, so nothing should be "
+"missing. Bring the system up to date:"
+msgstr ""
+
+msgid ""
+"openSUSE’s FFmpeg encodes H.264 for KRdp only with OpenH264, from openSUSE’s "
+"codecs repository:"
+msgstr ""
+
+msgid ""
+"A virtual machine has no graphics card to encode with, so it sends RemoteFX."
+msgstr ""
+
+msgid "On an NVIDIA card it needs NVIDIA’s own driver, from RPM Fusion:"
+msgstr ""
+
+msgid "On an NVIDIA card it needs NVIDIA’s own driver:"
+msgstr ""
+
+msgid ""
+"On an NVIDIA card it needs NVIDIA’s own driver, from Debian’s non-free "
+"section, once that is turned on in its package sources:"
+msgstr ""
+
+msgid ""
+"On an NVIDIA card it needs NVIDIA’s own driver, from NVIDIA’s repository for "
+"openSUSE."
+msgstr ""
+
+msgid ""
+"On Fedora 44 and later it encodes H.264 on Intel and AMD cards with the VA-"
+"API driver from RPM Fusion, as Fedora’s own leaves H.264 out:"
+msgstr ""
+
+msgid ""
+"It encodes H.264 on Intel and AMD cards from version 50, which {distro} may "
+"not have yet. This shows the version:"
+msgstr ""
+
+msgid "From version 50, it needs the VA-API driver:"
+msgstr ""
+
+msgid "It needs the VA-API and Vulkan drivers:"
+msgstr ""
+
+msgid "On an AMD card it needs Mesa’s VA-API driver with H.264, from Packman."
+msgstr ""
+
+msgid "It needs the VA-API driver:"
+msgstr ""
+
+msgid ""
+"{name} ended the session because it could not send its picture as H.264 "
+"video. Installing what it is missing fixes that."
+msgstr ""
+
+msgid ""
+"{name} is not sending its picture as H.264 video, which is smoother and uses "
+"less of the network. Installing what it is missing fixes that."
+msgstr ""
+
+msgid "Remote Computer"
+msgstr ""
+
+msgid "Server"
+msgstr ""
+
+msgid "Distribution"
+msgstr ""
+
+msgid "Graphics Card"
+msgstr ""
+
+msgid "On the Remote Computer"
+msgstr ""
+
+msgid "Get H.264 Video"
+msgstr ""
+
+msgid "Choose…"
+msgstr ""
+
+msgid "Choose the server and its distribution to see what to install."
+msgstr ""
+
+msgid "Choose the graphics card to see what to install."
+msgstr ""
+
+msgid "Then restart the server, and connect again:"
+msgstr ""
+
+msgid "Then restart the computer, and connect again."
+msgstr ""
+
+msgid "Copy"
 msgstr ""
 
 msgid "English (US)"
@@ -593,6 +866,9 @@ msgstr ""
 msgid "Reconnect"
 msgstr ""
 
+msgid "How to Fix"
+msgstr ""
+
 msgid "The Computer’s Identity Has Changed"
 msgstr ""
 
@@ -623,6 +899,37 @@ msgstr ""
 msgid "Trust and Connect"
 msgstr ""
 
+msgid "Desktop Sharing keeps the remote screen’s size"
+msgstr ""
+
+msgid "How to Resize"
+msgstr ""
+
+msgid ""
+"{name} shares the screen of its signed-in desktop, which keeps the size it "
+"has there, so the picture is scaled to fit the window. GNOME Remote Desktop "
+"can give the session a screen of its own instead, which follows the window’s "
+"size."
+msgstr ""
+
+msgid "Signed in as the user whose desktop is shared, run:"
+msgstr ""
+
+msgid "What Changes"
+msgstr ""
+
+msgid ""
+"The session then shows a new, empty screen beside the computer’s own, not "
+"what is on that screen. Windows already open stay on the computer’s screen "
+"until moved."
+msgstr ""
+
+msgid "To share the computer’s own screen again, run:"
+msgstr ""
+
+msgid "Resize Desktop Sharing"
+msgstr ""
+
 msgid "Session Menu"
 msgstr ""
 
@@ -651,13 +958,13 @@ msgstr ""
 msgid "The screenshot could not be saved"
 msgstr ""
 
-msgid "Connecting to {name}…"
-msgstr ""
-
 msgid "Waking {name}…"
 msgstr ""
 
 msgid "Reconnecting to {name}…"
+msgstr ""
+
+msgid "The remote computer is not sending H.264 video"
 msgstr ""
 
 msgid "The remote desktop can only use one monitor"
