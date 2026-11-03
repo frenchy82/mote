@@ -18,7 +18,7 @@
 //!   captured too, as `<file>-2.png` and on.
 //!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
 //!   scrolls an open dialog to its end, and `picker` opens the editor's
-//!   picture picker, captured as `<file>-popover.png`.
+//!   avatar picker, captured as `<file>-popover.png`.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -89,7 +89,7 @@ impl AppModel {
                 ) => {
                     send(AppMsg::ShowcaseSession(format!("{name}:{argument}")));
                 }
-                // Open the editor's picture picker, after the steps before.
+                // Open the editor's avatar picker, after the steps before.
                 ("picker", _) => {
                     gtk::glib::timeout_add_local_once(Duration::from_secs(wait + 1), open_picker);
                 }
@@ -219,7 +219,7 @@ fn descendants(root: &gtk::Widget) -> Vec<gtk::Widget> {
     all
 }
 
-/// Pop open the picture picker of the editor that is open.
+/// Pop open the avatar picker of the editor that is open.
 fn open_picker() {
     let windows = gtk::Window::list_toplevels();
     for window in windows {

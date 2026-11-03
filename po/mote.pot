@@ -258,7 +258,7 @@ msgstr ""
 msgid "{b} then {a}"
 msgstr ""
 
-msgid "Change Picture"
+msgid "Change Account Avatar"
 msgstr ""
 
 msgid "Robot {number}"
@@ -477,7 +477,7 @@ msgstr ""
 msgid "Dark"
 msgstr ""
 
-msgid "Show Large Pictures"
+msgid "Show Large Account Avatars"
 msgstr ""
 
 msgid "Still shown when editing a connection"
@@ -489,7 +489,7 @@ msgstr ""
 msgid "Show Addresses"
 msgstr ""
 
-msgid "Show Pictures"
+msgid "Show Account Avatars"
 msgstr ""
 
 msgid "Changes apply to the next connection."

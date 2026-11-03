@@ -51,12 +51,12 @@ pub(crate) fn picker(id: &str, choice: &Rc<RefCell<Choice>>) -> gtk::Widget {
         .build();
     let button = gtk::MenuButton::builder()
         .icon_name("document-edit-symbolic")
-        .tooltip_text(i18n("Change Picture"))
+        .tooltip_text(i18n("Change Account Avatar"))
         .halign(gtk::Align::End)
         .valign(gtk::Align::End)
         .css_classes(["circular", "avatar-edit"])
         .build();
-    button.update_property(&[gtk::accessible::Property::Label(&i18n("Change Picture"))]);
+    button.update_property(&[gtk::accessible::Property::Label(&i18n("Change Account Avatar"))]);
 
     let offer = {
         let (robots, choice, show, button, id) = (

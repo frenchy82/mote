@@ -273,7 +273,7 @@ fn appearance(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw
     group.add(&row);
 
     let pictures = adw::SwitchRow::new();
-    pictures.set_title(&i18n("Show Large Pictures"));
+    pictures.set_title(&i18n("Show Large Account Avatars"));
     pictures.set_subtitle(&i18n("Still shown when editing a connection"));
     pictures.set_active(settings.show_large_avatars);
     let out = sender.output_sender().clone();
@@ -301,7 +301,7 @@ fn sidebar(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::P
     group.add(&hosts);
 
     let avatars = adw::SwitchRow::new();
-    avatars.set_title(&i18n("Show Pictures"));
+    avatars.set_title(&i18n("Show Account Avatars"));
     avatars.set_active(settings.show_avatars);
     let out = sender.output_sender().clone();
     avatars.connect_active_notify(move |r| out.emit(PrefChange::ShowAvatars(r.is_active())));
