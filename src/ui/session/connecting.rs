@@ -54,6 +54,7 @@ impl Session {
             quality: self.connection.quality,
             network: self.connection.network,
             clipboard: self.connection.clipboard,
+            clipboard_files: self.connection.clipboard_files,
             sound: self.connection.sound,
             microphone: self.connection.microphone,
             folder: self.connection.shared_folder(),
@@ -68,7 +69,11 @@ impl Session {
         self.display
             .set_input(move |events| input.send(rdp::Command::Input(events)));
         if self.connection.clipboard {
-            self.clipboard = Some(clipboard::Sharing::new(&self.display, handle.clone()));
+            self.clipboard = Some(clipboard::Sharing::new(
+                &self.display,
+                handle.clone(),
+                self.connection.clipboard_files,
+            ));
         }
         self.handle = Some(handle);
         self.attempt += 1;

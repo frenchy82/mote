@@ -55,6 +55,7 @@ struct Rows {
     view_only: adw::SwitchRow,
     network: adw::ComboRow,
     clipboard: adw::SwitchRow,
+    clipboard_files: adw::SwitchRow,
     sound: adw::SwitchRow,
     microphone: adw::SwitchRow,
     folder: adw::ActionRow,
@@ -159,6 +160,7 @@ impl Component for Editor {
             view_only: adw::SwitchRow::new(),
             network: adw::ComboRow::new(),
             clipboard: adw::SwitchRow::new(),
+            clipboard_files: adw::SwitchRow::new(),
             sound: adw::SwitchRow::new(),
             microphone: adw::SwitchRow::new(),
             folder: adw::ActionRow::new(),
@@ -212,6 +214,14 @@ impl Component for Editor {
         rows.clipboard
             .set_subtitle(&i18n("Text only with KRdp; xrdp leaves out folders"));
         rows.clipboard.set_active(c.clipboard);
+        rows.clipboard_files.set_title(&i18n("Share Copied Files"));
+        rows.clipboard_files
+            .set_subtitle(&i18n("The server can read any file copied here"));
+        rows.clipboard_files.set_active(c.clipboard_files);
+        rows.clipboard
+            .bind_property("active", &rows.clipboard_files, "sensitive")
+            .sync_create()
+            .build();
         // Both depend on the server the same way.
         let audio_limit = i18n("Not with KRdp; xrdp needs its PipeWire module");
         rows.sound.set_title(&i18n("Sound"));
@@ -338,6 +348,7 @@ impl Component for Editor {
         let sharing = adw::PreferencesGroup::new();
         sharing.set_title(&i18n("Sharing"));
         sharing.add(&rows.clipboard);
+        sharing.add(&rows.clipboard_files);
         sharing.add(&rows.sound);
         sharing.add(&rows.microphone);
         sharing.add(&rows.folder);
@@ -421,6 +432,7 @@ impl Component for Editor {
                     command_before: r.command_before.text().into(),
                     command_after: r.command_after.text().into(),
                     clipboard: r.clipboard.is_active(),
+                    clipboard_files: r.clipboard_files.is_active(),
                     sound: r.sound.is_active(),
                     microphone: r.microphone.is_active(),
                     folder: r.folder_path.borrow().clone(),

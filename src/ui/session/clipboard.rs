@@ -41,7 +41,13 @@ thread_local! {
 }
 
 impl Sharing {
-    pub(super) fn new(widget: &impl IsA<gtk::Widget>, handle: rdp::Handle) -> Self {
+    /// `share_files` offers files copied here; off, the server never hears
+    /// of them, nor of their paths.
+    pub(super) fn new(
+        widget: &impl IsA<gtk::Widget>,
+        handle: rdp::Handle,
+        share_files: bool,
+    ) -> Self {
         let clipboard = widget.clipboard();
         let tag = TAGS.with(|tags| {
             tags.set(tags.get() + 1);
@@ -49,10 +55,10 @@ impl Sharing {
         });
         let changed = clipboard.connect_changed({
             let handle = handle.clone();
-            move |clipboard| announce(clipboard, &handle, tag)
+            move |clipboard| announce(clipboard, &handle, tag, share_files)
         });
         // The server hears what is already there once it can.
-        announce(&clipboard, &handle, tag);
+        announce(&clipboard, &handle, tag, share_files);
         Self {
             clipboard,
             changed: Some(changed),
@@ -100,8 +106,9 @@ fn ours(clipboard: &gdk::Clipboard, tag: u64) -> bool {
 }
 
 /// Tell the server what the local clipboard holds now. What another
-/// session put there is passed on like anything else.
-fn announce(clipboard: &gdk::Clipboard, handle: &rdp::Handle, tag: u64) {
+/// session put there is passed on like anything else. Files are left out
+/// unless `share_files` is set: their paths are never read then.
+fn announce(clipboard: &gdk::Clipboard, handle: &rdp::Handle, tag: u64, share_files: bool) {
     if ours(clipboard, tag) {
         return;
     }
@@ -119,7 +126,7 @@ fn announce(clipboard: &gdk::Clipboard, handle: &rdp::Handle, tag: u64) {
         kinds.push(Kind::Image);
     }
     tracing::debug!("the local clipboard holds {}", formats.to_str());
-    if !formats.contains_type(gdk::FileList::static_type()) {
+    if !share_files || !formats.contains_type(gdk::FileList::static_type()) {
         handle.send(rdp::Command::Clipboard(ClipboardCommand::Copied {
             kinds,
             files: Vec::new(),

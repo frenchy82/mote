@@ -44,6 +44,8 @@ pub(crate) struct Target {
     pub(crate) network: crate::connection::Network,
     /// Share the clipboard.
     pub(crate) clipboard: bool,
+    /// Offer files copied here through the clipboard.
+    pub(crate) clipboard_files: bool,
     /// Play the remote desktop's sound here; send the microphone there.
     pub(crate) sound: bool,
     pub(crate) microphone: bool,
@@ -267,7 +269,7 @@ async fn drive(
     // not one it redirected to, whose credentials were for one use.
     let mut first = target.clone();
     let mut redirect = None;
-    let mut clipboard = clipboard::Clipboard::new(target.clipboard);
+    let mut clipboard = clipboard::Clipboard::new(target.clipboard, target.clipboard_files);
     let mut early = Vec::new();
     let mut audio = audio::Audio::new(target.sound, target.microphone);
     let mut hops = 0;
@@ -609,6 +611,7 @@ mod tests {
                 }
             },
             clipboard: true,
+            clipboard_files: true,
             // MOTE_TEST_SOUND=1 plays the server's sound; MOTE_TEST_MICROPHONE=1
             // sends the microphone.
             sound: std::env::var_os("MOTE_TEST_SOUND").is_some(),

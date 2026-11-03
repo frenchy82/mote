@@ -210,6 +210,9 @@ pub(super) struct Answer {
 /// The clipboard's state across a session's connections.
 pub(super) struct Clipboard {
     on: bool,
+    /// Files copied here are offered to the server. Off, their paths and
+    /// contents never leave this computer, whatever the interface sends.
+    share_files: bool,
     pub(super) notes: mpsc::UnboundedReceiver<Note>,
     /// Kept so that `notes` waits, rather than ends, between connections.
     _sender: mpsc::UnboundedSender<Note>,
@@ -237,10 +240,11 @@ pub(super) struct Clipboard {
 type Outputs = Result<Vec<ActiveStageOutput>, Failure>;
 
 impl Clipboard {
-    pub(super) fn new(on: bool) -> Self {
+    pub(super) fn new(on: bool, share_files: bool) -> Self {
         let (sender, notes) = mpsc::unbounded_channel();
         Self {
             on,
+            share_files,
             notes,
             _sender: sender,
             local: Vec::new(),
@@ -286,10 +290,20 @@ impl Clipboard {
     /// A command that came while there was no connection to take it.
     pub(super) fn early(&mut self, command: ClipboardCommand) {
         if let ClipboardCommand::Copied { kinds, files } = command {
-            self.local = kinds;
-            self.files = files;
-            self.stale = true;
+            self.copied(kinds, files);
         }
+    }
+
+    /// What the local clipboard holds now, less files when they aren't
+    /// shared.
+    fn copied(&mut self, mut kinds: Vec<Kind>, mut files: Vec<PathBuf>) {
+        if !self.share_files {
+            kinds.retain(|kind| *kind != Kind::Files);
+            files.clear();
+        }
+        self.local = kinds;
+        self.files = files;
+        self.stale = true;
     }
 
     pub(super) fn command(
@@ -299,9 +313,7 @@ impl Clipboard {
     ) -> Outputs {
         match command {
             ClipboardCommand::Copied { kinds, files } => {
-                self.local = kinds;
-                self.files = files;
-                self.stale = true;
+                self.copied(kinds, files);
                 self.advertise(stage)
             }
             ClipboardCommand::Paste { kind, reply } => {
@@ -348,7 +360,7 @@ impl Clipboard {
             return Ok(Vec::new());
         }
         self.stale = false;
-        if self.local.contains(&Kind::Files) && !self.files.is_empty() {
+        if self.share_files && self.local.contains(&Kind::Files) && !self.files.is_empty() {
             let (list, offered) = files::describe(&self.files);
             self.offered = offered;
             tracing::debug!("offering {} files and folders", list.len());
@@ -722,6 +734,23 @@ mod tests {
         );
         assert_eq!(pick(&formats, Kind::Image), Some(ClipboardFormatId::CF_DIB));
         assert_eq!(pick(&formats, Kind::Files), None);
+    }
+
+    #[test]
+    fn files_are_kept_back_unless_shared() {
+        let copied = || ClipboardCommand::Copied {
+            kinds: vec![Kind::Files, Kind::Text],
+            files: vec![PathBuf::from("/home/someone/secret.txt")],
+        };
+        let mut kept = Clipboard::new(true, false);
+        kept.early(copied());
+        assert_eq!(kept.local, vec![Kind::Text]);
+        assert!(kept.files.is_empty());
+
+        let mut shared = Clipboard::new(true, true);
+        shared.early(copied());
+        assert_eq!(shared.local, vec![Kind::Files, Kind::Text]);
+        assert_eq!(shared.files.len(), 1);
     }
 
     #[test]

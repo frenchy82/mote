@@ -34,6 +34,9 @@ pub(crate) struct Connection {
     pub(crate) network: Network,
     /// Share the clipboard with the remote desktop.
     pub(crate) clipboard: bool,
+    /// Offer files copied here to the remote desktop through the clipboard,
+    /// which gives the server their paths and lets it read them.
+    pub(crate) clipboard_files: bool,
     /// Play the remote desktop's sound here, rather than leave it there.
     pub(crate) sound: bool,
     /// Send the microphone to the remote desktop.
@@ -203,6 +206,7 @@ impl Default for Connection {
             quality: Quality::default(),
             network: Network::default(),
             clipboard: true,
+            clipboard_files: false,
             sound: true,
             microphone: false,
             folder: String::new(),
