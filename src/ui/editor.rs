@@ -18,10 +18,6 @@ pub(crate) struct EditorInit {
     pub(crate) is_new: bool,
     /// The groups in use, to choose from.
     pub(crate) groups: Vec<String>,
-    /// Settings opens every session fullscreen, or in a new window: the
-    /// connection's own switch is on and can't be turned off.
-    pub(crate) fullscreen_everywhere: bool,
-    pub(crate) new_window_everywhere: bool,
 }
 
 pub(crate) struct Editor {
@@ -218,27 +214,10 @@ impl Component for Editor {
         );
         rows.view_only.set_title(&i18n("View Only"));
         rows.view_only.set_active(c.view_only);
-        for (row, title, on, everywhere) in [
-            (
-                &rows.fullscreen,
-                i18n("Open Fullscreen"),
-                c.fullscreen,
-                init.fullscreen_everywhere,
-            ),
-            (
-                &rows.new_window,
-                i18n("Open in New Window"),
-                c.new_window,
-                init.new_window_everywhere,
-            ),
-        ] {
-            row.set_title(&title);
-            row.set_active(on || everywhere);
-            if everywhere {
-                row.set_sensitive(false);
-                row.set_subtitle(&i18n("On for every connection in Settings"));
-            }
-        }
+        rows.fullscreen.set_title(&i18n("Open Fullscreen"));
+        rows.fullscreen.set_active(c.fullscreen);
+        rows.new_window.set_title(&i18n("Open in New Window"));
+        rows.new_window.set_active(c.new_window);
         rows.clipboard.set_title(&i18n("Clipboard"));
         rows.clipboard
             .set_subtitle(&i18n("Text only with KRdp; xrdp leaves out folders"));
@@ -460,17 +439,8 @@ impl Component for Editor {
                         .copied()
                         .unwrap_or_default(),
                     view_only: r.view_only.is_active(),
-                    // Held on by Settings, the connection keeps its own.
-                    fullscreen: if r.fullscreen.is_sensitive() {
-                        r.fullscreen.is_active()
-                    } else {
-                        self.base.fullscreen
-                    },
-                    new_window: if r.new_window.is_sensitive() {
-                        r.new_window.is_active()
-                    } else {
-                        self.base.new_window
-                    },
+                    fullscreen: r.fullscreen.is_active(),
+                    new_window: r.new_window.is_active(),
                     command_before: r.command_before.text().into(),
                     command_after: r.command_after.text().into(),
                     clipboard: r.clipboard.is_active(),

@@ -87,6 +87,26 @@ fn defaults(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
     codec.set_selected(position(&Quality::ALL, &settings.default_quality));
     codec.set_subtitle(&quality_cost(settings.default_quality));
     display.add(&codec);
+    // The same rows as in the connection editor.
+    for (title, on, change) in [
+        (
+            i18n("Open Fullscreen"),
+            settings.default_fullscreen,
+            PrefChange::DefaultFullscreen as fn(bool) -> PrefChange,
+        ),
+        (
+            i18n("Open in New Window"),
+            settings.default_new_window,
+            PrefChange::DefaultNewWindow,
+        ),
+    ] {
+        let row = adw::SwitchRow::new();
+        row.set_title(&title);
+        row.set_active(on);
+        let out = sender.output_sender().clone();
+        row.connect_active_notify(move |r| out.emit(change(r.is_active())));
+        display.add(&row);
+    }
 
     let sharing = adw::PreferencesGroup::new();
     sharing.set_title(&i18n("Sharing"));
@@ -125,30 +145,6 @@ fn defaults(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
 }
 
 fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::PreferencesPage {
-    // For every connection; a connection's own switch in the editor turns
-    // the same on for it alone.
-    let windows = adw::PreferencesGroup::new();
-    windows.set_title(&i18n("Windows"));
-    for (title, on, change) in [
-        (
-            i18n("Open Fullscreen"),
-            settings.open_fullscreen,
-            PrefChange::OpenFullscreen as fn(bool) -> PrefChange,
-        ),
-        (
-            i18n("Open in New Window"),
-            settings.open_new_window,
-            PrefChange::OpenNewWindow,
-        ),
-    ] {
-        let row = adw::SwitchRow::new();
-        row.set_title(&title);
-        row.set_active(on);
-        let out = sender.output_sender().clone();
-        row.connect_active_notify(move |r| out.emit(change(r.is_active())));
-        windows.add(&row);
-    }
-
     let keyboard = adw::PreferencesGroup::new();
     keyboard.set_title(&i18n("Keyboard"));
     let mut labels = vec![i18n("Automatic")];
@@ -232,7 +228,7 @@ fn sessions(settings: &Settings, sender: &ComponentSender<Preferences>) -> adw::
         notices.add(&row);
     }
 
-    page_with(&[&windows, &keyboard, &network, &notices])
+    page_with(&[&keyboard, &network, &notices])
 }
 
 fn combo(title: &str, labels: &[String]) -> adw::ComboRow {

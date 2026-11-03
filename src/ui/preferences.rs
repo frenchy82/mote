@@ -82,10 +82,10 @@ pub(crate) enum PrefChange {
     DefaultClipboard(bool),
     DefaultSound(bool),
     DefaultMicrophone(bool),
+    DefaultFullscreen(bool),
+    DefaultNewWindow(bool),
     /// A Windows layout ID; 0 follows this computer's.
     KeyboardLayout(u32),
-    OpenFullscreen(bool),
-    OpenNewWindow(bool),
     GrabKeyboard(bool),
     Reconnect(bool),
     GrabNotice(bool),

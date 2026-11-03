@@ -49,8 +49,6 @@ pub(crate) struct SessionInit {
     pub(crate) size_notice: bool,
     /// Say, the first time, that the server can read the clipboard.
     pub(crate) clipboard_notice: bool,
-    /// Open fullscreen, as the connection or Settings asks.
-    pub(crate) fullscreen: bool,
 }
 
 pub(crate) struct Session {
@@ -355,7 +353,7 @@ impl Component for Session {
             fullscreen: Rc::new(Cell::new(false)),
             pinned: Rc::new(Cell::new(false)),
             watched: None,
-            fullscreen_pending: init.fullscreen,
+            fullscreen_pending: connection.fullscreen,
             scaling: connection.scaling,
             resizes: 0,
             display: Display::default(),
