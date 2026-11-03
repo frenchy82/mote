@@ -4,6 +4,22 @@ A remote desktop client for GNOME, for Linux machines that run GNOME Remote
 Desktop, xrdp or KRdp. Each section below is what a release brought; the
 detail is in the commit history.
 
+## What's new in 1.1.0
+
+### New features:
+
+- Advice on making GNOME Desktop Sharing resize with the window
+- A switch in Settings for the Desktop Sharing size notice
+- The Flatpak shares connections, settings and passwords with the other installs
+- A notice, at a connection's first session, that the server reads the clipboard
+- Copied files offered to the server only when the connection allows it
+- The clipboard off for new connections until turned on
+
+### Fixes:
+
+- Passwords are wiped from memory once used
+- Logging the session's bytes, passwords included, warns at startup
+
 ## What's new in 1.0.0
 
 ### New features:

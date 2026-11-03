@@ -4,7 +4,7 @@
 %global debug_package %{nil}
 
 Name:           mote
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Connect to Linux desktops over RDP
 License:        AGPL-3.0-or-later
@@ -71,5 +71,10 @@ done
 %{_datadir}/icons/hicolor/symbolic/apps/%{appid}-symbolic.svg
 
 %changelog
+* Mon Nov 02 2026 Hyprlab <hyprlab@proton.me> - 1.1.0-1
+- Clipboard sharing opt-in, file sharing on the clipboard opt-in
+- Advice on resizing GNOME Desktop Sharing
+- Flatpak data shared with the other installs
+
 * Sun Nov 01 2026 Hyprlab <hyprlab@proton.me> - 1.0.0-1
 - First stable release
