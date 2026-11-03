@@ -4,6 +4,15 @@ A remote desktop client for GNOME, for Linux machines that run GNOME Remote
 Desktop, xrdp or KRdp. Each section below is what a release brought; the
 detail is in the commit history.
 
+## What's new in 1.2.0
+
+### New features:
+
+- A connection opens fullscreen, in a new window, or both, as its editor sets
+- New connections' window choices in Settings, beside their other defaults
+- A switch in Settings to hide the account avatars in the sidebar
+- A switch in Settings to hide the large account avatar on the connection page
+
 ## What's new in 1.1.0
 
 ### New features:

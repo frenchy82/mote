@@ -62,6 +62,11 @@
   </supports>
 
   <releases>
+    <release version="1.2.0" date="2026-11-03" type="stable">
+      <description>
+        <p>A connection can open fullscreen, in a new window, or both; account avatars can be hidden in the sidebar and on the connection page.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-11-02" type="stable">
       <description>
         <p>The clipboard is shared only when turned on, and copied files only when allowed; GNOME Desktop Sharing gets advice on resizing; the Flatpak shares its data with the other installs.</p>
