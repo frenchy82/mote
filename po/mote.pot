@@ -349,13 +349,10 @@ msgstr ""
 msgid "SSH Tunnel"
 msgstr ""
 
-msgid "Tries the SSH agent’s keys before the password"
+msgid "A password is needed only if no SSH key works"
 msgstr ""
 
 msgid "RD Gateway"
-msgstr ""
-
-msgid "Without an account here, signs in with the one above"
 msgstr ""
 
 msgid "Account"

@@ -255,7 +255,7 @@ impl Component for Editor {
         rows.port.set_value(f64::from(c.port));
         rows.ssh.set_title(&i18n("SSH Tunnel"));
         rows.ssh
-            .set_subtitle(&i18n("Tries the SSH agent’s keys before the password"));
+            .set_subtitle(&i18n("A password is needed only if no SSH key works"));
         rows.ssh.set_show_enable_switch(true);
         rows.ssh.set_enable_expansion(c.ssh_tunnel);
         rows.ssh.set_expanded(false);
@@ -267,9 +267,6 @@ impl Component for Editor {
             rows.ssh.add_row(row);
         }
         rows.gateway.set_title(&i18n("RD Gateway"));
-        rows.gateway.set_subtitle(&i18n(
-            "Without an account here, signs in with the one above",
-        ));
         rows.gateway.set_show_enable_switch(true);
         rows.gateway.set_enable_expansion(c.gateway);
         rows.gateway.set_expanded(false);
