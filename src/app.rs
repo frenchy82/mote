@@ -493,6 +493,8 @@ impl Component for AppModel {
                 if let Some(editor) = &self.editor {
                     editor.widget().close();
                 }
+                // With its row gone, a session would have no way back to it.
+                self.end_session(&id);
                 if let Some(gone) = self.connections.iter().find(|c| c.id == id) {
                     crate::ui::avatar::delete_picture(&gone.picture);
                 }
