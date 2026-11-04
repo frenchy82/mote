@@ -91,7 +91,8 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 - The connection list: search, groups, last-used order, and a search field
   that takes `host[:port]`: Enter on an address nothing matches starts a new
   connection to it. Connecting straight from it comes with section 3.
-- The connection editor, as a libadwaita dialog with preferences pages.
+- The connection editor, as a libadwaita dialog with preferences pages, and
+  Delete beside Save for a connection already saved.
 - Import of `.rdp` files and of Remmina's `.remmina` profiles, and export
   to `.rdp`.
 - Scan Network, in the main menu, lists the RDP servers on the local networks.

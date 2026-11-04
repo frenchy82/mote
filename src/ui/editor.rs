@@ -74,6 +74,7 @@ pub(crate) enum EditorMsg {
     PasswordEdited(Secret),
     Save,
     Cancel,
+    Delete,
 }
 
 #[derive(Debug)]
@@ -83,6 +84,9 @@ pub(crate) enum EditorOutput {
         connection: Box<Connection>,
         passwords: Vec<(Secret, Password)>,
     },
+    /// Delete was pressed, for the connection with this id. The question
+    /// comes first, so this stays open until it is answered.
+    Delete(String),
     Closed,
 }
 
@@ -123,6 +127,14 @@ impl Component for Editor {
                         set_sensitive: model.valid,
                         connect_clicked => EditorMsg::Save,
                     },
+                    // Left of Save, as in Hylki's account editor; a new
+                    // connection has nothing to delete.
+                    pack_end = &gtk::Button {
+                        set_label: &i18n("Delete…"),
+                        add_css_class: "destructive-action",
+                        set_visible: !is_new,
+                        connect_clicked => EditorMsg::Delete,
+                    },
                 },
                 set_content: Some(&page),
             },
@@ -135,7 +147,8 @@ impl Component for Editor {
         sender: ComponentSender<Self>,
     ) -> ComponentParts<Self> {
         let c = &init.connection;
-        let (title, save_label) = if init.is_new {
+        let is_new = init.is_new;
+        let (title, save_label) = if is_new {
             (i18n("New Connection"), i18n("Add"))
         } else {
             (i18n("Edit Connection"), i18n("Save"))
@@ -411,6 +424,9 @@ impl Component for Editor {
             }
             EditorMsg::Cancel => {
                 root.close();
+            }
+            EditorMsg::Delete => {
+                let _ = sender.output(EditorOutput::Delete(self.base.id.clone()));
             }
             EditorMsg::Save => {
                 if !self.valid {

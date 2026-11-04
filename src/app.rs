@@ -489,6 +489,10 @@ impl Component for AppModel {
                 }
             }
             AppMsg::Delete(id) => {
+                // Asked from the editor, which has nothing left to edit.
+                if let Some(editor) = &self.editor {
+                    editor.widget().close();
+                }
                 if let Some(gone) = self.connections.iter().find(|c| c.id == id) {
                     crate::ui::avatar::delete_picture(&gone.picture);
                 }
@@ -633,6 +637,7 @@ impl AppModel {
                     connection,
                     passwords,
                 },
+                EditorOutput::Delete(id) => AppMsg::ConfirmDelete(id),
                 EditorOutput::Closed => AppMsg::EditorClosed,
             });
         editor.widget().present(Some(root));
