@@ -170,6 +170,13 @@ settings and passwords. `tools/beta-files.sh` makes its launcher, metainfo and
 and the workflow run it. The RPM and the Debian package stay `mote`, at version
 `X.Y.Z~beta.N`, which sorts before `X.Y.Z`, and replace a stable install.
 
+CI's Flatpak bundles are unsigned, for the signing key stays on the Flatout
+server, so they are what goes into the repository, not what people download.
+Once they are live, `tools/bundle-from-repo.sh X.Y.Z` makes the bundles to
+publish from the commits the server signed. Those carry the repository's address
+and key, so an install from one receives updates, as an install from the
+repository does. They replace CI's on Flatout and on the release.
+
 ## Pictures of the interface
 
 With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
