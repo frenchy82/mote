@@ -4,9 +4,7 @@
 
 # Mote
 
-A remote desktop client for GNOME, written in Rust with GTK 4 and libadwaita,
-for connecting to Linux machines that run an RDP server: GNOME Remote
-Desktop, xrdp or KRdp.
+A GNOME-native RDP client written in Rust with IronRDP backend specifcially designed for connecting to Linux desktops. Full support for GNOME Remote Desktop, xrdp and KRdp.
 
 <p align="center">
   <picture>
