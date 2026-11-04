@@ -79,6 +79,9 @@ msgstr ""
 msgid "Sort By"
 msgstr ""
 
+msgid "Scan Network…"
+msgstr ""
+
 msgid "Import .rdp Files…"
 msgstr ""
 
@@ -244,6 +247,9 @@ msgid "No Connections"
 msgstr ""
 
 msgid "Add a connection, or import one from an .rdp file or from Remmina."
+msgstr ""
+
+msgid "Scan Network"
 msgstr ""
 
 msgid "No Connection Selected"
@@ -974,6 +980,36 @@ msgid "The remote computer is not sending H.264 video"
 msgstr ""
 
 msgid "The remote desktop can only use one monitor"
+msgstr ""
+
+msgid "Scan Again"
+msgstr ""
+
+msgid "Scanning…"
+msgstr ""
+
+msgid "No Computers Found"
+msgstr ""
+
+msgid "Nothing on {networks} answered on port {first} or {second}."
+msgstr ""
+
+msgid "No Local Network"
+msgstr ""
+
+msgid "This computer has no address on a private network."
+msgstr ""
+
+msgid "Computers"
+msgstr ""
+
+msgid "Add {name}"
+msgstr ""
+
+msgid "Added"
+msgstr ""
+
+msgid "GNOME Remote Desktop"
 msgstr ""
 
 msgid "Mote"

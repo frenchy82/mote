@@ -50,6 +50,24 @@ impl Server {
     }
 }
 
+/// The name in a certificate that names its computer, as those made by
+/// Debian's and Ubuntu's packages do; the ones [`Server`] knows by their
+/// subject name the program instead, or nothing.
+pub(crate) fn certificate_name(der: &[u8]) -> Option<String> {
+    let certificate = x509_cert::Certificate::from_der(der).ok()?;
+    name_in_subject(&certificate.tbs_certificate().subject().to_string())
+}
+
+fn name_in_subject(subject: &str) -> Option<String> {
+    if Server::from_subject(subject).is_some() {
+        return None;
+    }
+    subject
+        .split(',')
+        .find_map(|part| part.trim().strip_prefix("CN="))
+        .map(str::to_owned)
+}
+
 /// The distribution the server runs on, by the family its packages come
 /// from: Linux Mint counts as Ubuntu, Manjaro as Arch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -175,6 +193,17 @@ mod tests {
             None,
             "a name set by hand"
         );
+    }
+
+    #[test]
+    fn a_certificate_names_a_computer_only_when_made_for_one() {
+        assert_eq!(
+            name_in_subject("CN=build01.lab,O=Lab"),
+            Some("build01.lab".to_owned())
+        );
+        assert_eq!(name_in_subject("CN=GNOME,C=US"), None);
+        assert_eq!(name_in_subject("CN=XRDP"), None);
+        assert_eq!(name_in_subject("O=Lab"), None);
     }
 
     #[test]

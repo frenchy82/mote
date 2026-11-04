@@ -14,6 +14,7 @@ const ACTIONS: &[(&str, &[&str])] = &[
     ("new-connection", &["<Control>n"]),
     ("import-rdp", &["<Control>o"]),
     ("import-remmina", &[]),
+    ("scan-network", &[]),
     ("connect", &["<Control>Return"]),
     ("edit", &["<Control>e"]),
     ("duplicate", &[]),
@@ -30,6 +31,7 @@ fn message(action: &str) -> AppMsg {
         "new-connection" => AppMsg::NewConnection(None),
         "import-rdp" => AppMsg::ImportRdp,
         "import-remmina" => AppMsg::ImportRemmina,
+        "scan-network" => AppMsg::ScanNetwork,
         "connect" => AppMsg::ConnectSelected,
         "edit" => AppMsg::EditSelected,
         "duplicate" => AppMsg::DuplicateSelected,
@@ -198,9 +200,10 @@ pub(super) fn show_sort(window: &adw::ApplicationWindow, order: SortOrder) {
     }
 }
 
-/// The imports, in the main menu.
+/// The other ways to get connections, in the main menu.
 pub(super) fn import_menu() -> gio::Menu {
     let menu = gio::Menu::new();
+    menu.append(Some(&i18n("Scan Network…")), Some("win.scan-network"));
     menu.append_item(&item(
         &i18n("Import .rdp Files…"),
         "win.import-rdp",
@@ -247,7 +250,10 @@ pub(super) fn present_shortcuts(parent: &adw::ApplicationWindow) {
         (
             i18n("Sessions"),
             vec![
-                (i18n("Let Go of the Keyboard and Show the Header"), "Control_R"),
+                (
+                    i18n("Let Go of the Keyboard and Show the Header"),
+                    "Control_R",
+                ),
                 (i18n("Give the Shortcuts Back"), "<Super>Escape"),
             ],
         ),

@@ -22,7 +22,7 @@ separate-locales: false
 
 finish-args:
   - --share=ipc
-  - --share=network                    # RDP, SSH, the RD Gateway, Wake-on-LAN
+  - --share=network                    # RDP, SSH, the RD Gateway, Wake-on-LAN, Scan Network
   - --socket=wayland
   - --socket=fallback-x11
   - --device=dri                       # GTK's GPU renderer

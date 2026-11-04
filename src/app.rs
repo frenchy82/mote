@@ -26,6 +26,7 @@ use crate::i18n::{i18n, i18n_f};
 use crate::secrets::{self, Secret};
 use crate::ui::editor::{Editor, EditorInit, EditorOutput};
 use crate::ui::preferences::{PrefChange, Preferences};
+use crate::ui::scan::{Scan, ScanOutput};
 use crate::ui::session::{Session, SessionOutput};
 use crate::{APP_ID, APP_NAME};
 
@@ -46,6 +47,8 @@ pub(crate) struct AppModel {
     /// user's.
     quiet: Rc<Cell<bool>>,
     editor: Option<Controller<Editor>>,
+    /// The Scan Network dialog, while it is open.
+    scan: Option<Controller<Scan>>,
     prefs: Option<Controller<Preferences>>,
     /// The content pane: the chosen connection, or a session's page.
     panes: gtk::Stack,
@@ -112,6 +115,10 @@ pub(crate) enum AppMsg {
     ImportRdp,
     ImportRdpFiles(Vec<PathBuf>),
     ImportRemmina,
+    ScanNetwork,
+    /// A server the scan found, to make a connection of.
+    AddFound(Box<crate::scan::Found>),
+    ScanClosed,
     ExportSelected,
     ExportTo(String, PathBuf),
     OpenSettings,
@@ -277,12 +284,21 @@ impl Component for AppModel {
                                 set_title: &i18n("No Connections"),
                                 set_description: Some(&i18n("Add a connection, or import one from an .rdp file or from Remmina.")),
                                 #[wrap(Some)]
-                                set_child = &gtk::Button {
-                                    set_label: &i18n("New Connection"),
+                                set_child = &gtk::Box {
+                                    set_orientation: gtk::Orientation::Vertical,
                                     set_halign: gtk::Align::Center,
-                                    add_css_class: "pill",
-                                    add_css_class: "suggested-action",
-                                    set_action_name: Some("win.new-connection"),
+                                    set_spacing: 12,
+                                    gtk::Button {
+                                        set_label: &i18n("New Connection"),
+                                        add_css_class: "pill",
+                                        add_css_class: "suggested-action",
+                                        set_action_name: Some("win.new-connection"),
+                                    },
+                                    gtk::Button {
+                                        set_label: &i18n("Scan Network"),
+                                        add_css_class: "pill",
+                                        set_action_name: Some("win.scan-network"),
+                                    },
                                 },
                             },
                             add_named[Some("none")] = &adw::StatusPage {
@@ -354,6 +370,7 @@ impl Component for AppModel {
             split: adw::OverlaySplitView::new(),
             quiet,
             editor: None,
+            scan: None,
             prefs: None,
             panes: gtk::Stack::new(),
             sessions: HashMap::new(),
@@ -488,6 +505,9 @@ impl Component for AppModel {
             AppMsg::ImportRdp => files::choose_rdp_files(root, &sender),
             AppMsg::ImportRdpFiles(paths) => self.import_rdp_files(paths),
             AppMsg::ImportRemmina => self.import_remmina(),
+            AppMsg::ScanNetwork => self.open_scan(&sender, root),
+            AppMsg::AddFound(found) => self.add_found(*found),
+            AppMsg::ScanClosed => self.scan = None,
             AppMsg::ExportSelected => {
                 if let Some(conn) = self.selected_connection() {
                     files::choose_export_path(conn, root, &sender);
@@ -608,6 +628,28 @@ impl AppModel {
             });
         editor.widget().present(Some(root));
         self.editor = Some(editor);
+    }
+
+    fn open_scan(&mut self, sender: &ComponentSender<Self>, root: &adw::ApplicationWindow) {
+        if self.scan.is_some() {
+            return;
+        }
+        // Through a tunnel or a gateway the host is seen from the far end,
+        // so a machine here of that name is another one.
+        let saved = self
+            .connections
+            .iter()
+            .filter(|c| !c.ssh_tunnel && !c.gateway)
+            .map(|c| (c.host.clone(), c.port))
+            .collect();
+        let scan = Scan::builder()
+            .launch(saved)
+            .forward(sender.input_sender(), |out| match out {
+                ScanOutput::Add(found) => AppMsg::AddFound(found),
+                ScanOutput::Closed => AppMsg::ScanClosed,
+            });
+        scan.widget().present(Some(root));
+        self.scan = Some(scan);
     }
 
     fn save_connection(

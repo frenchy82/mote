@@ -50,7 +50,8 @@ ironrdp-svc = "0.10"
 # Mote's corrections to it make on the folder.
 ironrdp-rdpdr = "0.9"
 ironrdp-rdpdr-native = "0.9"
-nix = { version = "0.31", features = ["fs"] }
+# (`net`: the network interfaces, which the scan for servers starts from.)
+nix = { version = "0.31", features = ["fs", "net"] }
 # The ways to a server other than straight there: an RD Gateway, through
 # IronRDP's client for it, and an SSH tunnel, through russh on ring, the
 # crypto rustls already uses. The gateway's NTLM brings aws-lc along, so

@@ -17,8 +17,9 @@
 //!   `all-monitors` spreads it over every monitor, whose windows are
 //!   captured too, as `<file>-2.png` and on.
 //!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
-//!   scrolls an open dialog to its end, and `picker` opens the editor's
-//!   avatar picker, captured as `<file>-popover.png`.
+//!   scrolls an open dialog to its end, `picker` opens the editor's
+//!   avatar picker, captured as `<file>-popover.png`, and `scan` opens Scan
+//!   Network, which scans the network the rig's computer is on.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -70,6 +71,7 @@ impl AppModel {
                     send(AppMsg::ShowcaseSettingsPage(page.to_owned()));
                 }
                 ("about", _) => send(AppMsg::About),
+                ("scan", _) => send(AppMsg::ScanNetwork),
                 ("shortcuts", _) => send(AppMsg::Shortcuts),
                 ("connect", name) => {
                     if let Some(id) = self

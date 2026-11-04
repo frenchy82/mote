@@ -11,6 +11,7 @@ mod i18n;
 mod import;
 mod paths;
 mod rdp;
+mod scan;
 mod secrets;
 mod stats;
 mod ui;

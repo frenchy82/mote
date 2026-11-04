@@ -212,11 +212,16 @@ impl Handle {
     }
 }
 
+/// The gateway's NTLM brings a second crypto provider into rustls, which
+/// then can't choose; ring is the one the rest of the engine was built on.
+/// Called before any TLS; only the first call does anything.
+pub(crate) fn use_ring() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 /// Connect to `target`, and keep the session going until it ends.
 pub(crate) fn start(target: Target) -> (Handle, mpsc::Receiver<Event>) {
-    // The gateway's NTLM brings a second crypto provider into rustls, which
-    // then can't choose; ring is the one the rest of the engine was built on.
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    use_ring();
     let (commands, command_rx) = mpsc::unbounded_channel();
     let (event_tx, events) = mpsc::channel(8);
     // A thread of its own per session, on a single-threaded runtime: the
