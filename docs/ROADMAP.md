@@ -94,9 +94,9 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 - The connection editor, as a libadwaita dialog with preferences pages.
 - Import of `.rdp` files and of Remmina's `.remmina` profiles, and export
   to `.rdp`.
-- Scan Network, in the main menu, lists the RDP servers on the local networks
-  and adds one as a connection with a click; the account is asked for at its
-  first session. It covers ports 3389 and 3390 on the private IPv4 networks
+- Scan Network, in the main menu, lists the RDP servers on the local networks.
+  Add opens the connection editor on one with its address filled in, and
+  Cancel there saves nothing. It covers ports 3389 and 3390 on the private IPv4 networks
   this computer is on, as a /24 at the widest, and leaves out this computer,
   VPNs and container bridges. Linux servers don't announce themselves, so it
   tries each address, and runs only when asked to. A server is asked for its

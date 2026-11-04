@@ -112,22 +112,6 @@ impl AppModel {
         self.finish_import(found);
     }
 
-    /// A connection to a server the scan found, with the settings a new one
-    /// gets. The account is asked for at the first session.
-    pub(super) fn add_found(&mut self, found: crate::scan::Found) {
-        let conn = Connection {
-            host: found.host,
-            port: found.address.port(),
-            name: found.name,
-            ..self.settings.new_connection()
-        };
-        let id = conn.id.clone();
-        self.connections.push(conn);
-        config::save_connections(&self.connections);
-        self.select(Some(id));
-        self.rebuild_list();
-    }
-
     fn finish_import(&mut self, mut found: Vec<Connection>) {
         // Into the groups already here when only the case differs.
         let groups = crate::ui::group::list(&self.connections);

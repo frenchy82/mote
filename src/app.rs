@@ -26,7 +26,7 @@ use crate::i18n::{i18n, i18n_f};
 use crate::secrets::{self, Secret};
 use crate::ui::editor::{Editor, EditorInit, EditorOutput};
 use crate::ui::preferences::{PrefChange, Preferences};
-use crate::ui::scan::{Scan, ScanOutput};
+use crate::ui::scan::{Scan, ScanMsg, ScanOutput};
 use crate::ui::session::{Session, SessionOutput};
 use crate::{APP_ID, APP_NAME};
 
@@ -49,6 +49,8 @@ pub(crate) struct AppModel {
     editor: Option<Controller<Editor>>,
     /// The Scan Network dialog, while it is open.
     scan: Option<Controller<Scan>>,
+    /// The server the open editor is adding from that dialog.
+    adding: Option<std::net::SocketAddrV4>,
     prefs: Option<Controller<Preferences>>,
     /// The content pane: the chosen connection, or a session's page.
     panes: gtk::Stack,
@@ -116,7 +118,7 @@ pub(crate) enum AppMsg {
     ImportRdpFiles(Vec<PathBuf>),
     ImportRemmina,
     ScanNetwork,
-    /// A server the scan found, to make a connection of.
+    /// A server the scan found, to open the editor on.
     AddFound(Box<crate::scan::Found>),
     ScanClosed,
     ExportSelected,
@@ -371,6 +373,7 @@ impl Component for AppModel {
             quiet,
             editor: None,
             scan: None,
+            adding: None,
             prefs: None,
             panes: gtk::Stack::new(),
             sessions: HashMap::new(),
@@ -500,13 +503,19 @@ impl Component for AppModel {
             AppMsg::Saved {
                 connection,
                 passwords,
-            } => self.save_connection(*connection, passwords, &sender),
-            AppMsg::EditorClosed => self.editor = None,
+            } => {
+                self.tell_scan_saved(&connection);
+                self.save_connection(*connection, passwords, &sender);
+            }
+            AppMsg::EditorClosed => {
+                self.editor = None;
+                self.adding = None;
+            }
             AppMsg::ImportRdp => files::choose_rdp_files(root, &sender),
             AppMsg::ImportRdpFiles(paths) => self.import_rdp_files(paths),
             AppMsg::ImportRemmina => self.import_remmina(),
             AppMsg::ScanNetwork => self.open_scan(&sender, root),
-            AppMsg::AddFound(found) => self.add_found(*found),
+            AppMsg::AddFound(found) => self.add_found(*found, &sender, root),
             AppMsg::ScanClosed => self.scan = None,
             AppMsg::ExportSelected => {
                 if let Some(conn) = self.selected_connection() {
@@ -650,6 +659,37 @@ impl AppModel {
             });
         scan.widget().present(Some(root));
         self.scan = Some(scan);
+    }
+
+    /// The editor on a new connection to a server the scan found, over the
+    /// scan's dialog, which stays open for the next one.
+    fn add_found(
+        &mut self,
+        found: crate::scan::Found,
+        sender: &ComponentSender<Self>,
+        root: &adw::ApplicationWindow,
+    ) {
+        if self.editor.is_some() {
+            return;
+        }
+        self.adding = Some(found.address);
+        let conn = Connection {
+            host: found.host,
+            port: found.address.port(),
+            name: found.name,
+            ..self.settings.new_connection()
+        };
+        self.open_editor(conn, true, sender, root);
+    }
+
+    fn tell_scan_saved(&mut self, connection: &Connection) {
+        if let (Some(address), Some(scan)) = (self.adding.take(), &self.scan) {
+            scan.emit(ScanMsg::Saved {
+                address,
+                host: connection.host.clone(),
+                port: connection.port,
+            });
+        }
     }
 
     fn save_connection(

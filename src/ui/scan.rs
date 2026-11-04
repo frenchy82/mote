@@ -1,5 +1,7 @@
 //! The Scan Network dialog: the RDP servers on the local networks, as they
-//! answer, each a button away from being a connection.
+//! answer, each a button away from the editor with its address filled in.
+
+use std::net::SocketAddrV4;
 
 use adw::prelude::*;
 use relm4::prelude::*;
@@ -30,7 +32,14 @@ struct Entry {
 #[derive(Debug)]
 pub(crate) enum ScanMsg {
     Again,
-    Add(std::net::SocketAddrV4),
+    /// A row's Add button: over to the editor.
+    Add(SocketAddrV4),
+    /// The editor saved a connection for that row, with this host and port.
+    Saved {
+        address: SocketAddrV4,
+        host: String,
+        port: u16,
+    },
 }
 
 #[derive(Debug)]
@@ -151,15 +160,22 @@ impl Component for Scan {
                 self.start(&sender);
             }
             ScanMsg::Add(address) => {
-                let Some(entry) = self.entries.iter_mut().find(|e| e.found.address == address)
-                else {
-                    return;
-                };
-                self.saved
-                    .push((entry.found.host.clone(), entry.found.address.port()));
-                entry.found.saved = true;
-                entry.show_added();
-                let _ = sender.output(ScanOutput::Add(Box::new(entry.found.clone())));
+                if let Some(entry) = self.entries.iter().find(|e| e.found.address == address) {
+                    let _ = sender.output(ScanOutput::Add(Box::new(entry.found.clone())));
+                }
+            }
+            ScanMsg::Saved {
+                address,
+                host,
+                port,
+            } => {
+                // As saved, which the editor may have changed, for the next
+                // scan to compare with.
+                self.saved.push((host, port));
+                if let Some(entry) = self.entries.iter_mut().find(|e| e.found.address == address) {
+                    entry.found.saved = true;
+                    entry.show_added();
+                }
             }
         }
     }
