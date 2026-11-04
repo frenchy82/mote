@@ -4,6 +4,19 @@ A remote desktop client for GNOME, for Linux machines that run GNOME Remote
 Desktop, xrdp or KRdp. Each section below is what a release brought; the
 detail is in the commit history.
 
+## What's new in 1.3.0-beta.1
+
+### New features:
+
+- Scan Network lists the RDP servers on the local network
+- Adding a scanned server opens the connection editor
+- Delete button in the connection editor
+- Beta builds in every package format
+
+### Fixes:
+
+- deleting a connection left its session running
+
 ## What's new in 1.2.0
 
 ### New features:
