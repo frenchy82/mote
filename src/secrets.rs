@@ -9,7 +9,12 @@
 
 use zeroize::Zeroizing;
 
-use crate::APP_ID;
+/// Who the keyring's items belong to. The stable app's ID in the beta app
+/// too, which shares its connections and so needs their passwords.
+const KEYRING_APP: &str = "co.hyprlab.Mote";
+
+/// How the keyring's items name the app, for the same reason.
+const KEYRING_NAME: &str = "Mote";
 
 /// A password, wiped from memory when dropped.
 pub(crate) type Password = Zeroizing<String>;
@@ -42,9 +47,9 @@ impl Secret {
     /// The name the keyring shows for it.
     pub(crate) fn label(self, title: &str) -> String {
         match self {
-            Self::Account => format!("{} ({})", title, crate::APP_NAME),
-            Self::Ssh => format!("{}, SSH tunnel ({})", title, crate::APP_NAME),
-            Self::Gateway => format!("{}, RD Gateway ({})", title, crate::APP_NAME),
+            Self::Account => format!("{title} ({KEYRING_NAME})"),
+            Self::Ssh => format!("{title}, SSH tunnel ({KEYRING_NAME})"),
+            Self::Gateway => format!("{title}, RD Gateway ({KEYRING_NAME})"),
         }
     }
 }
@@ -79,7 +84,7 @@ pub(crate) async fn move_from_sandbox() -> Result<(), String> {
     }
     let host = keyring().await?;
     let items = sandbox
-        .search_items(&[("application", APP_ID)])
+        .search_items(&[("application", KEYRING_APP)])
         .await
         .map_err(|e| e.to_string())?;
     let mut moved = 0;
@@ -104,7 +109,7 @@ pub(crate) async fn move_from_sandbox() -> Result<(), String> {
 }
 
 fn attributes(id: &str, kind: Secret) -> [(&'static str, &str); 2] {
-    [("application", APP_ID), (kind.attribute(), id)]
+    [("application", KEYRING_APP), (kind.attribute(), id)]
 }
 
 /// The saved password, or `None` when there is none.

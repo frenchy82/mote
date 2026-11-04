@@ -11,6 +11,11 @@
 # updater reads to fetch only what changed. Both go on the GitHub release,
 # which is where the bundle looks for its updates.
 #
+# A version X.Y.Z-beta.N makes the beta app instead, as in the Flatpak:
+# Mote-Beta-<arch>.AppImage, built with the `beta` feature, app ID
+# co.hyprlab.Mote.Beta, its own launcher and icon, updating from the site's
+# beta channel. Both read ~/.config/mote.
+#
 # Unlike the RPM and the deb, this carries every library the app needs,
 # down to glibc and the dynamic linker, so one file runs on any
 # distribution. The machinery is pkgforge's: `quick-sharun` collects the
@@ -34,9 +39,23 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 ROOT="${MOTE_APPIMAGE_SRC:-$HERE}"
 ARCH="$(uname -m)"
 IMAGE="${MOTE_APPIMAGE_IMAGE:-ghcr.io/pkgforge-dev/archlinux:latest}"
-APP_ID="co.hyprlab.Mote"
-NAME="Mote"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -1)"
+case "$VERSION" in
+    *-beta.*)
+        APP_ID="co.hyprlab.Mote.Beta"
+        NAME="Mote-Beta"
+        FEATURES=(--features beta)
+        UPDATES="zsync|https://mote.hyprlab.co/download/beta/$NAME-$ARCH.AppImage.zsync"
+        ;;
+    *)
+        APP_ID="co.hyprlab.Mote"
+        NAME="Mote"
+        FEATURES=()
+        # The .zsync beside the newest bundle of this architecture on the
+        # GitHub releases.
+        UPDATES="gh-releases-zsync|hyprlab|mote|latest|$NAME-$ARCH.AppImage.zsync"
+        ;;
+esac
 
 # ---------------------------------------------------------------- host side
 
@@ -92,7 +111,8 @@ get-debloated-pkgs --add-common --prefer-nano
 
 echo "==> Building the release binary ($APP_ID $VERSION)"
 cd "$ROOT"
-cargo build --release
+cargo build --release "${FEATURES[@]}"
+[ "$NAME" = "Mote" ] || "$HERE/tools/beta-files.sh" "$ROOT"
 
 echo "==> Installing into /usr"
 # The layout the RPM installs: the collector reads the app out of /usr, and
@@ -127,9 +147,8 @@ export OUTNAME="$NAME-$ARCH.AppImage"
 # the app twice in the dock.
 export STARTUPWMCLASS="$APP_ID"
 export GTK_CLASS_FIX=1
-# What AppImage updaters read to update in place: the .zsync beside the
-# newest bundle of this architecture on the GitHub releases.
-export UPINFO="gh-releases-zsync|hyprlab|mote|latest|$NAME-$ARCH.AppImage.zsync"
+# What AppImage updaters read to update in place.
+export UPINFO="$UPDATES"
 
 # Opened only once a session plays sound, so the collector, which watches
 # the app start, wouldn't see them: PulseAudio's simple API and Opus. And

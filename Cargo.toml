@@ -7,6 +7,13 @@ license = "AGPL-3.0-or-later"
 repository = "https://github.com/hyprlab/mote"
 rust-version = "1.94"
 
+[features]
+# The beta app, which the Flatpak and the AppImage of a beta version are:
+# "Mote (beta)", app ID co.hyprlab.Mote.Beta, its own launcher and icon, so it
+# runs beside the stable app. It shares the stable app's connections, settings
+# and passwords.
+beta = []
+
 [dependencies]
 # The GNOME 50 runtime ships GTK 4.20 and libadwaita 1.9; these floors stay at
 # or below that so a Flatpak build and a host build use the same API, and

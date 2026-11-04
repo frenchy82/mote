@@ -19,6 +19,11 @@ msgstr ""
 msgid "GNOME-native RDP client"
 msgstr ""
 
+msgid ""
+"A beta build for trying changes early. Expect bugs, and report them on "
+"GitHub. It shares connections and settings with the stable install."
+msgstr ""
+
 msgid "What’s new in {version}"
 msgstr ""
 

@@ -59,14 +59,14 @@ jobs:
             || { echo "built app is not $want" >&2; exit 1; }
           grep -qx "X-AppImage-Arch=${{ matrix.arch }}" packaging/out/appinfo \
             || { echo "built app is not ${{ matrix.arch }}" >&2; exit 1; }
-          file packaging/out/Mote-${{ matrix.arch }}.AppImage
+          file packaging/out/Mote*-${{ matrix.arch }}.AppImage
 
       - uses: actions/upload-artifact@v4
         with:
           name: mote-appimage-${{ matrix.arch }}
           path: |
-            packaging/out/Mote-${{ matrix.arch }}.AppImage
-            packaging/out/Mote-${{ matrix.arch }}.AppImage.zsync
+            packaging/out/Mote*-${{ matrix.arch }}.AppImage
+            packaging/out/Mote*-${{ matrix.arch }}.AppImage.zsync
           retention-days: 30
           if-no-files-found: error
 
@@ -235,18 +235,23 @@ jobs:
 
       - name: Build and bundle
         # A single-file bundle: installing it fetches the GNOME runtime, and
-        # codecs-extra with it, from Flathub.
+        # codecs-extra with it, from Flathub. A beta version builds the beta
+        # app, which installs beside the stable one.
         run: |
+          app=co.hyprlab.Mote; name=Mote
+          case "$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)" in
+            *-beta.*) tools/beta-files.sh; app=co.hyprlab.Mote.Beta; name=Mote-Beta ;;
+          esac
           flatpak-builder --user --force-clean --disable-rofiles-fuse \
-            --repo="$PWD/repo" build-dir co.hyprlab.Mote.yml
+            --repo="$PWD/repo" build-dir "$app.yml"
           file build-dir/files/bin/mote
           flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            "$PWD/repo" Mote-${{ matrix.arch }}.flatpak co.hyprlab.Mote
+            "$PWD/repo" "$name-${{ matrix.arch }}.flatpak" "$app"
 
       - uses: actions/upload-artifact@v4
         with:
           name: mote-flatpak-${{ matrix.arch }}
-          path: Mote-${{ matrix.arch }}.flatpak
+          path: Mote*-${{ matrix.arch }}.flatpak
           retention-days: 30
           if-no-files-found: error
 
@@ -269,5 +274,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           ls -l artifacts
-          gh release create "${{ github.ref_name }}" --draft --verify-tag \
+          kind=()
+          case "${{ github.ref_name }}" in *-beta.*) kind=(--prerelease) ;; esac
+          gh release create "${{ github.ref_name }}" --draft --verify-tag "${kind[@]}" \
             --title "Mote ${{ github.ref_name }}" artifacts/*

@@ -108,6 +108,17 @@ fn identity(page: &gtk::Box) {
     description.add_css_class("dim-label");
     description.set_margin_top(12);
     page.append(&description);
+
+    if cfg!(feature = "beta") {
+        let warning = gtk::Label::new(Some(&i18n(
+            "A beta build for trying changes early. Expect bugs, and report them on GitHub. It shares connections and settings with the stable install.",
+        )));
+        warning.set_wrap(true);
+        warning.set_justify(gtk::Justification::Center);
+        warning.add_css_class("warning");
+        warning.set_margin_top(10);
+        page.append(&warning);
+    }
 }
 
 /// Release Notes, a page of the window.

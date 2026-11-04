@@ -161,6 +161,15 @@ and Debian 13 to check that what they need resolves. It runs on a `v*` tag,
 or by hand for any ref. A tag also gathers every package into a draft
 release, to be read over and published by hand.
 
+A version `X.Y.Z-beta.N` is a beta, and its tag's draft is a prerelease. Its
+Flatpak and AppImage are the beta app, `Mote-Beta-<arch>`: built with the
+`beta` cargo feature, app ID `co.hyprlab.Mote.Beta` and named "Mote (beta)", so
+it runs beside the stable app, and it shares the stable app's connections,
+settings and passwords. `tools/beta-files.sh` makes its launcher, metainfo and
+`co.hyprlab.Mote.Beta.yml` from the stable files, and `tools/build-appimage.sh`
+and the workflow run it. The RPM and the Debian package stay `mote`, at version
+`X.Y.Z~beta.N`, which sorts before `X.Y.Z`, and replace a stable install.
+
 ## Pictures of the interface
 
 With `MOTE_SHOWCASE=<file.png>` set, the app stages a view, writes a picture
@@ -179,10 +188,10 @@ connections.
 ## The app icon
 
 The icon's master is `data/icons/src/default.svg`, drawn on GNOME's 128 pixel
-icon grid. After changing it, run `tools/gen-app-icons.py` (it needs
-python3-gobject with librsvg and pycairo): it copies it into hicolor as the
-scalable icon and renders the 256 and 512 pixel PNGs and the README artwork
-in `data/repo/`. The symbolic icon in `data/icons/hicolor/symbolic/apps` is
+icon grid, and `default.Devel.svg` is the beta's: the same with a hazard stripe.
+After changing either, run `tools/gen-app-icons.py` (it needs python3-gobject
+with librsvg and pycairo): it copies them into hicolor as the scalable icons
+and renders the 256 and 512 pixel PNGs and the README artwork in `data/repo/`. The symbolic icon in `data/icons/hicolor/symbolic/apps` is
 drawn by hand. The build embeds both SVGs in the binary, so About shows the
 icon without an install.
 

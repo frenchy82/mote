@@ -18,10 +18,18 @@ mod ui;
 
 use tracing_subscriber::EnvFilter;
 
-const APP_ID: &str = "co.hyprlab.Mote";
+const APP_ID: &str = if cfg!(feature = "beta") {
+    "co.hyprlab.Mote.Beta"
+} else {
+    "co.hyprlab.Mote"
+};
 
 /// The user-visible application name. A name, so never translated.
-const APP_NAME: &str = "Mote";
+const APP_NAME: &str = if cfg!(feature = "beta") {
+    "Mote (beta)"
+} else {
+    "Mote"
+};
 
 /// The user-visible version: the crate version verbatim.
 const VERSION: &str = env!("CARGO_PKG_VERSION");

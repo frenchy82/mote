@@ -4,6 +4,7 @@
 <gresources>
   <gresource prefix="/co/hyprlab/Mote">
     <file alias="icons/scalable/apps/co.hyprlab.Mote.svg">icons/hicolor/scalable/apps/co.hyprlab.Mote.svg</file>
+    <file alias="icons/scalable/apps/co.hyprlab.Mote.Beta.svg">icons/hicolor/scalable/apps/co.hyprlab.Mote.Beta.svg</file>
     <file alias="icons/symbolic/apps/co.hyprlab.Mote-symbolic.svg">icons/hicolor/symbolic/apps/co.hyprlab.Mote-symbolic.svg</file>
   </gresource>
 </gresources>

@@ -13,3 +13,8 @@
 /.flatpak-builder
 /packaging/out
 /AppDir
+# Made by tools/beta-files.sh for a beta build.
+/co.hyprlab.Mote.Beta.yml
+/data/co.hyprlab.Mote.Beta.desktop
+/data/co.hyprlab.Mote.Beta.metainfo.xml
+/data/icons/hicolor/symbolic/apps/co.hyprlab.Mote.Beta-symbolic.svg
