@@ -32,6 +32,15 @@ section holds is in [docs/ROADMAP.md](docs/ROADMAP.md).
   the desktop.
 - Settings per connection, with defaults that suit a Linux server.
 
+## Installing
+
+```sh
+flatpak install --user --from https://mote.hyprlab.co/flatpak/co.hyprlab.Mote.flatpakref
+```
+
+Fedora and Debian packages, AppImages and the beta channel are in
+[docs/INSTALLING.md](docs/INSTALLING.md).
+
 ## Building
 
 See [docs/BUILDING.md](docs/BUILDING.md). In short, with GTK 4 and

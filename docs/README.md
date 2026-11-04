@@ -1,5 +1,7 @@
 # Mote documentation
 
+- **[INSTALLING.md](INSTALLING.md):** every package format, and the beta
+  channel.
 - **[ROADMAP.md](ROADMAP.md):** the sections Mote is built in, and how far
   each has got.
 - **[BUILDING.md](BUILDING.md):** building from source.
