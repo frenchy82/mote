@@ -4,6 +4,15 @@ A remote desktop client for GNOME, for Linux machines that run GNOME Remote
 Desktop, xrdp or KRdp. Each section below is what a release brought; the
 detail is in the commit history.
 
+## What's new in 1.3.0-beta.3
+
+### New features:
+
+- Several addresses on one connection
+- Addresses tried in order until one connects
+- Addresses reorder by dragging
+- Alternate full address read from and written to .rdp files
+
 ## What's new in 1.3.0-beta.2
 
 ### New features:
