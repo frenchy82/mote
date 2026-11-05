@@ -159,7 +159,8 @@ Flatpak as a single-file bundle, for x86_64 and for ARM64 on GitHub's arm64
 runners, then installs the RPM and the Debian package on clean Fedora 44
 and Debian 13 to check that what they need resolves. It runs on a `v*` tag,
 or by hand for any ref. A tag also gathers every package into a draft
-release, to be read over and published by hand.
+release, to be read over and published by hand, with the notes
+[RELEASING.md](RELEASING.md) describes.
 
 A version `X.Y.Z-beta.N` is a beta, and its tag's draft is a prerelease. Its
 Flatpak and AppImage are the beta app, `Mote-Beta-<arch>`: built with the
