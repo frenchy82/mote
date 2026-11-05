@@ -99,7 +99,9 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
   Add opens the connection editor on one with its address filled in, and
   Cancel there saves nothing. It covers ports 3389 and 3390 on the private IPv4 networks
   this computer is on, as a /24 at the widest, and leaves out this computer,
-  VPNs and container bridges. Linux servers don't announce themselves, so it
+  VPNs and container bridges. Its Networks page adds others to scan and keeps
+  them in Settings: a private, link-local or shared range, as a /16 at the
+  widest, or one address. Linux servers don't announce themselves, so it
   tries each address, and runs only when asked to. A server is asked for its
   certificate, which says which server it is, and nothing more: no sign-in
   is attempted and GNOME Remote Login starts no display, but each server logs

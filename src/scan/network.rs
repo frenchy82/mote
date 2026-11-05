@@ -1,8 +1,10 @@
 //! The addresses a scan covers: the private IPv4 networks this computer is
-//! on, leaving out its own addresses, the tunnels and the containers.
+//! on, leaving out its own addresses, the tunnels and the containers, and
+//! any others the user names.
 
 use std::fmt;
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::str::FromStr;
 
 use nix::ifaddrs::getifaddrs;
 use nix::net::if_::InterfaceFlags;
@@ -11,6 +13,10 @@ use nix::net::if_::InterfaceFlags;
 /// around this computer: the rest could be thousands of addresses nobody
 /// asked to have knocked on.
 const WIDEST_PREFIX: u32 = 24;
+
+/// The widest network the user can name. Those are asked for, but this one
+/// already takes up to 18 minutes to scan, and each step wider doubles it.
+const WIDEST_NAMED_PREFIX: u32 = 16;
 
 /// What the container engines name the bridges to their containers, whose
 /// networks are wide and hold no desktops. Those of virtual machines stay.
@@ -56,15 +62,34 @@ pub(crate) struct Network {
     prefix: u32,
 }
 
+/// Why text doesn't name a network that can be scanned.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NetworkError {
+    NotANetwork,
+    /// Trying every address of someone else's network is what abuse reports
+    /// are made of.
+    NotPrivate,
+    TooWide,
+}
+
 impl Network {
     /// The network of `address`, narrowed to [`WIDEST_PREFIX`].
     fn around(address: Ipv4Addr, netmask: Ipv4Addr) -> Self {
         let prefix = netmask.to_bits().count_ones().max(WIDEST_PREFIX);
+        Self::with_prefix(address, prefix)
+    }
+
+    fn with_prefix(address: Ipv4Addr, prefix: u32) -> Self {
         let mask = u32::MAX.checked_shl(32 - prefix).unwrap_or(0);
         Self {
             base: Ipv4Addr::from_bits(address.to_bits() & mask),
             prefix,
         }
+    }
+
+    /// How many addresses a scan tries in it.
+    pub(super) fn size(self) -> usize {
+        self.hosts().count()
     }
 
     /// Its addresses, without the first and last where those stand for the
@@ -83,13 +108,51 @@ impl Network {
 
 impl fmt::Display for Network {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}/{}", self.base, self.prefix)
+        if self.prefix == 32 {
+            write!(f, "{}", self.base)
+        } else {
+            write!(f, "{}/{}", self.base, self.prefix)
+        }
     }
 }
 
-/// The networks to scan. Only private ranges: a public address on an
-/// interface doesn't make what is around it this computer's own network.
-pub(super) fn to_scan(interfaces: &[Interface]) -> Vec<Network> {
+/// `192.168.2.0/24`, or one address alone. An address inside the network
+/// will do for its first, as `ip address` shows them.
+impl FromStr for Network {
+    type Err = NetworkError;
+
+    fn from_str(text: &str) -> Result<Self, NetworkError> {
+        let (address, prefix) = text.split_once('/').unwrap_or((text, "32"));
+        let address: Ipv4Addr = address.parse().map_err(|_| NetworkError::NotANetwork)?;
+        // u32's parser would take a sign.
+        if !prefix.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(NetworkError::NotANetwork);
+        }
+        let prefix: u32 = prefix.parse().map_err(|_| NetworkError::NotANetwork)?;
+        if prefix > 32 {
+            return Err(NetworkError::NotANetwork);
+        }
+        if !is_local(address) {
+            return Err(NetworkError::NotPrivate);
+        }
+        if prefix < WIDEST_NAMED_PREFIX {
+            return Err(NetworkError::TooWide);
+        }
+        Ok(Self::with_prefix(address, prefix))
+    }
+}
+
+/// The ranges no one else's network can be in: the private ones, link-local,
+/// and the shared range that Tailscale and carriers' NATs use.
+fn is_local(address: Ipv4Addr) -> bool {
+    let [first, second, ..] = address.octets();
+    address.is_private() || address.is_link_local() || (first == 100 && second & 0xC0 == 64)
+}
+
+/// The networks to scan: `named` after those this computer is on. Of those,
+/// only private ranges: a public address on an interface doesn't make what
+/// is around it this computer's own network.
+pub(super) fn to_scan(interfaces: &[Interface], named: &[Network]) -> Vec<Network> {
     let mut networks = Vec::new();
     for interface in interfaces {
         let container = CONTAINER_BRIDGES
@@ -105,6 +168,11 @@ pub(super) fn to_scan(interfaces: &[Interface]) -> Vec<Network> {
         let network = Network::around(interface.address, interface.netmask);
         if !networks.contains(&network) {
             networks.push(network);
+        }
+    }
+    for network in named {
+        if !networks.contains(network) {
+            networks.push(*network);
         }
     }
     networks
@@ -140,7 +208,10 @@ mod tests {
     }
 
     fn names(interfaces: &[Interface]) -> Vec<String> {
-        to_scan(interfaces).iter().map(Network::to_string).collect()
+        to_scan(interfaces, &[])
+            .iter()
+            .map(Network::to_string)
+            .collect()
     }
 
     #[test]
@@ -185,6 +256,108 @@ mod tests {
             interface("wlan0", [10, 0, 1, 24], mask),
         ]);
         assert_eq!(networks, ["10.0.1.0/24"]);
+    }
+
+    #[test]
+    fn named_networks_come_after_this_computer_s_and_only_once() {
+        let eth0 = interface("eth0", [10, 0, 1, 23], [255, 255, 255, 0]);
+        let named: Vec<Network> = ["10.0.2.0/24", "10.0.1.0/24"]
+            .iter()
+            .map(|n| n.parse().unwrap())
+            .collect();
+        let networks: Vec<String> = to_scan(&[eth0], &named)
+            .iter()
+            .map(Network::to_string)
+            .collect();
+        assert_eq!(networks, ["10.0.1.0/24", "10.0.2.0/24"]);
+    }
+
+    #[test]
+    fn a_named_network_is_scanned_without_any_interface_on_it() {
+        let named = ["192.168.2.0/30".parse().unwrap()];
+        let targets = targets(&to_scan(&[], &named), &[], &[3389]);
+        assert_eq!(
+            targets,
+            [
+                "192.168.2.1:3389".parse().unwrap(),
+                "192.168.2.2:3389".parse().unwrap()
+            ]
+        );
+    }
+
+    #[test]
+    fn overlapping_networks_try_each_address_once() {
+        let wide: Network = "10.0.0.0/23".parse().unwrap();
+        let narrow: Network = "10.0.1.0/24".parse().unwrap();
+        assert_eq!(targets(&[wide, narrow], &[], &[3389]).len(), 510);
+    }
+
+    #[test]
+    fn text_names_a_network_or_one_address() {
+        let shown = |text: &str| text.parse::<Network>().unwrap().to_string();
+        assert_eq!(shown("192.168.2.0/24"), "192.168.2.0/24");
+        assert_eq!(shown("192.168.2.77/24"), "192.168.2.0/24");
+        assert_eq!(shown("10.20.0.0/16"), "10.20.0.0/16");
+        assert_eq!(shown("10.0.1.33"), "10.0.1.33");
+        assert_eq!(shown("10.0.1.33/32"), "10.0.1.33");
+        assert_eq!(shown("172.31.255.1/30"), "172.31.255.0/30");
+        assert_eq!(shown("100.100.1.1/24"), "100.100.1.0/24");
+        assert_eq!(shown("169.254.3.0/24"), "169.254.3.0/24");
+    }
+
+    #[test]
+    fn text_that_can_t_be_scanned_says_why() {
+        for text in [
+            "",
+            "printer",
+            "10.0.1",
+            "10.0.1.0/",
+            "10.0.1.0/33",
+            "10.0.1.0/+24",
+            "10.0.1.0/-1",
+            "/24",
+            "10.0.1.0/24/24",
+            "2001:db8::/64",
+        ] {
+            assert_eq!(
+                text.parse::<Network>(),
+                Err(NetworkError::NotANetwork),
+                "{text}"
+            );
+        }
+        for text in [
+            "8.8.8.0/24",
+            "1.1.1.1",
+            "172.32.0.0/24",
+            "100.128.0.0/24",
+            "127.0.0.1",
+        ] {
+            assert_eq!(
+                text.parse::<Network>(),
+                Err(NetworkError::NotPrivate),
+                "{text}"
+            );
+        }
+        for text in [
+            "10.0.0.0/8",
+            "192.168.0.0/15",
+            "172.16.0.0/12",
+            "10.0.0.0/0",
+        ] {
+            assert_eq!(
+                text.parse::<Network>(),
+                Err(NetworkError::TooWide),
+                "{text}"
+            );
+        }
+    }
+
+    #[test]
+    fn what_is_saved_reads_back_the_same() {
+        for text in ["192.168.2.0/24", "10.0.1.33"] {
+            let network: Network = text.parse().unwrap();
+            assert_eq!(network.to_string().parse(), Ok(network));
+        }
     }
 
     #[test]

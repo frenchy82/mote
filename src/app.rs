@@ -26,7 +26,7 @@ use crate::i18n::{i18n, i18n_f};
 use crate::secrets::{self, Secret};
 use crate::ui::editor::{Editor, EditorInit, EditorOutput};
 use crate::ui::preferences::{PrefChange, Preferences};
-use crate::ui::scan::{Scan, ScanMsg, ScanOutput};
+use crate::ui::scan::{Scan, ScanInit, ScanMsg, ScanOutput};
 use crate::ui::session::{Session, SessionOutput};
 use crate::{APP_ID, APP_NAME};
 
@@ -120,6 +120,8 @@ pub(crate) enum AppMsg {
     ScanNetwork,
     /// A server the scan found, to open the editor on.
     AddFound(Box<crate::scan::Found>),
+    /// The networks Scan Network covers besides this computer's.
+    ScanNetworks(Vec<String>),
     ScanClosed,
     ExportSelected,
     ExportTo(String, PathBuf),
@@ -128,6 +130,8 @@ pub(crate) enum AppMsg {
     About,
     Shortcuts,
     ShowcaseSettingsPage(String),
+    /// Scan Network's networks, with this text entered, if any.
+    ShowcaseScanNetworks(String),
     ShowcaseSession(String),
     ShowcaseCapture(String),
 }
@@ -522,6 +526,13 @@ impl Component for AppModel {
             AppMsg::ImportRemmina => self.import_remmina(),
             AppMsg::ScanNetwork => self.open_scan(&sender, root),
             AppMsg::AddFound(found) => self.add_found(*found, &sender, root),
+            AppMsg::ScanNetworks(networks) => {
+                self.settings.scan_networks = networks;
+                let disk = config::load_settings();
+                self.settings.window = disk.window;
+                self.settings.about_height = disk.about_height;
+                config::save_settings(&self.settings);
+            }
             AppMsg::ScanClosed => self.scan = None,
             AppMsg::ExportSelected => {
                 if let Some(conn) = self.selected_connection() {
@@ -539,6 +550,14 @@ impl Component for AppModel {
             AppMsg::About => about::present(root),
             AppMsg::Shortcuts => actions::present_shortcuts(root),
             AppMsg::ShowcaseSettingsPage(page) => self.showcase_settings_page(&page),
+            AppMsg::ShowcaseScanNetworks(text) => {
+                if let Some(scan) = &self.scan {
+                    scan.emit(ScanMsg::ShowNetworks);
+                    for network in text.split('+').filter(|t| !t.is_empty()) {
+                        scan.emit(ScanMsg::AddNetwork(network.to_owned()));
+                    }
+                }
+            }
             AppMsg::ShowcaseSession(step) => self.showcase_session(&step),
             AppMsg::ShowcaseCapture(path) => self.showcase_capture(&path, root),
         }
@@ -658,10 +677,17 @@ impl AppModel {
             .filter(|c| !c.ssh_tunnel && !c.gateway)
             .map(|c| (c.host.clone(), c.port))
             .collect();
+        let named = self
+            .settings
+            .scan_networks
+            .iter()
+            .filter_map(|network| network.parse().ok())
+            .collect();
         let scan = Scan::builder()
-            .launch(saved)
+            .launch(ScanInit { saved, named })
             .forward(sender.input_sender(), |out| match out {
                 ScanOutput::Add(found) => AppMsg::AddFound(found),
+                ScanOutput::Networks(networks) => AppMsg::ScanNetworks(networks),
                 ScanOutput::Closed => AppMsg::ScanClosed,
             });
         scan.widget().present(Some(root));

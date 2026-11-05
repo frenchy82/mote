@@ -987,6 +987,9 @@ msgstr ""
 msgid "Scan Again"
 msgstr ""
 
+msgid "Networks"
+msgstr ""
+
 msgid "Scanning…"
 msgstr ""
 
@@ -996,6 +999,9 @@ msgstr ""
 msgid "Nothing on {networks} answered on port {first} or {second}."
 msgstr ""
 
+msgid "Add Network"
+msgstr ""
+
 msgid "No Local Network"
 msgstr ""
 
@@ -1003,6 +1009,33 @@ msgid "This computer has no address on a private network."
 msgstr ""
 
 msgid "Computers"
+msgstr ""
+
+msgid "This Computer"
+msgstr ""
+
+msgid "Scan additional subnets"
+msgstr ""
+
+msgid "Network, Such As 192.168.2.0/24"
+msgstr ""
+
+msgid "{network} is already scanned"
+msgstr ""
+
+msgid "Not a network, such as 192.168.2.0/24"
+msgstr ""
+
+msgid "Only private networks can be scanned"
+msgstr ""
+
+msgid "A network can be /16 at the widest"
+msgstr ""
+
+msgid "Up to {minutes} min to scan"
+msgstr ""
+
+msgid "Remove {name}"
 msgstr ""
 
 msgid "Add {name}"

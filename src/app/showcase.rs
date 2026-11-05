@@ -19,7 +19,9 @@
 //!   `delay:<seconds>` makes the steps after it wait that long; `bottom`
 //!   scrolls an open dialog to its end, `picker` opens the editor's
 //!   avatar picker, captured as `<file>-popover.png`, and `scan` opens Scan
-//!   Network, which scans the network the rig's computer is on.
+//!   Network, which scans the network the rig's computer is on and those
+//!   of its settings; `networks:<a+b>` then shows its networks page, with
+//!   those entered, as many as there are.
 //! - `MOTE_SHOWCASE_DELAY`: seconds before the capture, 3 by default.
 
 use std::time::Duration;
@@ -72,6 +74,7 @@ impl AppModel {
                 }
                 ("about", _) => send(AppMsg::About),
                 ("scan", _) => send(AppMsg::ScanNetwork),
+                ("networks", text) => send(AppMsg::ShowcaseScanNetworks(text.to_owned())),
                 ("shortcuts", _) => send(AppMsg::Shortcuts),
                 ("connect", name) => {
                     if let Some(id) = self

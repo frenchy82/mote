@@ -108,6 +108,10 @@ pub(crate) struct Settings {
     /// The H.264 decoder to try first; none tries them in their own order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) decoder: Option<Source>,
+    /// The networks Scan Network covers besides this computer's own, as
+    /// text: one that no longer reads as a network is left out, not an error
+    /// that would set aside all of this file.
+    pub(crate) scan_networks: Vec<String>,
     /// The About window's height, as it was left.
     pub(crate) about_height: i32,
     pub(crate) window: WindowState,
@@ -140,6 +144,7 @@ impl Default for Settings {
             size_notice: true,
             clipboard_notice: true,
             decoder: None,
+            scan_networks: Vec::new(),
             about_height: 740,
             window: WindowState::default(),
         }

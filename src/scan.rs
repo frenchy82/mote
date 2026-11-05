@@ -14,10 +14,9 @@ use std::time::Duration;
 
 use gtk::gio;
 use gtk::gio::prelude::*;
-use tokio::sync::Semaphore;
 use tokio::task::JoinSet;
 
-pub(crate) use network::Network;
+pub(crate) use network::{Network, NetworkError};
 
 use crate::connection::DEFAULT_PORT;
 use crate::rdp::server::{Server, certificate_name};
@@ -58,34 +57,48 @@ pub(crate) struct Found {
     pub(crate) saved: bool,
 }
 
-/// Scan, sending what turns up to `events`. `saved` holds the host and port
-/// of each connection there is, to mark what is already saved.
-pub(crate) async fn run(saved: Vec<(String, u16)>, events: impl Fn(Event)) {
+/// The longest a scan of `network` can take, with nothing there to answer.
+pub(crate) fn longest_scan(network: Network) -> Duration {
+    probe::CONNECT_FOR * (network.size() * PORTS.len()) as u32 / AT_ONCE as u32
+}
+
+/// Scan the networks this computer is on and those `named`, sending what
+/// turns up to `events`. `saved` holds the host and port of each connection
+/// there is, to mark what is already saved.
+pub(crate) async fn run(saved: Vec<(String, u16)>, named: Vec<Network>, events: impl Fn(Event)) {
     let interfaces = network::interfaces();
-    let networks = network::to_scan(&interfaces);
+    let networks = network::to_scan(&interfaces, &named);
     events(Event::Networks(networks.clone()));
     let saved = Arc::new(resolve(saved).await);
     let own: Vec<Ipv4Addr> = interfaces.iter().map(|i| i.address).collect();
     let targets = network::targets(&networks, &own, &PORTS);
     let total = targets.len();
 
-    let limit = Arc::new(Semaphore::new(AT_ONCE));
+    // Started only as others end: a /16 is 131,068 probes, too many to hold
+    // in memory waiting for their turn.
     let mut probes = JoinSet::new();
+    let mut done = 0;
+    let finished = |result: Result<Option<Found>, _>, done: &mut usize| {
+        *done += 1;
+        events(Event::Progress(*done as f64 / total as f64));
+        if let Ok(Some(found)) = result {
+            events(Event::Found(Box::new(found)));
+        }
+    };
     for address in targets {
-        let (limit, saved) = (limit.clone(), saved.clone());
+        if probes.len() >= AT_ONCE
+            && let Some(result) = probes.join_next().await
+        {
+            finished(result, &mut done);
+        }
+        let saved = saved.clone();
         probes.spawn(async move {
-            let _turn = limit.acquire_owned().await.ok()?;
             let answer = probe::probe(address).await?;
             Some(identify(address, answer, &saved).await)
         });
     }
-    let mut done = 0;
     while let Some(result) = probes.join_next().await {
-        done += 1;
-        events(Event::Progress(done as f64 / total as f64));
-        if let Ok(Some(found)) = result {
-            events(Event::Found(Box::new(found)));
-        }
+        finished(result, &mut done);
     }
     events(Event::Done);
 }
@@ -182,6 +195,14 @@ fn is_host_name(name: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_wide_network_s_scan_is_told_in_minutes() {
+        let seconds = |text: &str| longest_scan(text.parse().unwrap()).as_secs();
+        assert_eq!(seconds("10.0.1.0/24"), 3);
+        assert_eq!(seconds("10.0.0.0/20"), 63);
+        assert_eq!(seconds("10.0.0.0/16"), 1023);
+    }
 
     #[test]
     fn only_a_computer_s_name_counts_as_one() {

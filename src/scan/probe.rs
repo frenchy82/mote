@@ -17,7 +17,7 @@ use x509_cert::der::Encode as _;
 /// How long an address gets to take the connection. Most have nothing there
 /// and use all of it, so it is short; a computer that misses it is found
 /// when the scan runs again.
-const CONNECT_FOR: Duration = Duration::from_millis(1500);
+pub(super) const CONNECT_FOR: Duration = Duration::from_millis(1500);
 
 /// How long something that took the connection gets to answer like a server.
 const ANSWER_FOR: Duration = Duration::from_secs(3);
