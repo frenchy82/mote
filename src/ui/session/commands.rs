@@ -76,6 +76,7 @@ impl Session {
         self.page = Page::Connecting;
         self.connecting
             .set_title(&i18n("Running the Command Before Connecting…"));
+        self.connecting.set_description(None);
         // A connection begun meanwhile makes this one stale.
         self.attempt += 1;
         let (attempt, connection, input) = (

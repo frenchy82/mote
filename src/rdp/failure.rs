@@ -39,6 +39,8 @@ pub(crate) enum Failure {
     Ssh(Tunnel),
     /// The RD Gateway couldn't be passed.
     Gateway(Tunnel),
+    /// None of the computer's addresses led to it; why not, for each.
+    Addresses(Vec<(String, Failure)>),
     /// Anything else, as the engine describes it.
     Protocol(String),
 }
@@ -128,13 +130,38 @@ impl Failure {
             | Self::Ssh(Tunnel::Unreachable(why))
             | Self::Gateway(Tunnel::Unreachable(why)) => !matches!(why, Unreachable::NotRdp),
             Self::Ssh(Tunnel::NoRoute(_)) | Self::Gateway(Tunnel::NoRoute(_)) => true,
+            Self::Addresses(tried) => tried.iter().any(|(_, failure)| failure.passing()),
             _ => false,
+        }
+    }
+
+    /// Whether the computer may be at another address: this one led nowhere,
+    /// or to something else. Anything further along came from the computer
+    /// itself, which would say the same at any address.
+    pub(super) fn not_there(&self) -> bool {
+        matches!(
+            self,
+            Self::Unreachable(_)
+                | Self::Lost(_)
+                | Self::Ssh(Tunnel::NoRoute(_))
+                | Self::Gateway(Tunnel::NoRoute(_))
+        )
+    }
+
+    /// The failure of a round of addresses: the only one's own, so one
+    /// address fails as it always has.
+    pub(super) fn from_missed(mut missed: Vec<(String, Failure)>) -> Self {
+        if missed.len() == 1 {
+            missed.remove(0).1
+        } else {
+            Self::Addresses(missed)
         }
     }
 
     /// Whether a computer that is asleep could fail this way.
     pub(super) fn asleep(&self) -> bool {
         match self {
+            Self::Addresses(tried) => tried.iter().any(|(_, failure)| failure.asleep()),
             Self::Unreachable(why) => matches!(
                 why,
                 Unreachable::NoAnswer | Unreachable::Refused | Unreachable::Other(_)
@@ -310,6 +337,32 @@ mod tests {
             reason(ProtocolIndependentCode::ServerReboot),
             Some(Disconnect::Shutdown)
         ));
+    }
+
+    #[test]
+    fn only_a_way_that_led_nowhere_moves_on_to_another_address() {
+        assert!(Failure::Unreachable(Unreachable::NotFound).not_there());
+        assert!(Failure::Unreachable(Unreachable::NotRdp).not_there());
+        assert!(Failure::Ssh(Tunnel::NoRoute(String::new())).not_there());
+        assert!(!Failure::Ssh(Tunnel::Refused).not_there());
+        assert!(!Failure::Refused.not_there());
+        assert!(!Failure::Untrusted.not_there());
+        assert!(!Failure::Security(Security::OldTls).not_there());
+    }
+
+    #[test]
+    fn several_addresses_fail_together_and_one_as_itself() {
+        let not_found = || Failure::Unreachable(Unreachable::NotFound);
+        let no_answer = || Failure::Unreachable(Unreachable::NoAnswer);
+        assert!(matches!(
+            Failure::from_missed(vec![("a".into(), not_found())]),
+            Failure::Unreachable(Unreachable::NotFound)
+        ));
+        let both = Failure::from_missed(vec![("a".into(), not_found()), ("b".into(), no_answer())]);
+        assert!(matches!(&both, Failure::Addresses(tried) if tried.len() == 2));
+        // One of them could be a computer still waking.
+        assert!(both.asleep());
+        assert!(both.passing());
     }
 
     #[test]

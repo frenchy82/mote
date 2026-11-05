@@ -675,7 +675,7 @@ impl AppModel {
             .connections
             .iter()
             .filter(|c| !c.ssh_tunnel && !c.gateway)
-            .map(|c| (c.host.clone(), c.port))
+            .flat_map(Connection::addresses)
             .collect();
         let named = self
             .settings
@@ -683,13 +683,14 @@ impl AppModel {
             .iter()
             .filter_map(|network| network.parse().ok())
             .collect();
-        let scan = Scan::builder()
-            .launch(ScanInit { saved, named })
-            .forward(sender.input_sender(), |out| match out {
+        let scan = Scan::builder().launch(ScanInit { saved, named }).forward(
+            sender.input_sender(),
+            |out| match out {
                 ScanOutput::Add(found) => AppMsg::AddFound(found),
                 ScanOutput::Networks(networks) => AppMsg::ScanNetworks(networks),
                 ScanOutput::Closed => AppMsg::ScanClosed,
-            });
+            },
+        );
         scan.widget().present(Some(root));
         self.scan = Some(scan);
     }

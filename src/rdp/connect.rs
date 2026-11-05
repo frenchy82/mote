@@ -20,7 +20,7 @@ use tokio::sync::{mpsc, oneshot};
 use x509_cert::der::Encode as _;
 
 use super::{Event, Failure, Identity, MAX_HOPS, Target, Trust, Via, describe, rdstls};
-use crate::connection::{Network, Quality};
+use crate::connection::{Network, Quality, address_text};
 
 pub(super) trait Stream: AsyncRead + AsyncWrite + Unpin + Send + Sync {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send + Sync> Stream for T {}
@@ -37,32 +37,77 @@ pub(super) async fn connect(
     clipboard: &mut super::clipboard::Clipboard,
     audio: &super::audio::Audio,
 ) -> Result<(ConnectionResult, Framed), Failure> {
-    let mut retried = false;
     for _ in 0..MAX_HOPS {
-        let result = match attempt(target, redirect.as_deref(), events, clipboard, audio).await {
-            // A server can give up on a connection while its certificate
-            // waits on the user; once trusted, a second try goes straight
-            // through.
-            Err(Attempt::AfterQuestion(_)) if !retried => {
-                tracing::info!("retrying after the certificate question");
-                retried = true;
-                attempt(target, redirect.as_deref(), events, clipboard, audio).await
-            }
-            result => result,
-        };
-        match result {
-            Ok((ConnectionOutcome::Connected(result), framed)) => return Ok((result, framed)),
-            Ok((ConnectionOutcome::Redirected(pdu), _)) => {
+        let (outcome, framed) =
+            reach(target, redirect.as_deref(), events, clipboard, audio).await?;
+        match outcome {
+            ConnectionOutcome::Connected(result) => return Ok((result, framed)),
+            ConnectionOutcome::Redirected(pdu) => {
                 tracing::info!("the server redirected the connection");
                 follow(target, &pdu)?;
                 redirect = Some(pdu);
             }
-            Err(Attempt::Failed(failure) | Attempt::AfterQuestion(failure)) => {
-                return Err(failure);
-            }
         }
     }
     Err(Failure::Protocol("too many redirections".into()))
+}
+
+/// Go through the computer's addresses until one answers as a server, which
+/// `target` is left pointing at. A computer being woken gets more rounds of
+/// them, until it wakes or its time is up.
+async fn reach(
+    target: &mut Target,
+    redirect: Option<&ServerRedirectionPdu>,
+    events: &mpsc::Sender<Event>,
+    clipboard: &mut super::clipboard::Clipboard,
+    audio: &super::audio::Audio,
+) -> Result<(ConnectionOutcome, Framed), Failure> {
+    // A redirection names the one place to go.
+    let addresses = match redirect {
+        Some(_) => vec![(target.host.clone(), target.port)],
+        None => target.addresses.clone(),
+    };
+    let mut waking = target.wake.map(super::route::Waking::new);
+    loop {
+        if let Some(waking) = &mut waking {
+            waking.send().await;
+        }
+        let mut missed = Vec::new();
+        for (at, (host, port)) in addresses.iter().enumerate() {
+            (target.host, target.port) = (host.clone(), *port);
+            let address = address_text(host, *port);
+            if addresses.len() > 1 {
+                tracing::info!("trying {address}");
+                let _ = events.send(Event::Trying(address.clone())).await;
+            }
+            let patience = super::route::patience(waking.is_some(), at + 1 == addresses.len());
+            let mut result = attempt(target, redirect, patience, events, clipboard, audio).await;
+            // A server can give up on a connection while its certificate
+            // waits on the user; once trusted, a second try goes straight
+            // through.
+            if matches!(result, Err(Attempt::AfterQuestion(_))) {
+                tracing::info!("retrying after the certificate question");
+                result = attempt(target, redirect, patience, events, clipboard, audio).await;
+            }
+            match result {
+                Ok(connected) => return Ok(connected),
+                Err(Attempt::Failed(failure) | Attempt::AfterQuestion(failure)) => {
+                    if !failure.not_there() {
+                        return Err(failure);
+                    }
+                    missed.push((address, failure));
+                }
+            }
+        }
+        let failure = Failure::from_missed(missed);
+        let again = match &mut waking {
+            Some(waking) if failure.asleep() => waking.wait(&target.host, events).await,
+            _ => false,
+        };
+        if !again {
+            return Err(failure);
+        }
+    }
 }
 
 /// Point `target` where a Server Redirection PDU says to go.
@@ -121,11 +166,12 @@ impl From<Failure> for Attempt {
 async fn attempt(
     target: &Target,
     redirect: Option<&ServerRedirectionPdu>,
+    patience: std::time::Duration,
     events: &mpsc::Sender<Event>,
     clipboard: &mut super::clipboard::Clipboard,
     audio: &super::audio::Audio,
 ) -> Result<(ConnectionOutcome, Framed), Attempt> {
-    let (stream, client_addr) = super::route::open(target, events).await?;
+    let (stream, client_addr) = super::route::open(target, events, patience).await?;
     let mut framed = TokioFramed::new(stream);
 
     let mut connector = ClientConnector::new(config(target, audio), client_addr)
@@ -191,7 +237,7 @@ async fn attempt(
     }
     let mut asked = false;
     if !vouched {
-        asked = ask_trust(target, &der, events).await?;
+        asked = ask_trust(target, redirect.is_some(), &der, events).await?;
     }
     if let Some(server) = super::server::Server::from_certificate(&der) {
         tracing::debug!("by its certificate, the server is {server:?}");
@@ -247,22 +293,34 @@ async fn attempt(
 /// user had to answer, rather than the certificate being known.
 async fn ask_trust(
     target: &Target,
+    redirected: bool,
     der: &[u8],
     events: &mpsc::Sender<Event>,
 ) -> Result<bool, Attempt> {
     let (reply, answer) = oneshot::channel();
     // Behind a tunnel or a gateway, the name is the one it goes by there,
     // where "localhost" is another machine than here.
-    let host = match &target.via {
-        Via::Direct => target.host.clone(),
-        Via::Ssh(hop) | Via::Gateway(hop) => format!("{} via {}", target.host, hop.host),
+    let named = |host: &str| match &target.via {
+        Via::Direct => host.to_owned(),
+        Via::Ssh(hop) | Via::Gateway(hop) => format!("{host} via {}", hop.host),
+    };
+    // Where a redirection leads is a computer of its own.
+    let also = if redirected {
+        Vec::new()
+    } else {
+        target
+            .addresses
+            .iter()
+            .map(|(host, port)| (named(host), *port))
+            .collect()
     };
     events
         .send(Event::Certificate {
-            host,
+            host: named(&target.host),
             port: target.port,
             fingerprint: fingerprint(der),
             of: Identity::Server,
+            also,
             reply,
         })
         .await

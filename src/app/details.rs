@@ -42,6 +42,12 @@ pub(super) fn page(conn: &Connection, picture: bool) -> adw::PreferencesPage {
     let info = adw::PreferencesGroup::new();
     info.set_title(&i18n("Connection"));
     info.add(&property(&i18n("Address"), &conn.address()));
+    if !conn.other_addresses.is_empty() {
+        info.add(&property(
+            &i18n("Other Addresses"),
+            &conn.other_addresses.join(", "),
+        ));
+    }
     let account = conn
         .account()
         .unwrap_or_else(|| i18n("Asked when connecting"));

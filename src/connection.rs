@@ -25,6 +25,10 @@ pub(crate) struct Connection {
     pub(crate) group: String,
     pub(crate) host: String,
     pub(crate) port: u16,
+    /// More addresses of the same computer, as `host` or `host:port`, to
+    /// try in turn when `host` can't be reached: its name on a VPN, say.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) other_addresses: Vec<String>,
     pub(crate) username: String,
     pub(crate) domain: String,
     /// Unix seconds of the last session, 0 for never.
@@ -206,6 +210,7 @@ impl Default for Connection {
             group: String::new(),
             host: String::new(),
             port: DEFAULT_PORT,
+            other_addresses: Vec::new(),
             username: String::new(),
             domain: String::new(),
             last_used: 0,
@@ -278,13 +283,21 @@ impl Connection {
 
     /// The host, with the port only when it isn't RDP's own.
     pub(crate) fn address(&self) -> String {
-        if self.port == DEFAULT_PORT {
-            self.host.clone()
-        } else if self.host.contains(':') {
-            format!("[{}]:{}", self.host, self.port)
-        } else {
-            format!("{}:{}", self.host, self.port)
-        }
+        address_text(&self.host, self.port)
+    }
+
+    /// Everywhere the computer may be, in the order to try: the host, then
+    /// the other addresses, which take the connection's port unless they
+    /// name their own.
+    pub(crate) fn addresses(&self) -> Vec<(String, u16)> {
+        let others = self
+            .other_addresses
+            .iter()
+            .filter_map(|other| split_address(other))
+            .map(|(host, port)| (host, port.unwrap_or(self.port)));
+        std::iter::once((self.host.clone(), self.port))
+            .chain(others)
+            .collect()
     }
 
     /// The account as Windows writes it, `DOMAIN\user`, or `None` when the
@@ -300,16 +313,20 @@ impl Connection {
     /// Whether a search for `query` (already lower case) finds this.
     pub(crate) fn matches(&self, query: &str) -> bool {
         [&self.name, &self.host, &self.username, &self.group]
-            .iter()
+            .into_iter()
+            .chain(&self.other_addresses)
             .any(|f| f.to_lowercase().contains(query))
     }
 
     /// Whether `other` reaches the same account on the same machine, which
     /// is what makes an import a duplicate.
     pub(crate) fn same_target(&self, other: &Connection) -> bool {
-        self.host.eq_ignore_ascii_case(&other.host)
-            && self.port == other.port
-            && self.username.eq_ignore_ascii_case(&other.username)
+        let theirs = other.addresses();
+        self.username.eq_ignore_ascii_case(&other.username)
+            && self
+                .addresses()
+                .iter()
+                .any(|address| theirs.iter().any(|their| same_address(address, their)))
     }
 
     /// Fields as they should be stored: trimmed, a port typed into the host
@@ -336,6 +353,19 @@ impl Connection {
         } else {
             self.host = self.host.trim().to_owned();
         }
+        for other in std::mem::take(&mut self.other_addresses) {
+            let Some((host, port)) = split_address(&other) else {
+                continue;
+            };
+            let address = (host, port.unwrap_or(self.port));
+            if !self.addresses().iter().any(|a| same_address(a, &address)) {
+                let (host, _) = address;
+                self.other_addresses.push(match port {
+                    Some(port) => with_port(&host, port),
+                    None => host,
+                });
+            }
+        }
         if self.domain.is_empty()
             && let Some((domain, user)) = self.username.split_once('\\')
         {
@@ -348,6 +378,28 @@ impl Connection {
 
 const SSH_PORT: u16 = 22;
 const HTTPS_PORT: u16 = 443;
+
+/// A host and port as people read them, the port only when it isn't RDP's
+/// own.
+pub(crate) fn address_text(host: &str, port: u16) -> String {
+    if port == DEFAULT_PORT {
+        host.to_owned()
+    } else {
+        with_port(host, port)
+    }
+}
+
+fn with_port(host: &str, port: u16) -> String {
+    if host.contains(':') {
+        format!("[{host}]:{port}")
+    } else {
+        format!("{host}:{port}")
+    }
+}
+
+fn same_address(a: &(String, u16), b: &(String, u16)) -> bool {
+    a.1 == b.1 && a.0.eq_ignore_ascii_case(&b.0)
+}
 
 /// A MAC address as people write it: six pairs of hex digits, split by
 /// colons or dashes, or not split at all.
@@ -431,6 +483,65 @@ mod tests {
         assert_eq!((c.host.as_str(), c.port), ("box", 3390));
         assert_eq!((c.domain.as_str(), c.username.as_str()), ("CORP", "jo"));
         assert_eq!(c.account().as_deref(), Some("CORP\\jo"));
+    }
+
+    #[test]
+    fn other_addresses_follow_the_host_in_order() {
+        let c = Connection {
+            host: "box.lan".into(),
+            port: 3390,
+            other_addresses: vec!["box.vpn".into(), "[fd00::1]:4000".into()],
+            ..Connection::default()
+        };
+        assert_eq!(
+            c.addresses(),
+            [
+                ("box.lan".to_owned(), 3390),
+                ("box.vpn".to_owned(), 3390),
+                ("fd00::1".to_owned(), 4000),
+            ]
+        );
+    }
+
+    #[test]
+    fn normalizing_tidies_other_addresses() {
+        let c = Connection {
+            host: "box".into(),
+            port: 3390,
+            other_addresses: vec![
+                "".into(),
+                " box.vpn ".into(),
+                "rdp://[fd00::1]:3389/".into(),
+                // Where it already goes, by another spelling.
+                "BOX".into(),
+                "box.vpn:3390".into(),
+                "two words".into(),
+            ],
+            ..Connection::default()
+        }
+        .normalized();
+        assert_eq!(c.other_addresses, ["box.vpn", "[fd00::1]:3389"]);
+    }
+
+    #[test]
+    fn other_addresses_are_found_and_make_duplicates() {
+        let c = Connection {
+            host: "box.lan".into(),
+            other_addresses: vec!["box.vpn".into()],
+            ..Connection::default()
+        };
+        assert!(c.matches("vpn"));
+        let imported = Connection {
+            host: "BOX.VPN".into(),
+            ..Connection::default()
+        };
+        assert!(c.same_target(&imported));
+        assert!(imported.same_target(&c));
+        let other_port = Connection {
+            port: 3390,
+            ..imported
+        };
+        assert!(!c.same_target(&other_port));
     }
 
     #[test]

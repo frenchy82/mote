@@ -18,18 +18,17 @@ mod resize_help;
 pub(crate) use clipboard::fetched_files;
 pub(crate) use pages::scaling_label;
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::rc::Rc;
 
 use adw::prelude::*;
 use gtk::{gio, glib};
 use relm4::prelude::*;
-use tokio::sync::oneshot;
 
 use crate::config;
 use crate::connection::{Connection, Scaling};
 use crate::i18n::{i18n, i18n_f};
-use crate::rdp::{self, Ending, Event, Identity, Trust};
+use crate::rdp::{self, Ending, Event};
 use crate::secrets::{self, Password, Secret};
 use display::Display;
 
@@ -67,6 +66,9 @@ pub(crate) struct Session {
     remember: bool,
     handle: Option<rdp::Handle>,
     clipboard: Option<clipboard::Sharing>,
+    /// The address in the header: the one the session went to, when the
+    /// connection has several.
+    address: String,
     /// Counts connections, so a late event of an earlier one is ignored.
     attempt: u32,
     /// A connection was begun, and the command after disconnecting is due
@@ -249,7 +251,8 @@ impl Component for Session {
                 #[wrap(Some)]
                 set_title_widget = &adw::WindowTitle {
                     set_title: model.connection.title(),
-                    set_subtitle: &model.connection.address(),
+                    #[watch]
+                    set_subtitle: &model.address,
                 },
                 pack_start = &gtk::Button {
                     set_icon_name: "sidebar-show-symbolic",
@@ -347,6 +350,7 @@ impl Component for Session {
             page: Page::Connecting,
             handle: None,
             clipboard: None,
+            address: connection.address(),
             attempt: 0,
             begun: false,
             detached: false,
@@ -789,8 +793,21 @@ impl Session {
                 port,
                 fingerprint,
                 of,
+                also,
                 reply,
-            } => self.check_certificate(&host, port, fingerprint, of, reply, root),
+            } => {
+                let known = also
+                    .iter()
+                    .chain([&(host.clone(), port)])
+                    .filter_map(|(host, port)| config::trusted_fingerprint(host, *port))
+                    .collect();
+                self.check_certificate((&host, port), fingerprint, of, known, reply, root);
+            }
+            Event::Trying(address) => {
+                self.connecting
+                    .set_description(Some(&gtk::glib::markup_escape_text(&address)));
+                self.address = address;
+            }
             Event::Waking => self.connecting.set_title(&i18n_f(
                 "Waking {name}…",
                 &[("name", &self.connection.title())],
@@ -890,41 +907,6 @@ impl Session {
                 self.ended(ending, sender);
             }
         }
-    }
-
-    fn check_certificate(
-        &self,
-        host: &str,
-        port: u16,
-        fingerprint: String,
-        of: Identity,
-        reply: oneshot::Sender<Trust>,
-        root: &adw::ToolbarView,
-    ) {
-        let known = config::trusted_fingerprint(host, port);
-        if known.as_deref() == Some(fingerprint.as_str()) {
-            let _ = reply.send(Trust::Known);
-            return;
-        }
-        let reply = Rc::new(RefCell::new(Some(reply)));
-        let name = match of {
-            Identity::Server => self.connection.title(),
-            Identity::Ssh | Identity::Gateway => host,
-        };
-        let dialog = pages::certificate_dialog(name, of, &fingerprint, known.is_some());
-        let (host, port) = (host.to_owned(), port);
-        dialog.connect_response(None, move |_, response| {
-            let Some(reply) = reply.borrow_mut().take() else {
-                return;
-            };
-            if response == "trust" {
-                config::trust_certificate(&host, port, &fingerprint);
-                let _ = reply.send(Trust::Accepted);
-            } else {
-                let _ = reply.send(Trust::Rejected);
-            }
-        });
-        dialog.present(Some(root));
     }
 
     fn ended(&mut self, ending: Ending, sender: &ComponentSender<Self>) {

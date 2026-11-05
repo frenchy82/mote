@@ -199,6 +199,7 @@ impl client::Handler for Checker {
             port: self.port,
             fingerprint: key.fingerprint(HashAlg::Sha256).to_string(),
             of: Identity::Ssh,
+            also: Vec::new(),
             reply,
         };
         if self.events.send(asked).await.is_err() {

@@ -48,25 +48,14 @@ pub(super) fn shown(
                 i18n("Not Connected"),
                 i18n("The computer’s identity was not trusted."),
             ),
-            Failure::Unreachable(why) => page(
+            Failure::Unreachable(why) => page(could_not(), unreachable(why, host)),
+            Failure::Addresses(tried) => page(
                 could_not(),
-                match why {
-                    Unreachable::NotFound => named("{host} could not be found."),
-                    Unreachable::Refused => {
-                        named("{host} is not accepting remote desktop connections.")
-                    }
-                    Unreachable::NoAnswer => named("{host} did not answer."),
-                    Unreachable::Closed => named(
-                        "{host} closed the connection at once. If it uses GNOME Remote Login, check that a user name and password are set, and restart its remote desktop service after changing them.",
-                    ),
-                    Unreachable::NotRdp => named(
-                        "{host} answered, but not as a remote desktop server. Check the port.",
-                    ),
-                    Unreachable::Other(error) => {
-                        tracing::warn!("connecting: {error}");
-                        named("{host} could not be reached.")
-                    }
-                },
+                tried
+                    .into_iter()
+                    .map(|(address, failure)| missed(failure, connection, &address))
+                    .collect::<Vec<_>>()
+                    .join("\n"),
             ),
             Failure::Security(security) => page(
                 could_not(),
@@ -92,13 +81,8 @@ pub(super) fn shown(
                     "{host} ended the connection as it began, without saying why. KRdp does this when the user name or password is wrong.",
                 ),
             ),
-            Failure::Ssh(why) => {
-                let server = connection.ssh_server().unwrap_or_default().0;
-                page(could_not(), ssh(why, &server, host))
-            }
-            Failure::Gateway(why) => {
-                let gateway = connection.gateway_server().unwrap_or_default().0;
-                page(could_not(), gateway_said(why, &gateway, host))
+            failure @ (Failure::Ssh(_) | Failure::Gateway(_)) => {
+                page(could_not(), missed(failure, connection, host))
             }
             Failure::Lost(error) => {
                 tracing::warn!("connection lost: {error}");
@@ -156,6 +140,42 @@ pub(super) fn shown(
     }
 }
 
+/// Why the computer couldn't be reached at this address.
+fn unreachable(why: Unreachable, host: &str) -> String {
+    let named = |text: &str| i18n_f(text, &[("host", &host)]);
+    match why {
+        Unreachable::NotFound => named("{host} could not be found."),
+        Unreachable::Refused => named("{host} is not accepting remote desktop connections."),
+        Unreachable::NoAnswer => named("{host} did not answer."),
+        Unreachable::Closed => named(
+            "{host} closed the connection at once. If it uses GNOME Remote Login, check that a user name and password are set, and restart its remote desktop service after changing them.",
+        ),
+        Unreachable::NotRdp => {
+            named("{host} answered, but not as a remote desktop server. Check the port.")
+        }
+        Unreachable::Other(error) => {
+            tracing::warn!("connecting: {error}");
+            named("{host} could not be reached.")
+        }
+    }
+}
+
+/// Why this address led nowhere: the failures that go on to the next one.
+fn missed(failure: Failure, connection: &Connection, host: &str) -> String {
+    match failure {
+        Failure::Unreachable(why) => unreachable(why, host),
+        Failure::Ssh(why) => {
+            let server = connection.ssh_server().unwrap_or_default().0;
+            ssh(why, &server, host)
+        }
+        Failure::Gateway(why) => {
+            let gateway = connection.gateway_server().unwrap_or_default().0;
+            gateway_said(why, &gateway, host)
+        }
+        _ => unreachable(Unreachable::Other(String::new()), host),
+    }
+}
+
 /// Why the SSH server didn't lead on to the computer.
 fn ssh(why: Tunnel, server: &str, host: &str) -> String {
     let named = |text: &str| i18n_f(text, &[("server", &server), ("host", &host)]);
@@ -209,6 +229,33 @@ fn gateway_said(why: Tunnel, gateway: &str, host: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_address_tried_gets_its_own_reason() {
+        let connection = Connection {
+            host: "box.lan".into(),
+            ..Connection::default()
+        };
+        let failure = Failure::Addresses(vec![
+            (
+                "box.lan".into(),
+                Failure::Unreachable(Unreachable::NotFound),
+            ),
+            (
+                "box.vpn:3390".into(),
+                Failure::Unreachable(Unreachable::NoAnswer),
+            ),
+        ]);
+        let Shown::Page { description, .. } =
+            shown(Ending::Failed(failure), &connection, false, false)
+        else {
+            panic!("a page says why");
+        };
+        assert_eq!(
+            description,
+            "box.lan could not be found.\nbox.vpn:3390 did not answer."
+        );
+    }
 
     #[test]
     fn a_server_needing_h264_points_to_the_advice_only_when_offered_it() {

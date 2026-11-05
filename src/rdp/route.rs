@@ -27,37 +27,65 @@ const WAKE_AGAIN: Duration = Duration::from_secs(15);
 /// never answers, so a short wait only tells sooner that it still sleeps.
 const WAKE_TRY: Duration = Duration::from_secs(3);
 
-/// A connection to the server, and the address this side of it has.
-pub(super) async fn open(
-    target: &Target,
-    events: &mpsc::Sender<Event>,
-) -> Result<(Box<dyn Stream>, SocketAddr), Failure> {
-    let Some(mac) = target.wake else {
-        return once(target, events, TCP_TIMEOUT).await;
-    };
-    let until = Instant::now() + WAKE_FOR;
-    let mut sent: Option<Instant> = None;
-    let mut told = false;
-    loop {
-        if sent.is_none_or(|at| at.elapsed() >= WAKE_AGAIN) {
-            wake::send(mac).await;
-            sent = Some(Instant::now());
-        }
-        match once(target, events, WAKE_TRY).await {
-            Err(failure) if failure.asleep() && Instant::now() < until => {
-                if !told {
-                    told = true;
-                    tracing::info!("waiting for {} to wake up", target.host);
-                    let _ = events.send(Event::Waking).await;
-                }
-                tokio::time::sleep(Duration::from_secs(2)).await;
-            }
-            result => return result,
-        }
+/// How long an address gets when another is there to try: going on to the
+/// VPN shouldn't take as long as giving up on the computer altogether.
+const ANOTHER_ADDRESS_AFTER: Duration = Duration::from_secs(5);
+
+/// How long to wait for an address to answer.
+pub(super) fn patience(waking: bool, last: bool) -> Duration {
+    if waking {
+        WAKE_TRY
+    } else if last {
+        TCP_TIMEOUT
+    } else {
+        ANOTHER_ADDRESS_AFTER
     }
 }
 
-async fn once(
+/// A computer being woken over the network: the packets sent to it, and how
+/// long it has left to answer.
+pub(super) struct Waking {
+    mac: [u8; 6],
+    until: Instant,
+    sent: Option<Instant>,
+    told: bool,
+}
+
+impl Waking {
+    pub(super) fn new(mac: [u8; 6]) -> Self {
+        Self {
+            mac,
+            until: Instant::now() + WAKE_FOR,
+            sent: None,
+            told: false,
+        }
+    }
+
+    /// Send the packet, if it is time to.
+    pub(super) async fn send(&mut self) {
+        if self.sent.is_none_or(|at| at.elapsed() >= WAKE_AGAIN) {
+            wake::send(self.mac).await;
+            self.sent = Some(Instant::now());
+        }
+    }
+
+    /// Wait before trying again; `false` when the computer's time is up.
+    pub(super) async fn wait(&mut self, host: &str, events: &mpsc::Sender<Event>) -> bool {
+        if Instant::now() >= self.until {
+            return false;
+        }
+        if !self.told {
+            self.told = true;
+            tracing::info!("waiting for {host} to wake up");
+            let _ = events.send(Event::Waking).await;
+        }
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        true
+    }
+}
+
+/// A connection to the server, and the address this side of it has.
+pub(super) async fn open(
     target: &Target,
     events: &mpsc::Sender<Event>,
     patience: Duration,

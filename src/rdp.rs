@@ -30,8 +30,11 @@ pub(crate) use failure::{Disconnect, Ending, Failure, Security, Tunnel, Unreacha
 /// Where to connect, and as whom.
 #[derive(Clone)]
 pub(crate) struct Target {
+    /// Where the connection is going right now.
     pub(crate) host: String,
     pub(crate) port: u16,
+    /// Everywhere the computer may be, in the order to try.
+    pub(crate) addresses: Vec<(String, u16)>,
     pub(crate) username: String,
     pub(crate) password: String,
     pub(crate) domain: String,
@@ -88,8 +91,13 @@ pub(crate) enum Event {
         port: u16,
         fingerprint: String,
         of: Identity,
+        /// The server's other addresses, under which the user may already
+        /// have trusted it, written the way `host` is.
+        also: Vec<(String, u16)>,
         reply: oneshot::Sender<Trust>,
     },
+    /// The address now being tried, when there are several.
+    Trying(String),
     /// The computer doesn't answer yet, after a Wake-on-LAN packet.
     Waking,
     /// The connection dropped, and is being made again.
@@ -589,6 +597,7 @@ mod tests {
         let target = Target {
             host: host.into(),
             port: port.parse().expect("port"),
+            addresses: vec![(host.into(), port.parse().expect("port"))],
             username: var("MOTE_TEST_USER", "mote"),
             password: var("MOTE_TEST_PASSWORD", "mote"),
             domain: String::new(),
@@ -736,6 +745,7 @@ mod tests {
                     }
                 }
                 Event::Cursor(_) => eprintln!("cursor"),
+                Event::Trying(address) => eprintln!("trying {address}"),
                 Event::Ended(ending) => {
                     let text = match ending {
                         Ending::Closed => "closed".to_owned(),
@@ -764,6 +774,7 @@ mod tests {
                         }
                         .to_owned(),
                         Ending::Failed(Failure::Rejected) => "rejected".to_owned(),
+                        Ending::Failed(Failure::Addresses(_)) => "no address led there".to_owned(),
                         Ending::Failed(Failure::Ssh(why) | Failure::Gateway(why)) => match why {
                             Tunnel::Unreachable(_) => "hop unreachable".to_owned(),
                             Tunnel::Refused => "hop refused".to_owned(),

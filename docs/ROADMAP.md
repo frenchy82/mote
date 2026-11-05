@@ -93,6 +93,13 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
   connection to it. Connecting straight from it comes with section 3.
 - The connection editor, as a libadwaita dialog with preferences pages, and
   Delete beside Save for a connection already saved.
+- Other addresses of the same computer on a connection, such as its local
+  name and its name on a VPN. Connecting tries them in order, 5 seconds for
+  each but the last, and goes on when one can't be reached or something other
+  than an RDP server answers there. An answer from the server ends the search:
+  a refused password or a rejected certificate doesn't try the next one. A
+  certificate trusted under one of them counts for all of them, and through an
+  SSH tunnel or an RD Gateway they are addresses as seen from its far end.
 - Import of `.rdp` files and of Remmina's `.remmina` profiles, and export
   to `.rdp`.
 - Scan Network, in the main menu, lists the RDP servers on the local networks.

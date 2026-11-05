@@ -74,6 +74,7 @@ pub(super) async fn open(
                 port: hop.port,
                 fingerprint: fingerprint.clone(),
                 of: Identity::Gateway,
+                also: Vec::new(),
                 reply,
             };
             if events.send(asked).await.is_err() {

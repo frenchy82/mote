@@ -4,10 +4,14 @@
 use adw::prelude::*;
 use gtk::glib;
 use relm4::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use tokio::sync::oneshot;
 
-use super::{Page, Session, SessionCmd, SessionInput, clipboard, keyboard, window_of};
+use super::{Page, Session, SessionCmd, SessionInput, clipboard, keyboard, pages, window_of};
+use crate::config;
 use crate::i18n::i18n_f;
-use crate::rdp;
+use crate::rdp::{self, Identity, Trust};
 
 impl Session {
     /// Not waiting for the window to go fullscreen: it isn't to, or the page
@@ -38,6 +42,7 @@ impl Session {
             "Connecting to {name}…",
             &[("name", &self.connection.title())],
         ));
+        self.connecting.set_description(None);
         // The desktop is asked for at the page's size, so wait for there to
         // be one, and for the window to have gone fullscreen when it opens so.
         let size = self.desktop_size().filter(|_| self.fullscreen_settled());
@@ -63,6 +68,7 @@ impl Session {
         let target = rdp::Target {
             host: self.connection.host.clone(),
             port: self.connection.port,
+            addresses: self.connection.addresses(),
             username: self.username.clone(),
             password: self.password.to_string(),
             domain: self.domain.clone(),
@@ -107,6 +113,42 @@ impl Session {
                 })
                 .drop_on_shutdown()
         });
+    }
+
+    /// `known`: what is trusted for this computer, under any of its
+    /// addresses: all of them lead to one computer, so one question will do.
+    pub(super) fn check_certificate(
+        &self,
+        (host, port): (&str, u16),
+        fingerprint: String,
+        of: Identity,
+        known: Vec<String>,
+        reply: oneshot::Sender<Trust>,
+        root: &adw::ToolbarView,
+    ) {
+        if known.contains(&fingerprint) {
+            let _ = reply.send(Trust::Known);
+            return;
+        }
+        let reply = Rc::new(RefCell::new(Some(reply)));
+        let name = match of {
+            Identity::Server => self.connection.title(),
+            Identity::Ssh | Identity::Gateway => host,
+        };
+        let dialog = pages::certificate_dialog(name, of, &fingerprint, !known.is_empty());
+        let (host, port) = (host.to_owned(), port);
+        dialog.connect_response(None, move |_, response| {
+            let Some(reply) = reply.borrow_mut().take() else {
+                return;
+            };
+            if response == "trust" {
+                config::trust_certificate(&host, port, &fingerprint);
+                let _ = reply.send(Trust::Accepted);
+            } else {
+                let _ = reply.send(Trust::Rejected);
+            }
+        });
+        dialog.present(Some(root));
     }
 
     /// The way to the computer: through the SSH server or the gateway, if

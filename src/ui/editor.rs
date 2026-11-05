@@ -36,6 +36,9 @@ pub(crate) struct Editor {
 struct Rows {
     name: adw::EntryRow,
     host: adw::EntryRow,
+    /// The other addresses: a row each, under `other`.
+    other: adw::ExpanderRow,
+    others: Vec<adw::EntryRow>,
     port: adw::SpinRow,
     group: GroupRow,
     username: adw::EntryRow,
@@ -72,6 +75,11 @@ pub(crate) enum EditorMsg {
     /// Something that decides whether the connection can be saved.
     Changed,
     PasswordEdited(Secret),
+    AddAddress,
+    RemoveAddress(adw::EntryRow),
+    /// The other addresses opened; with none yet, opening them is for a
+    /// first one.
+    OthersOpened,
     Save,
     Cancel,
     Delete,
@@ -153,9 +161,11 @@ impl Component for Editor {
         } else {
             (i18n("Edit Connection"), i18n("Save"))
         };
-        let rows = Rows {
+        let mut rows = Rows {
             name: entry(&i18n("Name"), &c.name),
             host: entry(&i18n("Address"), &c.host),
+            other: adw::ExpanderRow::new(),
+            others: Vec::new(),
             port: adw::SpinRow::with_range(1.0, 65535.0, 1.0),
             group: GroupRow::new(&c.group, init.groups.clone()),
             username: entry(&i18n("User Name"), &c.username),
@@ -253,6 +263,19 @@ impl Component for Editor {
         rows.microphone.set_active(c.microphone);
         rows.port.set_title(&i18n("Port"));
         rows.port.set_value(f64::from(c.port));
+        other_addresses(&rows.other, &sender);
+        for address in &c.other_addresses {
+            let row = other_row(address, &sender);
+            rows.other.add_row(&row);
+            rows.others.push(row);
+        }
+        rows.other.set_expanded(!rows.others.is_empty());
+        let input = sender.input_sender().clone();
+        rows.other.connect_expanded_notify(move |row| {
+            if row.is_expanded() {
+                input.emit(EditorMsg::OthersOpened);
+            }
+        });
         rows.ssh.set_title(&i18n("SSH Tunnel"));
         rows.ssh
             .set_subtitle(&i18n("A password is needed only if no SSH key works"));
@@ -331,6 +354,7 @@ impl Component for Editor {
         for row in [
             rows.name.upcast_ref::<gtk::Widget>(),
             rows.host.upcast_ref(),
+            rows.other.upcast_ref(),
             rows.port.upcast_ref(),
             rows.group.row.upcast_ref(),
         ] {
@@ -419,6 +443,25 @@ impl Component for Editor {
                     self.edited.push(kind);
                 }
             }
+            EditorMsg::OthersOpened if !self.rows.others.is_empty() => {}
+            EditorMsg::OthersOpened | EditorMsg::AddAddress => {
+                let row = other_row("", &sender);
+                self.rows.other.add_row(&row);
+                self.rows.others.push(row.clone());
+                self.rows.other.set_expanded(true);
+                // It can't take the focus until it is shown.
+                gtk::glib::idle_add_local_once(move || {
+                    row.grab_focus();
+                });
+            }
+            EditorMsg::RemoveAddress(row) => {
+                self.rows.other.remove(&row);
+                self.rows.others.retain(|other| *other != row);
+                if self.rows.others.is_empty() {
+                    self.rows.other.set_expanded(false);
+                }
+                self.check();
+            }
             EditorMsg::Cancel => {
                 root.close();
             }
@@ -436,6 +479,7 @@ impl Component for Editor {
                     name: r.name.text().into(),
                     host: r.host.text().into(),
                     port: r.port.value() as u16,
+                    other_addresses: r.others.iter().map(|row| row.text().into()).collect(),
                     group: r.group.group(),
                     username: r.username.text().into(),
                     domain: r.domain.text().into(),
@@ -537,6 +581,10 @@ impl Editor {
         let r = &self.rows;
         let address = |row: &adw::EntryRow| split_address(&row.text()).is_some();
         let mac = r.mac.text();
+        let others = r
+            .others
+            .iter()
+            .map(|row| (row, row.text().trim().is_empty() || address(row)));
         let checks = [
             (&r.host, address(&r.host) || r.host.text().trim().is_empty()),
             (
@@ -550,7 +598,7 @@ impl Editor {
             (&r.mac, mac.trim().is_empty() || parse_mac(&mac).is_some()),
         ];
         let mut valid = address(&r.host);
-        for (row, ok) in checks {
+        for (row, ok) in checks.into_iter().chain(others) {
             // An empty row is still being filled in, not wrong.
             if ok || row.text().trim().is_empty() {
                 row.remove_css_class("error");
@@ -575,6 +623,44 @@ fn entry(title: &str, text: &str) -> adw::EntryRow {
     row.set_title(title);
     row.set_text(text);
     row.set_activates_default(true);
+    row
+}
+
+/// The row the other addresses go under, with the button that adds one.
+fn other_addresses(row: &adw::ExpanderRow, sender: &ComponentSender<Editor>) {
+    row.set_title(&i18n("Other Addresses"));
+    row.set_subtitle(&i18n("Tried in order when the address can’t be reached"));
+    let label = i18n("Add Address");
+    let add = gtk::Button::builder()
+        .icon_name("list-add-symbolic")
+        .tooltip_text(&label)
+        .valign(gtk::Align::Center)
+        .css_classes(["flat"])
+        .build();
+    add.update_property(&[gtk::accessible::Property::Label(&label)]);
+    let input = sender.input_sender().clone();
+    add.connect_clicked(move |_| input.emit(EditorMsg::AddAddress));
+    row.add_suffix(&add);
+}
+
+fn other_row(address: &str, sender: &ComponentSender<Editor>) -> adw::EntryRow {
+    let row = entry(&i18n("Address"), address);
+    let input = sender.input_sender().clone();
+    row.connect_changed(move |_| input.emit(EditorMsg::Changed));
+    let remove = gtk::Button::builder()
+        .icon_name("user-trash-symbolic")
+        .tooltip_text(i18n("Remove"))
+        .valign(gtk::Align::Center)
+        .css_classes(["flat"])
+        .build();
+    remove.update_property(&[gtk::accessible::Property::Label(&i18n("Remove Address"))]);
+    let (input, weak) = (sender.input_sender().clone(), row.downgrade());
+    remove.connect_clicked(move |_| {
+        if let Some(row) = weak.upgrade() {
+            input.emit(EditorMsg::RemoveAddress(row));
+        }
+    });
+    row.add_suffix(&remove);
     row
 }
 

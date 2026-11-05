@@ -147,6 +147,9 @@ msgstr ""
 msgid "Address"
 msgstr ""
 
+msgid "Other Addresses"
+msgstr ""
+
 msgid "Asked when connecting"
 msgstr ""
 
@@ -383,6 +386,18 @@ msgid ""
 "$MOTE_NAME. A failed command before connecting stops the connection."
 msgstr ""
 
+msgid "Tried in order when the address can’t be reached"
+msgstr ""
+
+msgid "Add Address"
+msgstr ""
+
+msgid "Remove"
+msgstr ""
+
+msgid "Remove Address"
+msgstr ""
+
 msgid "Best Available"
 msgstr ""
 
@@ -522,9 +537,6 @@ msgid "Downloaded from Cisco, under Cisco’s patent license"
 msgstr ""
 
 msgid "Downloaded from Cisco on request, under Cisco’s patent license"
-msgstr ""
-
-msgid "Remove"
 msgstr ""
 
 msgid "Download"
