@@ -4,7 +4,7 @@
 %global debug_package %{nil}
 
 Name:           mote
-Version:        1.3.0~beta.1
+Version:        1.3.0~beta.2
 Release:        1%{?dist}
 Summary:        Connect to Linux desktops over RDP
 License:        AGPL-3.0-or-later
@@ -71,6 +71,10 @@ done
 %{_datadir}/icons/hicolor/symbolic/apps/%{appid}-symbolic.svg
 
 %changelog
+* Wed Nov 04 2026 Hyprlab <hyprlab@proton.me> - 1.3.0~beta.2-1
+- Scan Network covers additional subnets
+- Flatpak bundles receive updates
+
 * Wed Nov 04 2026 Hyprlab <hyprlab@proton.me> - 1.3.0~beta.1-1
 - Scan Network lists the RDP servers on the local network
 - Delete button in the connection editor

@@ -4,6 +4,16 @@ A remote desktop client for GNOME, for Linux machines that run GNOME Remote
 Desktop, xrdp or KRdp. Each section below is what a release brought; the
 detail is in the commit history.
 
+## What's new in 1.3.0-beta.2
+
+### New features:
+
+- Scan Network covers additional subnets
+
+### Fixes:
+
+- Flatpak bundles never received updates
+
 ## What's new in 1.3.0-beta.1
 
 ### New features:
