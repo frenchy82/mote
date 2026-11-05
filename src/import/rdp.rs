@@ -2,7 +2,7 @@
 //! other clients write them: one `name:type:value` setting per line.
 //! Settings Mote doesn't have yet are skipped on import and absent on export.
 
-use crate::connection::{Connection, Network, split_address};
+use crate::connection::{Connection, Network, address_text, split_address};
 
 /// The connection in an `.rdp` file, named `name` unless the file says.
 pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
@@ -26,6 +26,8 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
                 conn.host = host;
                 port = port.or(p);
             }
+            // Often the same as the full address, which normalizing drops.
+            "alternate full address" => conn.other_addresses = vec![value.to_owned()],
             "server port" => port = value.parse().ok().filter(|&p| p != 0),
             "username" => conn.username = value.to_owned(),
             "domain" => conn.domain = value.to_owned(),
@@ -63,6 +65,14 @@ pub(crate) fn parse(bytes: &[u8], name: &str) -> Option<Connection> {
 /// is what Windows writes and what every client reads.
 pub(crate) fn export(conn: &Connection) -> Vec<u8> {
     let mut lines = vec![format!("full address:s:{}", conn.address())];
+    // The format has room for one, the first to try. Its port is written
+    // out, as a reader wouldn't know it takes the connection's.
+    if let Some((host, port)) = conn.addresses().get(1) {
+        lines.push(format!(
+            "alternate full address:s:{}",
+            address_text(host, *port)
+        ));
+    }
     if let Some(account) = conn.account() {
         lines.push(format!("username:s:{account}"));
     }
@@ -159,6 +169,45 @@ mod tests {
         assert!(back.fullscreen);
         assert_eq!(back.gateway_server(), Some(("gw.example.com".into(), 443)));
         assert_eq!(back.gateway_username, "CORP\\jo");
+    }
+
+    #[test]
+    fn the_alternate_address_is_another_address() {
+        let c = parse(
+            b"alternate full address:s:box.vpn\nfull address:s:box.lan:3390\n",
+            "x",
+        )
+        .unwrap();
+        assert_eq!(c.other_addresses, ["box.vpn"]);
+        assert_eq!(c.addresses()[1], ("box.vpn".to_owned(), 3390));
+        // Windows often writes the same address in both.
+        let c = parse(
+            b"full address:s:box.lan\nalternate full address:s:box.lan\n",
+            "x",
+        )
+        .unwrap();
+        assert!(c.other_addresses.is_empty());
+    }
+
+    #[test]
+    fn export_keeps_the_first_other_address_with_its_port() {
+        let c = Connection {
+            host: "box.lan".into(),
+            port: 3390,
+            other_addresses: vec!["box.vpn".into(), "box.tail".into()],
+            ..Connection::default()
+        };
+        let text = decode(&export(&c));
+        assert!(text.contains("alternate full address:s:box.vpn:3390\r\n"));
+        assert!(!text.contains("box.tail"));
+        let back = parse(&export(&c), "x").unwrap();
+        assert_eq!(back.addresses()[..2], c.addresses()[..2]);
+        // None to write, no line.
+        let alone = Connection {
+            other_addresses: Vec::new(),
+            ..c
+        };
+        assert!(!decode(&export(&alone)).contains("alternate"));
     }
 
     #[test]

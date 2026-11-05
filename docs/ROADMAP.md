@@ -102,7 +102,8 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
   certificate trusted under one of them counts for all of them, and through an
   SSH tunnel or an RD Gateway they are addresses as seen from its far end.
 - Import of `.rdp` files and of Remmina's `.remmina` profiles, and export
-  to `.rdp`.
+  to `.rdp`. A connection's first other address is the file's `alternate full
+  address`; the format has no room for the rest, so export leaves them out.
 - Scan Network, in the main menu, lists the RDP servers on the local networks.
   Add opens the connection editor on one with its address filled in, and
   Cancel there saves nothing. It covers ports 3389 and 3390 on the private IPv4 networks
