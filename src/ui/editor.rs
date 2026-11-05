@@ -77,6 +77,17 @@ pub(crate) enum EditorMsg {
     PasswordEdited(Secret),
     AddAddress,
     RemoveAddress(adw::EntryRow),
+    /// An address dragged to just before or after another.
+    MoveAddress {
+        row: adw::EntryRow,
+        beside: adw::EntryRow,
+        after: bool,
+    },
+    /// Alt+Up or Alt+Down on an address: past its neighbor.
+    NudgeAddress {
+        row: adw::EntryRow,
+        down: bool,
+    },
     /// The other addresses opened; with none yet, opening them is for a
     /// first one.
     OthersOpened,
@@ -462,6 +473,31 @@ impl Component for Editor {
                 }
                 self.check();
             }
+            EditorMsg::MoveAddress { row, beside, after } => {
+                self.move_address(&row, &beside, after);
+            }
+            EditorMsg::NudgeAddress { row, down } => {
+                let others = &self.rows.others;
+                let at = others.iter().position(|other| *other == row);
+                let neighbor = at
+                    .and_then(|at| {
+                        if down {
+                            at.checked_add(1)
+                        } else {
+                            at.checked_sub(1)
+                        }
+                    })
+                    .and_then(|at| others.get(at))
+                    .cloned();
+                if let Some(beside) = neighbor {
+                    self.move_address(&row, &beside, down);
+                    // Taking it out of the list took the focus from it. Its
+                    // text stays unselected, for a key not to replace it.
+                    if let Some(text) = row.delegate().and_downcast::<gtk::Text>() {
+                        text.grab_focus_without_selecting();
+                    }
+                }
+            }
             EditorMsg::Cancel => {
                 root.close();
             }
@@ -575,6 +611,18 @@ impl Editor {
         }
     }
 
+    fn move_address(&mut self, row: &adw::EntryRow, beside: &adw::EntryRow, after: bool) {
+        moved(&mut self.rows.others, row, beside, after);
+        // The expander row can only add at the end, so all of them go back
+        // on in their new order.
+        for other in &self.rows.others {
+            self.rows.other.remove(other);
+        }
+        for other in &self.rows.others {
+            self.rows.other.add_row(other);
+        }
+    }
+
     /// Whether what the rows hold can be saved, marking the rows that
     /// can't be.
     fn check(&mut self) {
@@ -661,7 +709,149 @@ fn other_row(address: &str, sender: &ComponentSender<Editor>) -> adw::EntryRow {
         }
     });
     row.add_suffix(&remove);
+    row.add_css_class("other-address");
+    drag_to_reorder(&row, sender);
     row
+}
+
+/// The address's handle drags it to another place among them, and Alt+Up
+/// and Alt+Down do the same from the keyboard. The handle alone, as a drag
+/// on the rest of the row selects its text.
+fn drag_to_reorder(row: &adw::EntryRow, sender: &ComponentSender<Editor>) {
+    use gtk::gdk;
+
+    let handle = gtk::Image::from_icon_name("list-drag-handle-symbolic");
+    handle.add_css_class("dim-label");
+    handle.set_cursor_from_name(Some("grab"));
+    row.add_prefix(&handle);
+
+    let source = gtk::DragSource::new();
+    source.set_actions(gdk::DragAction::MOVE);
+    // Where on the handle it was grabbed, so the card stays under the pointer.
+    let grabbed_at = Rc::new(Cell::new((0.0, 0.0)));
+    let (weak, at) = (row.downgrade(), grabbed_at.clone());
+    source.connect_prepare(move |_, x, y| {
+        at.set((x, y));
+        let row = weak.upgrade()?;
+        Some(gdk::ContentProvider::for_value(&row.to_value()))
+    });
+    let (weak, grabbed) = (row.downgrade(), handle.downgrade());
+    source.connect_drag_begin(move |_, drag| {
+        let (Some(row), Some(grabbed)) = (weak.upgrade(), grabbed.upgrade()) else {
+            return;
+        };
+        drag_card(&row, drag);
+        let (x, y) = grabbed_at.get();
+        let at = grabbed
+            .compute_point(&row, &gtk::graphene::Point::new(x as f32, y as f32))
+            .unwrap_or_else(gtk::graphene::Point::zero);
+        drag.set_hotspot(at.x() as i32, at.y() as i32);
+        row.add_css_class("dragged");
+    });
+    let weak = row.downgrade();
+    source.connect_drag_end(move |_, _, _| {
+        if let Some(row) = weak.upgrade() {
+            row.remove_css_class("dragged");
+        }
+    });
+    handle.add_controller(source);
+
+    let target = gtk::DropTarget::new(adw::EntryRow::static_type(), gdk::DragAction::MOVE);
+    let weak = row.downgrade();
+    target.connect_motion(move |_, _, y| {
+        if let Some(row) = weak.upgrade() {
+            let after = y > f64::from(row.height()) / 2.0;
+            mark_drop(&row, Some(after));
+        }
+        gdk::DragAction::MOVE
+    });
+    let weak = row.downgrade();
+    target.connect_leave(move |_| {
+        if let Some(row) = weak.upgrade() {
+            mark_drop(&row, None);
+        }
+    });
+    let (input, weak) = (sender.input_sender().clone(), row.downgrade());
+    target.connect_drop(move |_, value, _, y| {
+        let (Ok(dragged), Some(beside)) = (value.get::<adw::EntryRow>(), weak.upgrade()) else {
+            return false;
+        };
+        mark_drop(&beside, None);
+        let after = y > f64::from(beside.height()) / 2.0;
+        input.emit(EditorMsg::MoveAddress {
+            row: dragged,
+            beside,
+            after,
+        });
+        true
+    });
+    row.add_controller(target);
+
+    let keys = gtk::EventControllerKey::new();
+    let (input, weak) = (sender.input_sender().clone(), row.downgrade());
+    keys.connect_key_pressed(move |_, key, _, mods| {
+        let down = match key {
+            gdk::Key::Up => false,
+            gdk::Key::Down => true,
+            _ => return gtk::glib::Propagation::Proceed,
+        };
+        match weak
+            .upgrade()
+            .filter(|_| mods == gdk::ModifierType::ALT_MASK)
+        {
+            Some(row) => {
+                input.emit(EditorMsg::NudgeAddress { row, down });
+                gtk::glib::Propagation::Stop
+            }
+            None => gtk::glib::Propagation::Proceed,
+        }
+    });
+    row.add_controller(keys);
+}
+
+/// Mark where a dragged address would land, as a line along the row's edge:
+/// `Some(true)` for after this row, `Some(false)` for before it.
+fn mark_drop(row: &adw::EntryRow, after: Option<bool>) {
+    for (class, on) in [
+        ("drop-above", after == Some(false)),
+        ("drop-below", after == Some(true)),
+    ] {
+        if on {
+            row.add_css_class(class);
+        } else {
+            row.remove_css_class(class);
+        }
+    }
+}
+
+/// What follows the pointer during a drag: a row with the address on it,
+/// as wide as the one it stands for.
+fn drag_card(row: &adw::EntryRow, drag: &gtk::gdk::Drag) {
+    let copy = adw::ActionRow::new();
+    copy.set_use_markup(false);
+    copy.set_title(&row.text());
+    copy.add_prefix(&gtk::Image::from_icon_name("list-drag-handle-symbolic"));
+    let card = gtk::ListBox::new();
+    card.add_css_class("boxed-list");
+    card.set_size_request(row.width(), row.height());
+    card.append(&copy);
+    gtk::DragIcon::for_drag(drag).set_child(Some(&card));
+}
+
+/// Move `item` to just before or after `beside`, both being in `list`.
+fn moved<T: PartialEq>(list: &mut Vec<T>, item: &T, beside: &T, after: bool) {
+    if item == beside || !list.contains(beside) {
+        return;
+    }
+    let Some(from) = list.iter().position(|other| other == item) else {
+        return;
+    };
+    let item = list.remove(from);
+    let to = list
+        .iter()
+        .position(|other| other == beside)
+        .unwrap_or_default();
+    list.insert(to + usize::from(after), item);
 }
 
 pub(crate) fn quality_label(quality: Quality) -> String {
@@ -771,5 +961,25 @@ fn shown_path(path: &str) -> String {
         Ok(rest) if rest.as_os_str().is_empty() => "~".to_owned(),
         Ok(rest) => format!("~/{}", rest.display()),
         Err(_) => path.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::moved;
+
+    #[test]
+    fn an_address_lands_beside_the_one_it_is_dropped_on() {
+        let after = |item, beside, after| {
+            let mut list = vec![1, 2, 3, 4];
+            moved(&mut list, &item, &beside, after);
+            list
+        };
+        assert_eq!(after(1, 3, true), [2, 3, 1, 4]);
+        assert_eq!(after(1, 3, false), [2, 1, 3, 4]);
+        assert_eq!(after(4, 1, false), [4, 1, 2, 3]);
+        assert_eq!(after(4, 2, true), [1, 2, 4, 3]);
+        assert_eq!(after(2, 2, true), [1, 2, 3, 4]);
+        assert_eq!(after(9, 2, true), [1, 2, 3, 4]);
     }
 }

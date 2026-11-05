@@ -94,7 +94,8 @@ relm4 on GTK 4 and libadwaita, gettext for translations, tracing for logs.
 - The connection editor, as a libadwaita dialog with preferences pages, and
   Delete beside Save for a connection already saved.
 - Other addresses of the same computer on a connection, such as its local
-  name and its name on a VPN. Connecting tries them in order, 5 seconds for
+  name and its name on a VPN, put in order by dragging them or with Alt+Up
+  and Alt+Down. Connecting tries them in that order, 5 seconds for
   each but the last, and goes on when one can't be reached or something other
   than an RDP server answers there. An answer from the server ends the search:
   a refused password or a rejected certificate doesn't try the next one. A

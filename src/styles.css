@@ -82,6 +82,21 @@ switch > image {
   background-color: @accent_bg_color;
 }
 
+/* An address in the connection editor, being dragged to another place among
+   them, and the line along the row it would land beside. */
+row.other-address.dragged {
+  opacity: 0.4;
+}
+row.other-address:drop(active) {
+  box-shadow: none;
+}
+row.other-address.drop-above:drop(active) {
+  box-shadow: inset 0 2px @accent_bg_color;
+}
+row.other-address.drop-below:drop(active) {
+  box-shadow: inset 0 -2px @accent_bg_color;
+}
+
 /* Group labels between the connection rows: no row height of their own,
    so the space above a group is wider than the space beneath its name. */
 .navigation-sidebar > row.sidebar-heading {
