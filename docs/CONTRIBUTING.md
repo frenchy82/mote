@@ -10,6 +10,8 @@ wrong, awkward or missing is worth as much as a patch.
   remote machine runs (GNOME Remote Desktop, xrdp, KRdp, and its version).
 - **Suggest a feature:** an issue describing what you are trying to do, rather
   than the control you imagine, gets the best result.
+- **Translate:** no Rust needed, and everything a translator wants is in
+  [po/README.md](../po/README.md), from the template to sending the file in.
 - **Design and UX:** GNOME HIG corrections, layout and wording feedback are
   welcome as issues.
 - **Code:** send a pull request; see below.
