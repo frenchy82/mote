@@ -1,0 +1,1198 @@
+# French translation for Mote.
+# This file is distributed under the same license as the Mote package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: mote\n"
+"Report-Msgid-Bugs-To: https://github.com/hyprlab/mote/issues\n"
+"POT-Creation-Date: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+"X-Generator: Poedit 3.10\n"
+
+msgid "Release Notes"
+msgstr "Notes de version"
+
+msgid "Full Release Notes on GitHub"
+msgstr "Notes de version complètes sur GitHub"
+
+msgid "GNOME-native RDP client"
+msgstr "Client RDP natif pour GNOME"
+
+msgid ""
+"A beta build for trying changes early. Expect bugs, and report them on "
+"GitHub. It shares connections and settings with the stable install."
+msgstr ""
+
+msgid "What’s new in {version}"
+msgstr "Nouveautés de la version {version}"
+
+msgid "Project"
+msgstr "Projet"
+
+msgid "Website"
+msgstr "Site web"
+
+msgid "Report an issue or feature request"
+msgstr "Signaler un problème ou demander une fonctionnalité"
+
+msgid "Source Code"
+msgstr "Code source"
+
+msgid "License (GNU AGPL v3)"
+msgstr "Licence (GNU AGPL v3)"
+
+msgid "Buy Me a Coffee"
+msgstr "Offrez-moi un café"
+
+msgid "Special thanks to these contributors"
+msgstr "Remerciements particuliers à ces contributeurs"
+
+msgid "Translated by"
+msgstr "Traduit par"
+
+msgid "Pixelbot by DiceBear"
+msgstr "Pixelbot par DiceBear"
+
+msgid "© 2026 Hyprlab"
+msgstr "© 2026 Hyprlab"
+
+msgid "About {name}"
+msgstr "À propos de {name}"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Keyboard Shortcuts"
+msgstr "Raccourcis clavier"
+
+msgid "About Mote"
+msgstr "À propos de Mote"
+
+msgid "Quit"
+msgstr "Quitter"
+
+msgid "Name"
+msgstr "Nom"
+
+msgid "Recently Used"
+msgstr "Récemment utilisées"
+
+msgid "Custom"
+msgstr "Personnalisé"
+
+msgid "Sort By"
+msgstr "Trier par"
+
+msgid "Scan Network…"
+msgstr ""
+
+msgid "Import .rdp Files…"
+msgstr "Importer des fichiers .rdp…"
+
+msgid "Import from Remmina"
+msgstr "Importer depuis Remmina"
+
+msgid "Duplicate"
+msgstr "Dupliquer"
+
+msgid "Export as .rdp File…"
+msgstr "Exporter en fichier .rdp…"
+
+msgid "Delete…"
+msgstr "Supprimer…"
+
+msgid "Connections"
+msgstr "Connexions"
+
+msgid "New Connection"
+msgstr "Nouvelle connexion"
+
+msgid "Connect"
+msgstr "Se connecter"
+
+msgid "Edit Connection"
+msgstr "Modifier la connexion"
+
+msgid "Search"
+msgstr "Rechercher"
+
+msgid "Move Connection Up"
+msgstr "Monter la connexion"
+
+msgid "Move Connection Down"
+msgstr "Descendre la connexion"
+
+msgid "Connection Menu"
+msgstr "Menu de la connexion"
+
+msgid "Sessions"
+msgstr "Sessions"
+
+msgid "Let Go of the Keyboard and Show the Header"
+msgstr "Libérer le clavier et afficher la barre d’en-tête"
+
+msgid "Give the Shortcuts Back"
+msgstr "Restituer les raccourcis"
+
+msgid "General"
+msgstr "Général"
+
+msgid "Close Window"
+msgstr "Fermer la fenêtre"
+
+msgid "Connection"
+msgstr "Connexion"
+
+msgid "Address"
+msgstr "Adresse"
+
+msgid "Other Addresses"
+msgstr ""
+
+msgid "Asked when connecting"
+msgstr "Demandé lors de la connexion"
+
+msgid "User Name"
+msgstr "Nom d’utilisateur"
+
+msgid "Group"
+msgstr "Groupe"
+
+msgid "Last Connected"
+msgstr "Dernière connexion"
+
+msgid "Remote Desktop Files"
+msgstr "Fichiers de bureau à distance"
+
+msgid "Import .rdp Files"
+msgstr "Importer des fichiers .rdp"
+
+msgid "Export as .rdp File"
+msgstr "Exporter en fichier .rdp"
+
+msgid "Delete {name}?"
+msgstr "Supprimer {name} ?"
+
+msgid "Its saved password is deleted too."
+msgstr "Son mot de passe enregistré est également supprimé."
+
+msgid "Cancel"
+msgstr "Annuler"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "{file} is not a connection file"
+msgstr "{file} n’est pas un fichier de connexion"
+
+msgid "No Remmina RDP connections found"
+msgstr "Aucune connexion RDP Remmina trouvée"
+
+msgid "Those connections are already here"
+msgstr "Ces connexions sont déjà présentes"
+
+msgid "Imported {n} connection"
+msgid_plural "Imported {n} connections"
+msgstr[0] "{n} connexion importée"
+msgstr[1] "{n} connexions importées"
+
+msgid "{file} could not be saved"
+msgstr "{file} n’a pas pu être enregistré"
+
+msgid "New Group"
+msgstr "Nouveau groupe"
+
+msgid "Add"
+msgstr "Ajouter"
+
+msgid "Rename Group"
+msgstr "Renommer le groupe"
+
+msgid "Rename"
+msgstr "Renommer"
+
+msgid "Disconnect"
+msgstr "Se déconnecter"
+
+msgid "No Group"
+msgstr "Aucun groupe"
+
+msgid "New Group…"
+msgstr "Nouveau groupe…"
+
+msgid "Move to Group"
+msgstr "Déplacer vers un groupe"
+
+msgid "Rename Group…"
+msgstr "Renommer le groupe…"
+
+msgid "Ungroup"
+msgstr "Retirer du groupe"
+
+msgid "Press Enter to add {address}"
+msgstr "Appuyez sur Entrée pour ajouter {address}"
+
+msgid "No Results"
+msgstr "Aucun résultat"
+
+msgid "Connected"
+msgstr "Connecté"
+
+msgid "{address}, connected"
+msgstr "{address}, connecté"
+
+msgid "Main Menu"
+msgstr "Menu principal"
+
+msgid "Search or Enter an Address"
+msgstr "Rechercher ou saisir une adresse"
+
+msgid "Toggle Sidebar"
+msgstr "Afficher ou masquer la barre latérale"
+
+msgid "No Connections"
+msgstr "Aucune connexion"
+
+msgid "Add a connection, or import one from an .rdp file or from Remmina."
+msgstr ""
+"Ajoutez une connexion, ou importez-en une depuis un fichier .rdp ou depuis "
+"Remmina."
+
+msgid "Scan Network"
+msgstr ""
+
+msgid "No Connection Selected"
+msgstr "Aucune connexion sélectionnée"
+
+msgid "The keyring could not be reached: {error}"
+msgstr "Le trousseau de clés est inaccessible : {error}"
+
+msgid "{name} (Copy)"
+msgstr "{name} (copie)"
+
+msgid "{b} then {a}"
+msgstr "{b} puis {a}"
+
+msgid "Change Account Avatar"
+msgstr "Changer l’avatar du compte"
+
+msgid "Robot {number}"
+msgstr "Robot {number}"
+
+msgid "More Robots"
+msgstr "Plus de robots"
+
+msgid "Choose Image…"
+msgstr "Choisir une image…"
+
+msgid "Images"
+msgstr "Images"
+
+msgid "Choose Image"
+msgstr "Choisir une image"
+
+msgid "Save"
+msgstr "Enregistrer"
+
+msgid "Domain"
+msgstr "Domaine"
+
+msgid "Password"
+msgstr "Mot de passe"
+
+msgid "Wake-on-LAN MAC Address"
+msgstr "Adresse MAC Wake-on-LAN"
+
+msgid "Before Connecting"
+msgstr "Avant la connexion"
+
+msgid "After Disconnecting"
+msgstr "Après la déconnexion"
+
+msgid "Scaling"
+msgstr "Mise à l’échelle"
+
+msgid "Codec"
+msgstr "Codec"
+
+msgid "Connection Type"
+msgstr "Type de connexion"
+
+msgid "Only supported by xrdp"
+msgstr "Pris en charge uniquement par xrdp"
+
+msgid "View Only"
+msgstr "Lecture seule"
+
+msgid "Open Fullscreen"
+msgstr "Ouvrir en plein écran"
+
+msgid "Open in New Window"
+msgstr "Ouvrir dans une nouvelle fenêtre"
+
+msgid "Clipboard"
+msgstr "Presse-papiers"
+
+msgid "Text only with KRdp; xrdp leaves out folders"
+msgstr "Texte uniquement avec KRdp ; xrdp exclut les dossiers"
+
+msgid "Share Copied Files"
+msgstr "Partager les fichiers copiés"
+
+msgid "The server can read any file copied here"
+msgstr "Le serveur peut lire tout fichier copié ici"
+
+#. The same rows, and the same limits, as in the connection editor.
+msgid "Not with KRdp; xrdp needs its PipeWire module"
+msgstr "Non pris en charge par KRdp ; xrdp nécessite son module PipeWire"
+
+msgid "Sound"
+msgstr "Son"
+
+msgid "Microphone"
+msgstr "Microphone"
+
+msgid "Port"
+msgstr "Port"
+
+msgid "SSH Tunnel"
+msgstr "Tunnel SSH"
+
+msgid "A password is needed only if no SSH key works"
+msgstr ""
+
+msgid "RD Gateway"
+msgstr "Passerelle RD"
+
+msgid "Account"
+msgstr "Compte"
+
+msgid "Leave the password empty to be asked for it when connecting."
+msgstr ""
+"Laissez le mot de passe vide pour qu’il vous soit demandé lors de la "
+"connexion."
+
+msgid "Display"
+msgstr "Affichage"
+
+msgid "Network"
+msgstr "Réseau"
+
+msgid "Sharing"
+msgstr "Partage"
+
+msgid "Commands"
+msgstr "Commandes"
+
+msgid ""
+"Run by sh, with the connection in $MOTE_HOST, $MOTE_PORT, $MOTE_USER and "
+"$MOTE_NAME. A failed command before connecting stops the connection."
+msgstr ""
+"Exécutées par sh, avec la connexion dans $MOTE_HOST, $MOTE_PORT, $MOTE_USER "
+"et $MOTE_NAME. Une commande en échec avant la connexion interrompt celle-ci."
+
+msgid "Tried in order when the address can’t be reached"
+msgstr ""
+
+msgid "Add Address"
+msgstr ""
+
+msgid "Remove"
+msgstr "Retirer"
+
+msgid "Remove Address"
+msgstr ""
+
+msgid "Best Available"
+msgstr "Meilleur disponible"
+
+msgid "H.264 (AVC420)"
+msgstr "H.264 (AVC420)"
+
+msgid "RemoteFX"
+msgstr "RemoteFX"
+
+msgid "Half the color detail: colored text is softer"
+msgstr "Deux fois moins de détails de couleur : le texte coloré est moins net"
+
+msgid "About twice the bandwidth; KRdp turns it down"
+msgstr "Environ deux fois plus de bande passante ; KRdp le refuse"
+
+msgid "Local Network"
+msgstr "Réseau local"
+
+msgid "Wide Area Network"
+msgstr "Réseau étendu"
+
+msgid "Fast Broadband"
+msgstr "Haut débit rapide"
+
+msgid "Satellite"
+msgstr "Satellite"
+
+msgid "Slow Broadband"
+msgstr "Haut débit lent"
+
+msgid "Modem"
+msgstr "Modem"
+
+msgid "Shared Folder"
+msgstr "Dossier partagé"
+
+msgid "Choose Folder"
+msgstr "Choisir un dossier"
+
+msgid "Stop Sharing"
+msgstr "Arrêter le partage"
+
+msgid "Only xrdp opens a shared folder"
+msgstr "Seul xrdp ouvre un dossier partagé"
+
+msgid "None"
+msgstr "Aucun"
+
+msgid "Keyboard"
+msgstr "Clavier"
+
+msgid "Automatic"
+msgstr "Automatique"
+
+msgid "Keyboard Layout"
+msgstr "Disposition du clavier"
+
+msgid "Grab Keyboard"
+msgstr "Capturer le clavier"
+
+msgid "Right Ctrl lets go of the keyboard"
+msgstr "Ctrl droit libère le clavier"
+
+msgid "Reconnect Automatically"
+msgstr "Se reconnecter automatiquement"
+
+msgid "For two minutes after the network drops"
+msgstr "Pendant deux minutes après une coupure du réseau"
+
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Once a session"
+msgstr "Une fois par session"
+
+msgid "Keyboard Grab Notice"
+msgstr "Avis de capture du clavier"
+
+msgid "Missing H.264 Warning"
+msgstr "Avertissement H.264 manquant"
+
+msgid "Desktop Sharing Size Notice"
+msgstr "Avis sur la taille du partage de bureau"
+
+msgid "Clipboard Sharing Notice"
+msgstr "Avis de partage du presse-papiers"
+
+msgid "Once a connection"
+msgstr "Une fois par connexion"
+
+msgid "Style"
+msgstr "Style"
+
+msgid "System"
+msgstr "Système"
+
+msgid "Light"
+msgstr "Clair"
+
+msgid "Dark"
+msgstr "Sombre"
+
+msgid "Show Large Account Avatars"
+msgstr "Afficher les grands avatars de compte"
+
+msgid "Still shown when editing a connection"
+msgstr "Toujours affichés lors de la modification d’une connexion"
+
+msgid "Show Groups"
+msgstr "Afficher les groupes"
+
+msgid "Show Addresses"
+msgstr "Afficher les adresses"
+
+msgid "Show Account Avatars"
+msgstr "Afficher les avatars de compte"
+
+msgid "Changes apply to the next connection."
+msgstr "Les modifications s’appliquent à la prochaine connexion."
+
+msgid "Preferred Decoder"
+msgstr "Décodeur préféré"
+
+msgid "Cisco’s OpenH264"
+msgstr "OpenH264 de Cisco"
+
+msgid "FFmpeg"
+msgstr "FFmpeg"
+
+msgid "System OpenH264"
+msgstr "OpenH264 du système"
+
+msgid "Checking…"
+msgstr "Vérification…"
+
+msgid "Downloaded from Cisco, under Cisco’s patent license"
+msgstr "Téléchargé depuis Cisco, sous licence de brevets de Cisco"
+
+msgid "Downloaded from Cisco on request, under Cisco’s patent license"
+msgstr "Téléchargé depuis Cisco à la demande, sous licence de brevets de Cisco"
+
+msgid "Download"
+msgstr "Télécharger"
+
+msgid "None: servers send RemoteFX instead, which blurs small text"
+msgstr ""
+"Aucun : les serveurs envoient RemoteFX à la place, ce qui rend le petit "
+"texte flou"
+
+msgid "Downloading…"
+msgstr "Téléchargement…"
+
+msgid "The download failed: {error}"
+msgstr "Le téléchargement a échoué : {error}"
+
+msgid "New Connection Defaults"
+msgstr "Valeurs par défaut des nouvelles connexions"
+
+msgid "Appearance"
+msgstr "Apparence"
+
+msgid "Sidebar"
+msgstr "Barre latérale"
+
+msgid "Video"
+msgstr "Vidéo"
+
+msgid "The remote desktop can read what is copied here"
+msgstr "Le bureau distant peut lire ce qui est copié ici"
+
+msgid "Running the Command Before Connecting…"
+msgstr "Exécution de la commande avant la connexion…"
+
+msgid "Connecting to {name}…"
+msgstr "Connexion à {name}…"
+
+msgid "Return to Main Window"
+msgstr "Retourner à la fenêtre principale"
+
+msgid "Fullscreen on All Monitors"
+msgstr "Plein écran sur tous les moniteurs"
+
+msgid "Ctrl+Alt+Delete"
+msgstr "Ctrl+Alt+Suppr"
+
+msgid "Super"
+msgstr "Super"
+
+msgid "Alt+Tab"
+msgstr "Alt+Tab"
+
+msgid "Print Screen"
+msgstr "Impr. écran"
+
+msgid "Ctrl+Alt+F{number}"
+msgstr "Ctrl+Alt+F{number}"
+
+msgid "Send Keys"
+msgstr "Envoyer des touches"
+
+msgid "Take Screenshot"
+msgstr "Prendre une capture d’écran"
+
+msgid "Screenshots"
+msgstr "Captures d’écran"
+
+msgid "Could Not Connect"
+msgstr "Connexion impossible"
+
+msgid ""
+"The user name or password was not accepted. GNOME Remote Desktop takes the "
+"ones set in its Remote Desktop settings, not the login password."
+msgstr ""
+"Le nom d’utilisateur ou le mot de passe n’a pas été accepté. GNOME Remote "
+"Desktop utilise ceux définis dans ses paramètres de bureau à distance, et "
+"non le mot de passe de session."
+
+msgid "Not Connected"
+msgstr "Non connecté"
+
+msgid "The computer’s identity was not trusted."
+msgstr "L’identité de l’ordinateur n’est pas considérée comme fiable."
+
+msgid "Disconnected"
+msgstr "Déconnecté"
+
+msgid "The connection to the computer was lost."
+msgstr "La connexion à l’ordinateur a été perdue."
+
+msgid "The computer asked for the password again."
+msgstr "L’ordinateur a de nouveau demandé le mot de passe."
+
+msgid "The remote session was signed out."
+msgstr "La session distante a été fermée."
+
+msgid "The session was idle for too long."
+msgstr "La session est restée inactive trop longtemps."
+
+msgid "The login screen timed out before anyone signed in."
+msgstr "L’écran de connexion a expiré avant que quelqu’un ne se connecte."
+
+msgid "The computer ended the session."
+msgstr "L’ordinateur a mis fin à la session."
+
+msgid "GNOME Desktop Sharing"
+msgstr "Partage de bureau GNOME"
+
+msgid "GNOME Remote Login"
+msgstr "Connexion à distance GNOME"
+
+msgid "Virtual Machine or None"
+msgstr "Machine virtuelle ou aucune"
+
+msgid ""
+"GNOME Remote Desktop sends H.264 only when the graphics card encodes it."
+msgstr ""
+"GNOME Remote Desktop n’envoie du H.264 que lorsque la carte graphique "
+"l’encode."
+
+msgid ""
+"Fedora’s xrdp encodes H.264 with OpenH264, which Fedora ships as an empty "
+"placeholder. Swap in Cisco’s build, and install the Xorg back end that H.264 "
+"needs:"
+msgstr ""
+"Le xrdp de Fedora encode le H.264 avec OpenH264, que Fedora fournit sous "
+"forme de paquet vide. Remplacez-le par la version de Cisco, et installez le "
+"moteur Xorg dont le H.264 a besoin :"
+
+msgid ""
+"Ubuntu’s xrdp is older than 0.10.2, the first version to send H.264, so no "
+"package adds it."
+msgstr ""
+"Le xrdp d’Ubuntu est antérieur à la version 0.10.2, la première à envoyer du "
+"H.264 ; aucun paquet ne l’ajoute donc."
+
+msgid ""
+"Debian 13’s xrdp is older than 0.10.2, the first version to send H.264. The "
+"one in trixie-backports sends it:"
+msgstr ""
+"Le xrdp de Debian 13 est antérieur à la version 0.10.2, la première à "
+"envoyer du H.264. Celui de trixie-backports en envoie :"
+
+msgid ""
+"The AUR’s xrdp sends H.264 to sessions that use its Xorg back end, from the "
+"AUR’s xorgxrdp package."
+msgstr ""
+"Sur Arch Linux, xrdp (via l'AUR) transmet un flux H.264 aux sessions "
+"reposant sur le moteur Xorg, lequel est assuré par le paquet xorgxrdp."
+
+msgid ""
+"openSUSE’s xrdp is built without an H.264 encoder, so no package adds it."
+msgstr ""
+"le xrdp d’openSUSE est compilé sans encodeur H.264 ; aucun paquet ne "
+"l’ajoute donc."
+
+msgid ""
+"Fedora’s FFmpeg encodes H.264 for KRdp with OpenH264, which Fedora ships as "
+"an empty placeholder. Swap in Cisco’s build:"
+msgstr ""
+"Le FFmpeg de Fedora encode le H.264 pour KRdp avec OpenH264, que Fedora "
+"fournit sous forme de paquet vide. Remplacez-le par la version de Cisco :"
+
+msgid ""
+"{distro}’s FFmpeg has the x264 encoder KRdp uses, so nothing should be "
+"missing. Bring the system up to date:"
+msgstr ""
+"Le FFmpeg de {distro} dispose de l’encodeur x264 qu’utilise KRdp ; il ne "
+"devrait donc rien manquer. Mettez le système à jour :"
+
+msgid ""
+"openSUSE’s FFmpeg encodes H.264 for KRdp only with OpenH264, from openSUSE’s "
+"codecs repository:"
+msgstr ""
+"le FFmpeg d’openSUSE n’encode le H.264 pour KRdp qu’avec OpenH264, depuis le "
+"dépôt de codecs d’openSUSE :"
+
+msgid ""
+"A virtual machine has no graphics card to encode with, so it sends RemoteFX."
+msgstr ""
+"Une machine virtuelle n’a pas de carte graphique pour encoder ; elle envoie "
+"donc du RemoteFX."
+
+msgid "On an NVIDIA card it needs NVIDIA’s own driver, from RPM Fusion:"
+msgstr ""
+"Avec une carte NVIDIA, il faut le pilote propriétaire de NVIDIA, depuis RPM "
+"Fusion :"
+
+msgid "On an NVIDIA card it needs NVIDIA’s own driver:"
+msgstr "Avec une carte NVIDIA, il faut le pilote propriétaire de NVIDIA :"
+
+msgid ""
+"On an NVIDIA card it needs NVIDIA’s own driver, from Debian’s non-free "
+"section, once that is turned on in its package sources:"
+msgstr ""
+"Avec une carte NVIDIA, il faut le pilote propriétaire de NVIDIA, depuis la "
+"section non-free de Debian, une fois celle-ci activée dans ses sources de "
+"paquets :"
+
+msgid ""
+"On an NVIDIA card it needs NVIDIA’s own driver, from NVIDIA’s repository for "
+"openSUSE."
+msgstr ""
+"Avec une carte NVIDIA, il faut le pilote propriétaire de NVIDIA, depuis le "
+"dépôt de NVIDIA pour openSUSE."
+
+msgid ""
+"On Fedora 44 and later it encodes H.264 on Intel and AMD cards with the VA-"
+"API driver from RPM Fusion, as Fedora’s own leaves H.264 out:"
+msgstr ""
+"À partir de Fedora 44, il encode le H.264 sur les cartes Intel et AMD avec "
+"le pilote VA-API de RPM Fusion, car celui de Fedora exclut le H.264 :"
+
+msgid ""
+"It encodes H.264 on Intel and AMD cards from version 50, which {distro} may "
+"not have yet. This shows the version:"
+msgstr ""
+"Il encode le H.264 sur les cartes Intel et AMD à partir de la version 50, "
+"que {distro} n’a peut-être pas encore. Cette commande affiche la version :"
+
+msgid "From version 50, it needs the VA-API driver:"
+msgstr "À partir de la version 50, il a besoin du pilote VA-API :"
+
+msgid "It needs the VA-API and Vulkan drivers:"
+msgstr "Nécessite les pilotes VA-API et Vulkan :"
+
+msgid "On an AMD card it needs Mesa’s VA-API driver with H.264, from Packman."
+msgstr ""
+"Avec une carte AMD, il a besoin du pilote VA-API de Mesa avec H.264, depuis "
+"Packman."
+
+msgid "It needs the VA-API driver:"
+msgstr "Nécessite le pilote VA-API :"
+
+msgid ""
+"{name} ended the session because it could not send its picture as H.264 "
+"video. Installing what it is missing fixes that."
+msgstr ""
+"{name} a mis fin à la session car il n’a pas pu envoyer son image en vidéo "
+"H.264. Installer ce qui lui manque règle le problème."
+
+msgid ""
+"{name} is not sending its picture as H.264 video, which is smoother and uses "
+"less of the network. Installing what it is missing fixes that."
+msgstr ""
+"{name} n’envoie pas son image en vidéo H.264, plus fluide et moins gourmande "
+"en réseau. Installer ce qui lui manque règle le problème."
+
+msgid "Remote Computer"
+msgstr "Ordinateur distant"
+
+msgid "Server"
+msgstr "Serveur"
+
+msgid "Distribution"
+msgstr "Distribution"
+
+msgid "Graphics Card"
+msgstr "Carte graphique"
+
+msgid "On the Remote Computer"
+msgstr "Sur l’ordinateur distant"
+
+msgid "Get H.264 Video"
+msgstr "Obtenir la vidéo H.264"
+
+msgid "Choose…"
+msgstr "Choisir…"
+
+msgid "Choose the server and its distribution to see what to install."
+msgstr ""
+"Choisissez le serveur et sa distribution pour voir ce qu’il faut installer."
+
+msgid "Choose the graphics card to see what to install."
+msgstr "Choisissez la carte graphique pour voir ce qu’il faut installer."
+
+msgid "Then restart the server, and connect again:"
+msgstr "Redémarrez ensuite le serveur, puis reconnectez-vous :"
+
+msgid "Then restart the computer, and connect again."
+msgstr "Redémarrez ensuite l’ordinateur, puis reconnectez-vous."
+
+msgid "Copy"
+msgstr "Copier"
+
+msgid "English (US)"
+msgstr "Anglais (États-Unis)"
+
+msgid "English (US, intl., with dead keys)"
+msgstr "Anglais (États-Unis, international, avec touches mortes)"
+
+msgid "English (Dvorak)"
+msgstr "Anglais (Dvorak)"
+
+msgid "English (UK)"
+msgstr "Anglais (Royaume-Uni)"
+
+msgid "Belgian"
+msgstr "Belge"
+
+msgid "Czech"
+msgstr "Tchèque"
+
+msgid "Danish"
+msgstr "Danois"
+
+msgid "Dutch"
+msgstr "Néerlandais"
+
+msgid "Finnish"
+msgstr "Finnois"
+
+msgid "French"
+msgstr "Français"
+
+msgid "French (Canada)"
+msgstr "Français (Canada)"
+
+msgid "French (Switzerland)"
+msgstr "Français (Suisse)"
+
+msgid "German"
+msgstr "Allemand"
+
+msgid "German (Austria)"
+msgstr "Allemand (Autriche)"
+
+msgid "German (Switzerland)"
+msgstr "Allemand (Suisse)"
+
+msgid "Greek"
+msgstr "Grec"
+
+msgid "Hungarian"
+msgstr "Hongrois"
+
+msgid "Italian"
+msgstr "Italien"
+
+msgid "Japanese"
+msgstr "Japonais"
+
+msgid "Korean"
+msgstr "Coréen"
+
+msgid "Latvian"
+msgstr "Letton"
+
+msgid "Norwegian"
+msgstr "Norvégien"
+
+msgid "Polish"
+msgstr "Polonais"
+
+msgid "Portuguese"
+msgstr "Portugais"
+
+msgid "Portuguese (Brazil)"
+msgstr "Portugais (Brésil)"
+
+msgid "Russian"
+msgstr "Russe"
+
+msgid "Slovenian"
+msgstr "Slovène"
+
+msgid "Spanish"
+msgstr "Espagnol"
+
+msgid "Spanish (Latin American)"
+msgstr "Espagnol (Amérique latine)"
+
+msgid "Swedish"
+msgstr "Suédois"
+
+msgid "Turkish"
+msgstr "Turc"
+
+msgid "Ukrainian"
+msgstr "Ukrainien"
+
+msgid "Sign In"
+msgstr "Se connecter"
+
+msgid "Remember Password"
+msgstr "Mémoriser le mot de passe"
+
+msgid "Resize to Window"
+msgstr "Redimensionner à la fenêtre"
+
+msgid "Scale to Fit"
+msgstr "Ajuster à l’échelle"
+
+msgid "Actual Size"
+msgstr "Taille réelle"
+
+msgid "Reconnect"
+msgstr "Se reconnecter"
+
+msgid "How to Fix"
+msgstr "Comment corriger"
+
+msgid "The Computer’s Identity Has Changed"
+msgstr "L’identité de l’ordinateur a changé"
+
+msgid ""
+"Check that this fingerprint matches the one in the computer’s Remote Desktop "
+"settings."
+msgstr ""
+"Vérifiez que cette empreinte correspond à celle des paramètres de bureau à "
+"distance de l’ordinateur."
+
+msgid "The SSH Server’s Identity Has Changed"
+msgstr "L’identité du serveur SSH a changé"
+
+msgid ""
+"This SSH server is new to this computer. Check that this fingerprint matches "
+"its host key."
+msgstr ""
+"Ce serveur SSH est nouveau pour cet ordinateur. Vérifiez que cette empreinte "
+"correspond à sa clé d’hôte."
+
+msgid "The Gateway’s Identity Has Changed"
+msgstr "L’identité de la passerelle a changé"
+
+msgid ""
+"No authority this computer knows vouches for this gateway’s certificate. "
+"Check that this fingerprint matches it."
+msgstr ""
+"Aucune autorité connue de cet ordinateur ne garantit le certificat de cette "
+"passerelle. Vérifiez que cette empreinte correspond à celui-ci."
+
+msgid "Connect Anyway"
+msgstr "Se connecter quand même"
+
+msgid "Trust and Connect"
+msgstr "Approuver et se connecter"
+
+msgid "Desktop Sharing keeps the remote screen’s size"
+msgstr "Le partage de bureau conserve la taille de l’écran distant"
+
+msgid "How to Resize"
+msgstr "Comment redimensionner"
+
+msgid ""
+"{name} shares the screen of its signed-in desktop, which keeps the size it "
+"has there, so the picture is scaled to fit the window. GNOME Remote Desktop "
+"can give the session a screen of its own instead, which follows the window’s "
+"size."
+msgstr ""
+"{name} partage l’écran de son bureau ouvert, qui garde la taille qu’il y a, "
+"de sorte que l’image est mise à l’échelle pour tenir dans la fenêtre. GNOME "
+"Remote Desktop peut à la place donner à la session un écran à elle, qui suit "
+"la taille de la fenêtre."
+
+msgid "Signed in as the user whose desktop is shared, run:"
+msgstr "Connecté en tant qu’utilisateur dont le bureau est partagé, exécutez :"
+
+msgid "What Changes"
+msgstr "Ce qui change"
+
+msgid ""
+"The session then shows a new, empty screen beside the computer’s own, not "
+"what is on that screen. Windows already open stay on the computer’s screen "
+"until moved."
+msgstr ""
+"La session affiche alors un nouvel écran vide à côté de celui de "
+"l’ordinateur, et non ce qui se trouve sur ce dernier. Les fenêtres déjà "
+"ouvertes restent sur l’écran de l’ordinateur tant qu’on ne les déplace pas."
+
+msgid "To share the computer’s own screen again, run:"
+msgstr "Pour partager à nouveau l’écran de l’ordinateur lui-même, exécutez :"
+
+msgid "Resize Desktop Sharing"
+msgstr "Redimensionner le partage de bureau"
+
+msgid "Session Menu"
+msgstr "Menu de la session"
+
+msgid "Leave Fullscreen"
+msgstr "Quitter le plein écran"
+
+msgid "Fullscreen"
+msgstr "Plein écran"
+
+msgid "Desktop of {name}"
+msgstr "Bureau de {name}"
+
+msgid ""
+"Keys and shortcuts go to the remote desktop. Right Ctrl lets go of them."
+msgstr ""
+"Les touches et raccourcis vont au bureau distant. Ctrl droit les libère."
+
+msgid "The command before connecting failed: {error}"
+msgstr "La commande avant la connexion a échoué : {error}"
+
+msgid "Screenshot taken"
+msgstr "Capture d’écran effectuée"
+
+msgid "Show"
+msgstr "Afficher"
+
+msgid "The screenshot could not be saved"
+msgstr "La capture d’écran n’a pas pu être enregistrée"
+
+msgid "Waking {name}…"
+msgstr "Réveil de {name}…"
+
+msgid "Reconnecting to {name}…"
+msgstr "Reconnexion à {name}…"
+
+msgid "The remote computer is not sending H.264 video"
+msgstr "L’ordinateur distant n’envoie pas de vidéo H.264"
+
+msgid "The remote desktop can only use one monitor"
+msgstr "Le bureau distant ne peut utiliser qu’un seul moniteur"
+
+msgid "Scan Again"
+msgstr ""
+
+msgid "Networks"
+msgstr ""
+
+msgid "Scanning…"
+msgstr ""
+
+msgid "No Computers Found"
+msgstr ""
+
+msgid "Nothing on {networks} answered on port {first} or {second}."
+msgstr ""
+
+msgid "Add Network"
+msgstr ""
+
+msgid "No Local Network"
+msgstr ""
+
+msgid "This computer has no address on a private network."
+msgstr ""
+
+msgid "Computers"
+msgstr ""
+
+msgid "This Computer"
+msgstr ""
+
+msgid "Scan additional subnets"
+msgstr ""
+
+msgid "Network, Such As 192.168.2.0/24"
+msgstr ""
+
+msgid "{network} is already scanned"
+msgstr ""
+
+msgid "Not a network, such as 192.168.2.0/24"
+msgstr ""
+
+msgid "Only private networks can be scanned"
+msgstr ""
+
+msgid "A network can be /16 at the widest"
+msgstr ""
+
+msgid "Up to {minutes} min to scan"
+msgstr ""
+
+msgid "Remove {name}"
+msgstr ""
+
+msgid "Add {name}"
+msgstr ""
+
+msgid "Added"
+msgstr ""
+
+msgid "GNOME Remote Desktop"
+msgstr ""
+
+msgid "Mote"
+msgstr "Mote"
+
+msgid "Remote Desktop Client"
+msgstr "Client de bureau à distance"
+
+msgid "Connect to Linux desktops over RDP"
+msgstr "Connectez-vous à des bureaux Linux via RDP"
+
+msgid "RDP;Remote Desktop;xrdp;"
+msgstr "RDP;Bureau à distance;xrdp;"
+
+msgid ""
+"Mote is a remote desktop client for GNOME specifically designed to connect "
+"to Linux desktops over RDP. Supported implementations include GNOME Remote "
+"Desktop (including Remote Login), xrdp and KRdp."
+msgstr ""
+"Mote est un client de bureau à distance pour GNOME spécialement conçu pour "
+"se connecter à des bureaux Linux via RDP. Les implémentations prises en "
+"charge incluent GNOME Remote Desktop (y compris la connexion à distance), "
+"xrdp et KRdp."
+
+msgid ""
+"Designed and tested for full compatibility with GNOME Remote Desktop (and "
+"Remote Login), xrdp and KRdp"
+msgstr ""
+"Conçu et testé pour une compatibilité totale avec GNOME Remote Desktop (et "
+"la connexion à distance), xrdp et KRdp"
+
+msgid ""
+"Dynamic resolution resizing for supported sessions including seamless HiDPI "
+"support"
+msgstr ""
+"Redimensionnement dynamique de la résolution pour les sessions compatibles, "
+"avec prise en charge transparente du HiDPI"
+
+msgid "H.264 video encoding with RemoteFX fallback"
+msgstr "Encodage vidéo H.264 avec repli sur RemoteFX"
+
+msgid "Multi-monitor support"
+msgstr "Prise en charge de plusieurs moniteurs"
+
+msgid "Full clipboard sharing between host and remote machines"
+msgstr ""
+"Partage complet du presse-papiers entre l’hôte et les machines distantes"
+
+msgid "SSH tunnels and RD gateway support"
+msgstr "Prise en charge des tunnels SSH et des passerelles RD"
+
+msgid "Wake-on-LAN support with built-in fault tolerance"
+msgstr "Prise en charge de Wake-on-LAN avec tolérance aux pannes intégrée"
+
+msgid "Sound, microphone and folder sharing with supported remote sessions"
+msgstr ""
+"Partage du son, du microphone et des dossiers avec les sessions distantes "
+"compatibles"
+
+msgid "Import existing RDP files directly into the app or import from Remmina"
+msgstr ""
+"Importez des fichiers RDP existants directement dans l’application, ou "
+"depuis Remmina"
+
+msgid "A session beside the saved connections"
+msgstr "Une session à côté des connexions enregistrées"
+
+msgid "Hyprlab"
+msgstr "Hyprlab"

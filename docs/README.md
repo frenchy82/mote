@@ -12,6 +12,7 @@
 - **[RELEASING.md](RELEASING.md):** what a release page says, and which tags
   stay.
 - **[CONTRIBUTING.md](CONTRIBUTING.md):** how to help.
+- **[CREDITS.md](CREDITS.md):** who has.
 
 `python3 tools/check-docs.py` checks that all of it still hangs together:
 links, anchors, this index, and where each kind of thing belongs

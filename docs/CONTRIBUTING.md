@@ -62,7 +62,8 @@ version, one-line items grouped as `### New features:`, `### Fixes:` and
 `### Translations:`, in that order, with no bold. The people the About
 window thanks are listed in `data/CONTRIBUTORS` (name and GitHub handle)
 and `data/TRANSLATORS` (the same, then the languages after a dash), which
-arrive with their first names.
+arrive with their first names; what each of them did is in
+[CREDITS.md](CREDITS.md).
 
 The prose is factual and plain: no marketing, no emoji, and no em dashes,
 which a colon, a comma or a full stop replaces.
